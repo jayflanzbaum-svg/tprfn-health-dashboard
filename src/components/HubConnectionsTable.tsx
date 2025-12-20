@@ -77,7 +77,7 @@ export function HubConnectionsTable({ hubConnections }: HubConnectionsTableProps
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <td className="px-4 py-4">
-                  <div className="flex items-center gap-2">
+                  <div className="connection-pair">
                     <span className="callsign-badge">{formatCallsign(row.station1)}</span>
                     <span className="text-muted-foreground text-xs">↔</span>
                     <span className="callsign-badge">{formatCallsign(row.station2)}</span>
