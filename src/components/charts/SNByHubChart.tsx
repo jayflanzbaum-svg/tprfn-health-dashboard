@@ -1,0 +1,115 @@
+import { useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+} from 'recharts';
+import { HubConnection, getSignalQuality } from '@/lib/syslogParser';
+
+interface SNByHubChartProps {
+  hubConnections: Map<string, HubConnection>;
+}
+
+export function SNByHubChart({ hubConnections }: SNByHubChartProps) {
+  const chartData = useMemo(() => {
+    return Array.from(hubConnections.values())
+      .filter(hub => hub.snRecords.length > 0)
+      .map(hub => ({
+        name: hub.connectionId,
+        avgSN: parseFloat(hub.avgSN.toFixed(1)),
+        sessions: hub.sessionCount,
+        quality: getSignalQuality(hub.avgSN),
+      }))
+      .sort((a, b) => b.avgSN - a.avgSN);
+  }, [hubConnections]);
+
+  const getBarColor = (quality: string) => {
+    const colors: Record<string, string> = {
+      excellent: 'hsl(142, 70%, 45%)',
+      good: 'hsl(142, 70%, 55%)',
+      fair: 'hsl(38, 92%, 50%)',
+      poor: 'hsl(25, 95%, 53%)',
+      bad: 'hsl(0, 84%, 60%)',
+    };
+    return colors[quality] || colors.fair;
+  };
+
+  return (
+    <div className="chart-card">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-foreground">Average S/N by Hub Connection</h3>
+        <p className="text-sm text-muted-foreground mt-1">Signal-to-noise ratio indicates connection quality</p>
+      </div>
+      <div className="h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis 
+              type="number" 
+              domain={['dataMin - 5', 'dataMax + 5']}
+              tickFormatter={(value) => `${value} dB`}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            />
+            <YAxis 
+              type="category" 
+              dataKey="name" 
+              width={90}
+              tick={{ fill: 'hsl(var(--foreground))', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+              labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
+              formatter={(value: number, name: string) => [
+                `${value} dB`,
+                name === 'avgSN' ? 'Average S/N' : name
+              ]}
+            />
+            <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+            <Bar dataKey="avgSN" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.quality)} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-4 justify-center">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-signal-excellent" />
+          <span className="text-xs text-muted-foreground">Excellent (≥10 dB)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-signal-good" />
+          <span className="text-xs text-muted-foreground">Good (5-10 dB)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-signal-fair" />
+          <span className="text-xs text-muted-foreground">Fair (0-5 dB)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-signal-poor" />
+          <span className="text-xs text-muted-foreground">Poor (-10-0 dB)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-signal-bad" />
+          <span className="text-xs text-muted-foreground">Bad (&lt;-10 dB)</span>
+        </div>
+      </div>
+    </div>
+  );
+}
