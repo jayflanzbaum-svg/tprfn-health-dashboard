@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { HubConnection, formatBytes } from '@/lib/syslogParser';
+import { HubConnection, formatBytes, formatCallsign } from '@/lib/syslogParser';
 import { SignalBadge } from '@/components/SignalBadge';
 import { ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -77,8 +77,10 @@ export function HubConnectionsTable({ hubConnections }: HubConnectionsTableProps
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <td className="px-4 py-4">
-                  <div className="hub-badge">
-                    {row.connectionId}
+                  <div className="flex items-center gap-2">
+                    <span className="callsign-badge">{formatCallsign(row.station1)}</span>
+                    <span className="text-muted-foreground text-xs">↔</span>
+                    <span className="callsign-badge">{formatCallsign(row.station2)}</span>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-center">

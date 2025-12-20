@@ -66,7 +66,21 @@ function extractStation(hostname: string): string {
 function createConnectionId(station1: string, station2: string): string {
   // Sort alphabetically to ensure consistent ID regardless of direction
   const sorted = [station1, station2].sort();
-  return `${sorted[0]} <> ${sorted[1]}`;
+  return `${sorted[0]}↔${sorted[1]}`;
+}
+
+export function formatCallsign(callsign: string): string {
+  // Remove station number suffix for cleaner display (e.g., "KK4DIV-1" -> "KK4DIV")
+  return callsign.replace(/-\d+$/, '');
+}
+
+export function formatConnectionShort(connectionId: string): string {
+  // Convert "KK4DIV-1↔N4SFL-7" to "KK4DIV ↔ N4SFL"
+  const parts = connectionId.split('↔');
+  if (parts.length === 2) {
+    return `${formatCallsign(parts[0])} ↔ ${formatCallsign(parts[1])}`;
+  }
+  return connectionId;
 }
 
 export function parseSyslog(content: string): ParsedData {
