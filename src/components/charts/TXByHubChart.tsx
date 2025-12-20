@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { HubConnection, formatBytes } from '@/lib/syslogParser';
+import { HubConnection, formatBytes, formatConnectionShort } from '@/lib/syslogParser';
 
 interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -20,7 +20,8 @@ export function TXByHubChart({ hubConnections }: TXByHubChartProps) {
     return Array.from(hubConnections.values())
       .filter(hub => hub.disconnectRecords.length > 0)
       .map(hub => ({
-        name: hub.connectionId,
+        name: formatConnectionShort(hub.connectionId),
+        fullName: hub.connectionId,
         txBytes: hub.totalTxBytes,
         rxBytes: hub.totalRxBytes,
         sessions: hub.sessionCount,

@@ -10,7 +10,7 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts';
-import { HubConnection, getSignalQuality } from '@/lib/syslogParser';
+import { HubConnection, getSignalQuality, formatConnectionShort } from '@/lib/syslogParser';
 
 interface SNByHubChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -21,7 +21,8 @@ export function SNByHubChart({ hubConnections }: SNByHubChartProps) {
     return Array.from(hubConnections.values())
       .filter(hub => hub.snRecords.length > 0)
       .map(hub => ({
-        name: hub.connectionId,
+        name: formatConnectionShort(hub.connectionId),
+        fullName: hub.connectionId,
         avgSN: parseFloat(hub.avgSN.toFixed(1)),
         sessions: hub.sessionCount,
         quality: getSignalQuality(hub.avgSN),

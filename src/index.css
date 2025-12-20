@@ -187,6 +187,10 @@
   .hub-badge {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono font-medium bg-secondary text-secondary-foreground border border-border/50;
   }
+
+  .callsign-badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-accent/10 text-accent border border-accent/20;
+  }
 }
 
 @layer utilities {
