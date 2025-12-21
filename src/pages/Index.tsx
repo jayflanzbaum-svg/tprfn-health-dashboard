@@ -8,6 +8,9 @@ import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart
 import { ConnectionSuccessChart } from '@/components/charts/ConnectionSuccessChart';
 import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisChart';
 import { BitrateAnalysisChart } from '@/components/charts/BitrateAnalysisChart';
+import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
+import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
+import { BitrateEfficiencyChart } from '@/components/charts/BitrateEfficiencyChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
@@ -201,6 +204,17 @@ const Index = () => {
         {/* Bitrate Analysis */}
         <div className="mb-8">
           <BitrateAnalysisChart hubConnections={filteredData.hubConnections} />
+        </div>
+
+        {/* Station Bitrate Comparison */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <StationBitrateChart hubConnections={filteredData.hubConnections} />
+          <PeakBitrateLeaderboard hubConnections={filteredData.hubConnections} />
+        </div>
+
+        {/* Bitrate Efficiency */}
+        <div className="mb-8">
+          <BitrateEfficiencyChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Detailed Table */}
