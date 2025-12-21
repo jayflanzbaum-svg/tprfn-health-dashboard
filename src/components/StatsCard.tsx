@@ -1,4 +1,4 @@
-import { Radio, Activity, Wifi, Signal } from 'lucide-react';
+import { Radio, Activity, Wifi, Signal, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
@@ -55,6 +55,12 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
                 {trend.value >= 0 ? '+' : ''}{trend.value}%
               </span>
               <span className="text-xs text-muted-foreground">{trend.label}</span>
+            </div>
+          )}
+          {isActive && (
+            <div className="mt-2 flex items-center gap-1 text-accent">
+              <ArrowDown className="h-3 w-3" />
+              <span className="text-xs font-medium">Jump to Log Entries</span>
             </div>
           )}
         </div>
