@@ -200,6 +200,23 @@ const Index = () => {
     };
   }, [filteredData]);
 
+  // Calculate change percentages
+  const changes = useMemo(() => {
+    if (!comparisonData || !stats) return null;
+
+    const calcChange = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / Math.abs(previous)) * 100;
+    };
+
+    return {
+      avgSN: calcChange(parseFloat(stats.avgSN), comparisonData.avgSN),
+      sessions: calcChange(stats.totalSessions, comparisonData.totalSessions),
+      snReadings: calcChange(stats.snReadings, comparisonData.snReadings),
+      label: comparisonData.label,
+    };
+  }, [stats, comparisonData]);
+
   const handleFilterClick = (filter: LogFilter) => {
     setLogFilter(prev => prev === filter ? 'all' : filter);
   };
@@ -218,23 +235,6 @@ const Index = () => {
   }
 
   const stationsList = Array.from(data.stations);
-
-  // Calculate change percentages
-  const changes = useMemo(() => {
-    if (!comparisonData || !stats) return null;
-
-    const calcChange = (current: number, previous: number) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return ((current - previous) / Math.abs(previous)) * 100;
-    };
-
-    return {
-      avgSN: calcChange(parseFloat(stats.avgSN), comparisonData.avgSN),
-      sessions: calcChange(stats.totalSessions, comparisonData.totalSessions),
-      snReadings: calcChange(stats.snReadings, comparisonData.snReadings),
-      label: comparisonData.label,
-    };
-  }, [stats, comparisonData]);
 
   return (
     <div className="min-h-screen bg-background">
