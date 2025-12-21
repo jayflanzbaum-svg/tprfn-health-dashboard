@@ -95,13 +95,26 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
         ? failedSNValues.reduce((a, b) => a + b, 0) / failedSNValues.length
         : 0;
 
+    // For display purposes, ensure tiny slices have a minimum visual size
+    const rawData = [
+      { name: 'Success', value: success, actualValue: success, color: STATUS_COLORS.success },
+      { name: 'No Connect', value: connectionFailed, actualValue: connectionFailed, color: STATUS_COLORS.connectionFailed },
+      { name: 'Signal Lost', value: signalLost, actualValue: signalLost, color: STATUS_COLORS.signalLost },
+      { name: 'No Disconnect', value: noDisconnect, actualValue: noDisconnect, color: STATUS_COLORS.noDisconnect },
+    ].filter((d) => d.actualValue > 0);
+
+    // Apply minimum visual percentage (3%) for tiny slices so they're visible
+    const total = totalConnectEvents;
+    const minPercent = 0.03;
+    const minValue = total * minPercent;
+    
+    const displayData = rawData.map(d => ({
+      ...d,
+      value: d.value < minValue && d.value > 0 ? minValue : d.value,
+    }));
+
     return {
-      pieData: [
-        { name: 'Success', value: success, color: STATUS_COLORS.success },
-        { name: 'No Connect', value: connectionFailed, color: STATUS_COLORS.connectionFailed },
-        { name: 'Signal Lost', value: signalLost, color: STATUS_COLORS.signalLost },
-        { name: 'No Disconnect', value: noDisconnect, color: STATUS_COLORS.noDisconnect },
-      ].filter((d) => d.value > 0),
+      pieData: displayData,
       stats: {
         success,
         connectionFailed,
@@ -151,10 +164,13 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
                 boxShadow: 'var(--shadow-lg)',
                 fontSize: '12px',
               }}
-              formatter={(value: number, name: string) => [
-                `${value} sessions (${((value / stats.total) * 100).toFixed(1)}%)`,
-                name
-              ]}
+              formatter={(value: number, name: string, props: { payload?: { actualValue?: number } }) => {
+                const actualValue = props.payload?.actualValue ?? value;
+                return [
+                  `${actualValue} sessions (${((actualValue / stats.total) * 100).toFixed(1)}%)`,
+                  name
+                ];
+              }}
             />
             <Legend 
               verticalAlign="bottom"
@@ -163,7 +179,7 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
                 const item = pieData.find(d => d.name === value);
                 return (
                   <span className="text-xs text-foreground">
-                    {value}: {item?.value || 0}
+                    {value}: {item?.actualValue || 0}
                   </span>
                 );
               }}
