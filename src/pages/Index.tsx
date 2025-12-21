@@ -176,8 +176,11 @@ const Index = () => {
           <SessionCountChart hubConnections={filteredData.hubConnections} />
         </div>
 
+        {/* Detailed Table */}
+        <HubConnectionsTable hubConnections={filteredData.hubConnections} />
+
         {/* Log Entries Table */}
-        <div className="mb-8" ref={logTableRef}>
+        <div className="mt-8 mb-8" ref={logTableRef}>
           <LogEntriesTable 
             snRecords={filteredData.snRecords}
             connectRecords={filteredData.connectRecords}
@@ -185,9 +188,6 @@ const Index = () => {
             filter={logFilter}
           />
         </div>
-
-        {/* Detailed Table */}
-        <HubConnectionsTable hubConnections={filteredData.hubConnections} />
 
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-border text-center">
