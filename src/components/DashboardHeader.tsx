@@ -51,10 +51,10 @@ export function DashboardHeader({
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">
-              TPRFN <span className="gradient-text">Multi-Station Analytics</span>
+              TPRFN <span className="gradient-text">HEALTH DASHBOARD</span>
             </h1>
             <p className="text-muted-foreground mt-0.5">
-              RF Connection Health Dashboard
+              RF Connection Analytics
             </p>
           </div>
         </div>
