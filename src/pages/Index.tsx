@@ -178,15 +178,15 @@ const Index = () => {
           </div>
         </div>
 
-        {/* S/N Timeline - Full Width */}
-        <div className="mb-6">
-          <SNTimelineChart snRecords={filteredData.snRecords} />
-        </div>
-
         {/* Signal Quality & Session Outcomes - Balanced Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <SignalQualityPieChart snRecords={filteredData.snRecords} />
           <ConnectionSuccessChart hubConnections={filteredData.hubConnections} />
+        </div>
+
+        {/* S/N Timeline - Full Width */}
+        <div className="mb-8">
+          <SNTimelineChart snRecords={filteredData.snRecords} />
         </div>
 
         {/* Hub Charts */}
