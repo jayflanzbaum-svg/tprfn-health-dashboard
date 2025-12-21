@@ -6,6 +6,7 @@ import { TXByHubChart } from '@/components/charts/TXByHubChart';
 import { SNTimelineChart } from '@/components/charts/SNTimelineChart';
 import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart';
 import { SessionCountChart } from '@/components/charts/SessionCountChart';
+import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
@@ -188,9 +189,10 @@ const Index = () => {
           <TXByHubChart hubConnections={filteredData.hubConnections} />
         </div>
 
-        {/* Session Count Chart */}
-        <div className="mb-8">
+        {/* Session Count & Disconnect Analysis Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <SessionCountChart hubConnections={filteredData.hubConnections} />
+          <DisconnectAnalysisChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Detailed Table */}
