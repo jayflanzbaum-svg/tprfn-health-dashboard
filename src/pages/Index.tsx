@@ -7,6 +7,7 @@ import { SNTimelineChart } from '@/components/charts/SNTimelineChart';
 import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart';
 import { ConnectionSuccessChart } from '@/components/charts/ConnectionSuccessChart';
 import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisChart';
+import { BitrateAnalysisChart } from '@/components/charts/BitrateAnalysisChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
@@ -195,6 +196,11 @@ const Index = () => {
         {/* Session Health by Connection */}
         <div className="mb-8">
           <DisconnectAnalysisChart hubConnections={filteredData.hubConnections} />
+        </div>
+
+        {/* Bitrate Analysis */}
+        <div className="mb-8">
+          <BitrateAnalysisChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Detailed Table */}
