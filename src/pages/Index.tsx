@@ -21,21 +21,12 @@ const Index = () => {
   const { data, loading, error } = useSyslogData();
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
   const logTableRef = useRef<HTMLDivElement>(null);
-  const dateRangeInitialized = useRef(false);
-
-  // Initialize date range when data loads (only once)
-  useEffect(() => {
-    if (data && !dateRangeInitialized.current) {
-      dateRangeInitialized.current = true;
-      setDateRange(getDefaultDateRange(data.dateRange));
-    }
-  }, [data]);
 
   // Filter data based on selected station and date range
   const filteredData = useMemo(() => {
-    if (!data || !dateRange) return null;
+    if (!data) return null;
 
     const isInDateRange = (timestamp: Date) => {
       return timestamp >= dateRange.start && timestamp <= dateRange.end;
