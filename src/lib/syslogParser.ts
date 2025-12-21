@@ -105,7 +105,8 @@ export function parseSyslog(content: string): ParsedData {
 
   // Regex patterns
   const snPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+Average\s+S\/N:\s+([-\d.]+)\s*dB/;
-  const connectPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Connected\s+to\s+([\w-]+)\s+VARA\s+HF\s+(v[\d.]+)/;
+  const connectOutgoingPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Connected\s+to\s+([\w-]+)\s+VARA\s+HF\s+(v[\d.]+)/;
+  const connectIncomingPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+connected\s+VARA\s+HF\s+(v[\d.]+)/;
   const disconnectPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Disconnected(?:\s+\((\w+)\))?\s+TX:\s+(\d+)\s+Bytes\s+\(Max:\s+(\d+)\s+bps\)\s+RX:\s+(\d+)\s+Bytes\s+\(Max:\s+(\d+)\s+bps\)\s+Session\s+Time:\s+(\d+:\d+)/;
 
   for (const line of lines) {
@@ -151,13 +152,56 @@ export function parseSyslog(content: string): ParsedData {
       hubConnections.get(connectionId)!.snRecords.push(record);
     }
 
-    // Parse Connected records
-    const connectMatch = line.match(connectPattern);
-    if (connectMatch) {
-      const timestamp = parseTimestamp(connectMatch[1]);
-      const station = extractStation(connectMatch[2]);
-      const partner = connectMatch[3];
-      const varaVersion = connectMatch[4];
+    // Parse Connected records (outgoing: "Connected to CALLSIGN")
+    const connectOutgoingMatch = line.match(connectOutgoingPattern);
+    if (connectOutgoingMatch) {
+      const timestamp = parseTimestamp(connectOutgoingMatch[1]);
+      const station = extractStation(connectOutgoingMatch[2]);
+      const partner = connectOutgoingMatch[3];
+      const varaVersion = connectOutgoingMatch[4];
+
+      if (timestamp < minDate) minDate = timestamp;
+      if (timestamp > maxDate) maxDate = timestamp;
+
+      stations.add(station);
+      stations.add(partner);
+
+      const record: ConnectRecord = {
+        timestamp,
+        station,
+        partner,
+        varaVersion
+      };
+      connectRecords.push(record);
+
+      // Add to hub connection
+      const connectionId = createConnectionId(station, partner);
+      if (!hubConnections.has(connectionId)) {
+        hubConnections.set(connectionId, {
+          station1: station < partner ? station : partner,
+          station2: station < partner ? partner : station,
+          connectionId,
+          snRecords: [],
+          connectRecords: [],
+          disconnectRecords: [],
+          avgSN: 0,
+          totalTxBytes: 0,
+          totalRxBytes: 0,
+          sessionCount: 0
+        });
+      }
+      const hub = hubConnections.get(connectionId)!;
+      hub.connectRecords.push(record);
+      hub.sessionCount++;
+    }
+
+    // Parse Connected records (incoming: "CALLSIGN connected")
+    const connectIncomingMatch = line.match(connectIncomingPattern);
+    if (connectIncomingMatch) {
+      const timestamp = parseTimestamp(connectIncomingMatch[1]);
+      const station = extractStation(connectIncomingMatch[2]);
+      const partner = connectIncomingMatch[3];
+      const varaVersion = connectIncomingMatch[4];
 
       if (timestamp < minDate) minDate = timestamp;
       if (timestamp > maxDate) maxDate = timestamp;
