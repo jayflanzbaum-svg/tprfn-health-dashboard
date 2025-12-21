@@ -10,7 +10,6 @@ import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisC
 import { BitrateAnalysisChart } from '@/components/charts/BitrateAnalysisChart';
 import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
 import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
-import { BitrateEfficiencyChart } from '@/components/charts/BitrateEfficiencyChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
@@ -179,15 +178,15 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Top Priority Charts - S/N Timeline, Signal Quality, Connection Success */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <SNTimelineChart snRecords={filteredData.snRecords} />
-          </div>
-          <div className="grid grid-rows-2 gap-6">
-            <SignalQualityPieChart snRecords={filteredData.snRecords} />
-            <ConnectionSuccessChart hubConnections={filteredData.hubConnections} />
-          </div>
+        {/* S/N Timeline - Full Width */}
+        <div className="mb-6">
+          <SNTimelineChart snRecords={filteredData.snRecords} />
+        </div>
+
+        {/* Signal Quality & Session Outcomes - Balanced Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <SignalQualityPieChart snRecords={filteredData.snRecords} />
+          <ConnectionSuccessChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Hub Charts */}
@@ -212,10 +211,6 @@ const Index = () => {
           <PeakBitrateLeaderboard hubConnections={filteredData.hubConnections} />
         </div>
 
-        {/* Bitrate Efficiency */}
-        <div className="mb-8">
-          <BitrateEfficiencyChart hubConnections={filteredData.hubConnections} />
-        </div>
 
         {/* Detailed Table */}
         <HubConnectionsTable hubConnections={filteredData.hubConnections} />
