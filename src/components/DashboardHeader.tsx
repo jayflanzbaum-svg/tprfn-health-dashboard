@@ -85,19 +85,25 @@ export function DashboardHeader({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50">
+          <div 
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
+            title="Unique stations (callsigns) in the data"
+          >
             <Wifi className="h-4 w-4 text-accent" />
             <span className="text-sm">
               <span className="font-mono font-semibold text-foreground">{stationCount}</span>
-              <span className="text-muted-foreground ml-1">stations</span>
+              <span className="text-muted-foreground ml-1">unique stations</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50">
+          <div 
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
+            title="Unique station pairs that communicated"
+          >
             <Radio className="h-4 w-4 text-chart-secondary" />
             <span className="text-sm">
               <span className="font-mono font-semibold text-foreground">{connectionCount}</span>
-              <span className="text-muted-foreground ml-1">connections</span>
+              <span className="text-muted-foreground ml-1">station pairs</span>
             </span>
           </div>
 
