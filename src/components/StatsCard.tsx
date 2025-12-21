@@ -14,6 +14,7 @@ interface StatsCardProps {
   delay?: number;
   onClick?: () => void;
   isActive?: boolean;
+  onJumpToLogs?: () => void;
 }
 
 const icons = {
@@ -23,7 +24,7 @@ const icons = {
   signal: Signal,
 };
 
-export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive }: StatsCardProps) {
+export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive, onJumpToLogs }: StatsCardProps) {
   const Icon = icons[icon];
 
   return (
@@ -57,11 +58,17 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
               <span className="text-xs text-muted-foreground">{trend.label}</span>
             </div>
           )}
-          {isActive && (
-            <div className="mt-2 flex items-center gap-1 text-accent">
+          {isActive && onJumpToLogs && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToLogs();
+              }}
+              className="mt-2 flex items-center gap-1 text-accent hover:underline"
+            >
               <ArrowDown className="h-3 w-3" />
               <span className="text-xs font-medium">Jump to Log Entries</span>
-            </div>
+            </button>
           )}
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
