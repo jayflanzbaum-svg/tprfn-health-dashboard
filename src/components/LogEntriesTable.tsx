@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { SNRecord, DisconnectRecord, formatBytes } from '@/lib/syslogParser';
+import { SNRecord, ConnectRecord, DisconnectRecord, formatBytes } from '@/lib/syslogParser';
 import { SignalBadge } from './SignalBadge';
 import {
   Table,
@@ -16,6 +16,7 @@ export type LogFilter = 'all' | 'sn' | 'sessions' | 'data' | 'readings';
 
 interface LogEntriesTableProps {
   snRecords: SNRecord[];
+  connectRecords: ConnectRecord[];
   disconnectRecords: DisconnectRecord[];
   filter: LogFilter;
 }
@@ -23,16 +24,17 @@ interface LogEntriesTableProps {
 type LogEntry = {
   id: string;
   timestamp: Date;
-  type: 'sn' | 'disconnect';
+  type: 'sn' | 'connect' | 'disconnect';
   station: string;
   partner: string;
   snValue?: number;
   txBytes?: number;
   rxBytes?: number;
   sessionTime?: string;
+  varaVersion?: string;
 };
 
-export function LogEntriesTable({ snRecords, disconnectRecords, filter }: LogEntriesTableProps) {
+export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, filter }: LogEntriesTableProps) {
   const entries = useMemo(() => {
     let result: LogEntry[] = [];
 
@@ -51,7 +53,21 @@ export function LogEntriesTable({ snRecords, disconnectRecords, filter }: LogEnt
       ];
     }
 
-    if (filter === 'all' || filter === 'sessions' || filter === 'data') {
+    if (filter === 'all' || filter === 'sessions') {
+      result = [
+        ...result,
+        ...connectRecords.map((r, i) => ({
+          id: `conn-${i}`,
+          timestamp: r.timestamp,
+          type: 'connect' as const,
+          station: r.station,
+          partner: r.partner,
+          varaVersion: r.varaVersion,
+        })),
+      ];
+    }
+
+    if (filter === 'all' || filter === 'data') {
       result = [
         ...result,
         ...disconnectRecords.map((r, i) => ({
@@ -69,12 +85,12 @@ export function LogEntriesTable({ snRecords, disconnectRecords, filter }: LogEnt
 
     // Sort by timestamp descending
     return result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [snRecords, disconnectRecords, filter]);
+  }, [snRecords, connectRecords, disconnectRecords, filter]);
 
   const getFilterTitle = () => {
     switch (filter) {
       case 'sn': return 'Average S/N Readings';
-      case 'sessions': return 'Session Disconnect Events';
+      case 'sessions': return 'Session Connection Events';
       case 'data': return 'Data Transfer Records';
       case 'readings': return 'S/N Signal Readings';
       default: return 'All Log Entries';
@@ -113,8 +129,8 @@ export function LogEntriesTable({ snRecords, disconnectRecords, filter }: LogEnt
                   {format(entry.timestamp, 'MMM dd HH:mm:ss')}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={entry.type === 'sn' ? 'outline' : 'secondary'}>
-                    {entry.type === 'sn' ? 'S/N' : 'Disconnect'}
+                  <Badge variant={entry.type === 'sn' ? 'outline' : entry.type === 'connect' ? 'default' : 'secondary'}>
+                    {entry.type === 'sn' ? 'S/N' : entry.type === 'connect' ? 'Connected' : 'Disconnect'}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{entry.station}</TableCell>

@@ -27,6 +27,11 @@ const Index = () => {
       r => r.station === selectedStation || r.partner === selectedStation
     );
 
+    // Filter connect records where station or partner matches
+    const connectRecords = data.connectRecords.filter(
+      r => r.station === selectedStation || r.partner === selectedStation
+    );
+
     // Filter disconnect records where station or partner matches
     const disconnectRecords = data.disconnectRecords.filter(
       r => r.station === selectedStation || r.partner === selectedStation
@@ -43,6 +48,7 @@ const Index = () => {
     return {
       ...data,
       snRecords,
+      connectRecords,
       disconnectRecords,
       hubConnections,
     };
@@ -65,7 +71,7 @@ const Index = () => {
 
     return {
       avgSN: avgSN.toFixed(1),
-      totalSessions: filteredData.disconnectRecords.length,
+      totalSessions: filteredData.connectRecords.length,
       totalTx: formatBytes(totalTx),
       totalRx: formatBytes(totalRx),
       totalData: formatBytes(totalTx + totalRx),
@@ -115,7 +121,7 @@ const Index = () => {
           <StatsCard
             title="Total Sessions"
             value={stats?.totalSessions || 0}
-            subtitle="VARAHF Disconnected events"
+            subtitle="VARAHF Connected events"
             icon="activity"
             delay={100}
             onClick={() => handleFilterClick('sessions')}
@@ -164,6 +170,7 @@ const Index = () => {
         <div className="mb-8">
           <LogEntriesTable 
             snRecords={filteredData.snRecords}
+            connectRecords={filteredData.connectRecords}
             disconnectRecords={filteredData.disconnectRecords}
             filter={logFilter}
           />
