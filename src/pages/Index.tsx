@@ -9,38 +9,70 @@ import { SessionCountChart } from '@/components/charts/SessionCountChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
-import { formatBytes, getSignalQuality } from '@/lib/syslogParser';
+import { formatBytes, getSignalQuality, HubConnection } from '@/lib/syslogParser';
 import { useMemo, useState } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
   const [logFilter, setLogFilter] = useState<LogFilter>('all');
+  const [selectedStation, setSelectedStation] = useState<string | null>(null);
+
+  // Filter data based on selected station
+  const filteredData = useMemo(() => {
+    if (!data) return null;
+    if (!selectedStation) return data;
+
+    // Filter S/N records where station or partner matches
+    const snRecords = data.snRecords.filter(
+      r => r.station === selectedStation || r.partner === selectedStation
+    );
+
+    // Filter disconnect records where station or partner matches
+    const disconnectRecords = data.disconnectRecords.filter(
+      r => r.station === selectedStation || r.partner === selectedStation
+    );
+
+    // Filter hub connections that involve the selected station
+    const hubConnections = new Map<string, HubConnection>();
+    data.hubConnections.forEach((hub, id) => {
+      if (hub.station1 === selectedStation || hub.station2 === selectedStation) {
+        hubConnections.set(id, hub);
+      }
+    });
+
+    return {
+      ...data,
+      snRecords,
+      disconnectRecords,
+      hubConnections,
+    };
+  }, [data, selectedStation]);
 
   const stats = useMemo(() => {
-    if (!data) return null;
+    if (!filteredData) return null;
 
-    const avgSN = data.snRecords.length > 0
-      ? data.snRecords.reduce((sum, r) => sum + r.snValue, 0) / data.snRecords.length
+    const avgSN = filteredData.snRecords.length > 0
+      ? filteredData.snRecords.reduce((sum, r) => sum + r.snValue, 0) / filteredData.snRecords.length
       : 0;
 
-    const totalTx = data.disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
-    const totalRx = data.disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+    const totalTx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
+    const totalRx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
 
-    const excellentCount = data.snRecords.filter(r => getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good').length;
-    const successRate = data.snRecords.length > 0 
-      ? ((excellentCount / data.snRecords.length) * 100).toFixed(1)
+    const excellentCount = filteredData.snRecords.filter(r => getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good').length;
+    const successRate = filteredData.snRecords.length > 0 
+      ? ((excellentCount / filteredData.snRecords.length) * 100).toFixed(1)
       : '0';
 
     return {
       avgSN: avgSN.toFixed(1),
-      totalSessions: data.disconnectRecords.length,
+      totalSessions: filteredData.disconnectRecords.length,
       totalTx: formatBytes(totalTx),
       totalRx: formatBytes(totalRx),
       totalData: formatBytes(totalTx + totalRx),
       successRate,
-      snReadings: data.snRecords.length,
+      snReadings: filteredData.snRecords.length,
     };
-  }, [data]);
+  }, [filteredData]);
 
   const handleFilterClick = (filter: LogFilter) => {
     setLogFilter(prev => prev === filter ? 'all' : filter);
@@ -50,18 +82,23 @@ const Index = () => {
     return <LoadingState />;
   }
 
-  if (error || !data) {
+  if (error || !data || !filteredData) {
     return <ErrorState error={error || 'Failed to load data'} />;
   }
+
+  const stationsList = Array.from(data.stations);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <DashboardHeader 
           dateRange={data.dateRange}
-          stationCount={data.stations.size}
-          connectionCount={data.hubConnections.size}
+          stationCount={selectedStation ? 1 : data.stations.size}
+          connectionCount={filteredData.hubConnections.size}
           lastUpdated={new Date()}
+          stations={stationsList}
+          selectedStation={selectedStation}
+          onStationChange={setSelectedStation}
         />
 
         {/* Stats Cards */}
@@ -69,7 +106,7 @@ const Index = () => {
           <StatsCard
             title="Average S/N Ratio"
             value={`${stats?.avgSN} dB`}
-            subtitle="Across all connections"
+            subtitle={selectedStation ? `For ${selectedStation}` : "Across all connections"}
             icon="signal"
             delay={0}
             onClick={() => handleFilterClick('sn')}
@@ -106,34 +143,34 @@ const Index = () => {
 
         {/* Main Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <SNByHubChart hubConnections={data.hubConnections} />
-          <TXByHubChart hubConnections={data.hubConnections} />
+          <SNByHubChart hubConnections={filteredData.hubConnections} />
+          <TXByHubChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Secondary Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
-            <SNTimelineChart snRecords={data.snRecords} />
+            <SNTimelineChart snRecords={filteredData.snRecords} />
           </div>
-          <SignalQualityPieChart snRecords={data.snRecords} />
+          <SignalQualityPieChart snRecords={filteredData.snRecords} />
         </div>
 
         {/* Session Count Chart */}
         <div className="mb-8">
-          <SessionCountChart hubConnections={data.hubConnections} />
+          <SessionCountChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Log Entries Table */}
         <div className="mb-8">
           <LogEntriesTable 
-            snRecords={data.snRecords}
-            disconnectRecords={data.disconnectRecords}
+            snRecords={filteredData.snRecords}
+            disconnectRecords={filteredData.disconnectRecords}
             filter={logFilter}
           />
         </div>
 
         {/* Detailed Table */}
-        <HubConnectionsTable hubConnections={data.hubConnections} />
+        <HubConnectionsTable hubConnections={filteredData.hubConnections} />
 
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-border text-center">
