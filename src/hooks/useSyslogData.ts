@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { parseSyslog, ParsedData } from '@/lib/syslogParser';
 
+const SYSLOG_URL = 'https://tprfn.k1ajd.net/VARAHF.txt';
+
 export function useSyslogData() {
   const [data, setData] = useState<ParsedData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -10,7 +12,7 @@ export function useSyslogData() {
     async function loadData() {
       try {
         setLoading(true);
-        const response = await fetch('/data/syslog.txt');
+        const response = await fetch(SYSLOG_URL);
         if (!response.ok) {
           throw new Error('Failed to load syslog data');
         }
