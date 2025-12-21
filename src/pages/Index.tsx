@@ -140,9 +140,9 @@ const Index = () => {
               accentColor="teal"
             />
             <StatsCard
-              title="Total Sessions"
+              title="Connect Events"
               value={stats?.totalSessions || 0}
-              subtitle="VARAHF Connected events"
+              subtitle="VARAHF Connected events (session starts)"
               icon="activity"
               delay={100}
               onClick={() => handleFilterClick('sessions')}
