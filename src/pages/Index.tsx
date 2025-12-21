@@ -13,12 +13,14 @@ import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboa
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
-import { formatBytes, getSignalQuality, HubConnection } from '@/lib/syslogParser';
+import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { CallsignManager } from '@/components/CallsignManager';
+import { useMemo, useState, useRef } from 'react';
 
 const Index = () => {
-  const { data, loading, error } = useSyslogData();
+  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
+  const { data, loading, error } = useSyslogData(allowedCallsigns);
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
@@ -360,6 +362,14 @@ const Index = () => {
             disconnectRecords={filteredData.disconnectRecords}
             filter={logFilter}
             onClearFilter={() => setLogFilter('all')}
+          />
+        </div>
+
+        {/* Callsign Manager */}
+        <div className="mt-8 mb-8">
+          <CallsignManager 
+            callsigns={allowedCallsigns} 
+            onChange={setAllowedCallsigns} 
           />
         </div>
 

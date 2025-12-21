@@ -77,16 +77,24 @@ export function normalizeCallsign(callsign: string): string {
   return callsign.replace(/-\d+$/, '');
 }
 
-// Allowed callsigns for filtering
-const ALLOWED_CALLSIGNS = new Set([
+// Default allowed callsigns for filtering
+export const DEFAULT_ALLOWED_CALLSIGNS = [
   'K1AJD', 'K5DAT', 'KA3VSP', 'KD4WLE', 'KK4DIV', 'KN4LQN', 'KP3FT', 
   'N3MEL', 'N5MDT', 'N9SEO', 'W1DTX', 'WW6Q', 'AA5AF', 'K7EK', 
   'WP4OH', 'NP4JN', 'N3HYM', 'N4SFL'
-]);
+];
+
+// Module-level variable for allowed callsigns (can be updated)
+let allowedCallsignsSet = new Set(DEFAULT_ALLOWED_CALLSIGNS);
+
+// Update the allowed callsigns set
+export function setAllowedCallsigns(callsigns: string[]): void {
+  allowedCallsignsSet = new Set(callsigns.map(c => c.toUpperCase().trim()));
+}
 
 // Check if a callsign (with or without SSID) is in the allowed list
 function isAllowedCallsign(callsign: string): boolean {
-  return ALLOWED_CALLSIGNS.has(normalizeCallsign(callsign));
+  return allowedCallsignsSet.has(normalizeCallsign(callsign));
 }
 
 function createConnectionId(station1: string, station2: string): string {
