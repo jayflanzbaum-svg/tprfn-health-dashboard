@@ -42,12 +42,12 @@ export function SNByHubChart({ hubConnections }: SNByHubChartProps) {
   };
 
   return (
-    <div className="chart-card">
+    <div className="chart-card h-full flex flex-col">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-foreground">Average S/N by Hub Connection</h3>
         <p className="text-sm text-muted-foreground mt-1">Signal-to-noise ratio indicates connection quality</p>
       </div>
-      <div className="h-[400px]">
+      <div className="flex-1 min-h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}

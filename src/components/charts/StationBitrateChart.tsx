@@ -76,7 +76,7 @@ export function StationBitrateChart({ hubConnections }: StationBitrateChartProps
   };
 
   return (
-    <div className="chart-card">
+    <div className="chart-card h-full flex flex-col">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -84,7 +84,7 @@ export function StationBitrateChart({ hubConnections }: StationBitrateChartProps
         </p>
       </div>
 
-      <div className="h-[320px]">
+      <div className="flex-1 min-h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={stationData}

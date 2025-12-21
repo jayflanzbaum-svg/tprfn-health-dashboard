@@ -73,7 +73,7 @@ export function PeakBitrateLeaderboard({ hubConnections }: PeakBitrateLeaderboar
   };
 
   return (
-    <div className="chart-card">
+    <div className="chart-card h-full flex flex-col">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-5 w-5 text-amber-400" />
         <div>
@@ -84,7 +84,7 @@ export function PeakBitrateLeaderboard({ hubConnections }: PeakBitrateLeaderboar
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex-1 space-y-2 overflow-auto">
         {leaderboard.map((entry) => (
           <div
             key={`${entry.connection}-${entry.timestamp.getTime()}-${entry.type}`}
