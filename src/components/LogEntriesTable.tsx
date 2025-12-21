@@ -83,9 +83,18 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
       ];
     }
 
-    // Sort by timestamp descending
     return result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [snRecords, connectRecords, disconnectRecords, filter]);
+
+  const getRowHighlight = (filter: LogFilter) => {
+    switch (filter) {
+      case 'sn': return 'bg-teal-500/5 hover:bg-teal-500/10';
+      case 'sessions': return 'bg-blue-500/5 hover:bg-blue-500/10';
+      case 'data': return 'bg-purple-500/5 hover:bg-purple-500/10';
+      case 'readings': return 'bg-orange-500/5 hover:bg-orange-500/10';
+      default: return '';
+    }
+  };
 
   const getFilterTitle = () => {
     switch (filter) {
@@ -123,8 +132,10 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.slice(0, 100).map((entry) => (
-              <TableRow key={entry.id}>
+            {entries.slice(0, 100).map((entry) => {
+              const rowHighlight = filter !== 'all' ? getRowHighlight(filter) : '';
+              return (
+              <TableRow key={entry.id} className={rowHighlight}>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {format(entry.timestamp, 'MMM dd HH:mm:ss')}
                 </TableCell>
@@ -152,7 +163,8 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
                   {entry.sessionTime || '—'}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
         {entries.length > 100 && (

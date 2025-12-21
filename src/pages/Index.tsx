@@ -124,6 +124,7 @@ const Index = () => {
             onClick={() => handleFilterClick('sn')}
             isActive={logFilter === 'sn'}
             onJumpToLogs={() => handleJumpToLogs('sn')}
+            accentColor="teal"
           />
           <StatsCard
             title="Total Sessions"
@@ -134,6 +135,7 @@ const Index = () => {
             onClick={() => handleFilterClick('sessions')}
             isActive={logFilter === 'sessions'}
             onJumpToLogs={() => handleJumpToLogs('sessions')}
+            accentColor="blue"
           />
           <StatsCard
             title="Total Data Transfer"
@@ -144,6 +146,7 @@ const Index = () => {
             onClick={() => handleFilterClick('data')}
             isActive={logFilter === 'data'}
             onJumpToLogs={() => handleJumpToLogs('data')}
+            accentColor="purple"
           />
           <StatsCard
             title="S/N Readings"
@@ -154,6 +157,7 @@ const Index = () => {
             onClick={() => handleFilterClick('readings')}
             isActive={logFilter === 'readings'}
             onJumpToLogs={() => handleJumpToLogs('readings')}
+            accentColor="orange"
           />
         </div>
 
