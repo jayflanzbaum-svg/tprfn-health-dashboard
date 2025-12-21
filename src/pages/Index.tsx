@@ -138,7 +138,7 @@ const Index = () => {
           <StatsCard
             title="Total Data Transfer"
             value={stats?.totalData || '0 B'}
-            subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx}`}
+            subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx} (per-station view)`}
             icon="wifi"
             delay={200}
             onClick={() => handleFilterClick('data')}
