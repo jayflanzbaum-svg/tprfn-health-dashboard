@@ -93,25 +93,23 @@ export function SNTimelineChart({ snRecords }: SNTimelineChartProps) {
             <Line 
               type="monotone" 
               dataKey="avg" 
-              stroke="hsl(var(--chart-primary))" 
+              stroke="hsl(var(--chart-info))" 
               strokeWidth={2}
-              dot={{ fill: 'hsl(var(--chart-primary))', strokeWidth: 0, r: 3 }}
+              dot={{ fill: 'hsl(var(--chart-info))', strokeWidth: 0, r: 3 }}
               activeDot={{ r: 5 }}
             />
             <Line 
               type="monotone" 
               dataKey="max" 
               stroke="hsl(var(--chart-success))" 
-              strokeWidth={1}
-              strokeDasharray="5 5"
+              strokeWidth={2}
               dot={false}
             />
             <Line 
               type="monotone" 
               dataKey="min" 
               stroke="hsl(var(--chart-danger))" 
-              strokeWidth={1}
-              strokeDasharray="5 5"
+              strokeWidth={2}
               dot={false}
             />
           </LineChart>
