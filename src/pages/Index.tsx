@@ -184,6 +184,11 @@ const Index = () => {
           <ConnectionSuccessChart hubConnections={filteredData.hubConnections} />
         </div>
 
+        {/* Disconnect Analysis by Connection */}
+        <div className="mb-8">
+          <DisconnectAnalysisChart hubConnections={filteredData.hubConnections} />
+        </div>
+
         {/* S/N Timeline - Full Width */}
         <div className="mb-8">
           <SNTimelineChart snRecords={filteredData.snRecords} />
@@ -193,11 +198,6 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <SNByHubChart hubConnections={filteredData.hubConnections} />
           <TXByHubChart hubConnections={filteredData.hubConnections} />
-        </div>
-
-        {/* Session Health by Connection */}
-        <div className="mb-8">
-          <DisconnectAnalysisChart hubConnections={filteredData.hubConnections} />
         </div>
 
         {/* Bitrate Analysis */}
