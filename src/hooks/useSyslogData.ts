@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { parseSyslog, ParsedData } from '@/lib/syslogParser';
-
-const SYSLOG_URL = 'https://tprfn.k1ajd.net/VARAHF.txt';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useSyslogData() {
   const [data, setData] = useState<ParsedData | null>(null);
@@ -12,12 +11,18 @@ export function useSyslogData() {
     async function loadData() {
       try {
         setLoading(true);
-        const response = await fetch(SYSLOG_URL);
-        if (!response.ok) {
-          throw new Error('Failed to load syslog data');
+        
+        const { data: response, error: fnError } = await supabase.functions.invoke('fetch-syslog');
+        
+        if (fnError) {
+          throw new Error(fnError.message);
         }
-        const content = await response.text();
-        const parsed = parseSyslog(content);
+        
+        if (response?.error) {
+          throw new Error(response.error);
+        }
+        
+        const parsed = parseSyslog(response.content);
         setData(parsed);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');

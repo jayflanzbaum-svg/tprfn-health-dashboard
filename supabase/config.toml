@@ -1,0 +1,4 @@
+project_id = "lcrayouskoctmbecomoi"
+
+[functions.fetch-syslog]
+verify_jwt = false
