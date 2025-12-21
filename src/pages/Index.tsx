@@ -15,7 +15,7 @@ import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
@@ -23,13 +23,15 @@ const Index = () => {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const logTableRef = useRef<HTMLDivElement>(null);
+  const dateRangeInitialized = useRef(false);
 
-  // Initialize date range when data loads
+  // Initialize date range when data loads (only once)
   useEffect(() => {
-    if (data && !dateRange) {
+    if (data && !dateRangeInitialized.current) {
+      dateRangeInitialized.current = true;
       setDateRange(getDefaultDateRange(data.dateRange));
     }
-  }, [data, dateRange]);
+  }, [data]);
 
   // Filter data based on selected station and date range
   const filteredData = useMemo(() => {
