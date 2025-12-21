@@ -11,6 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 
 export type LogFilter = 'all' | 'sn' | 'sessions' | 'data' | 'readings';
 
@@ -19,6 +21,7 @@ interface LogEntriesTableProps {
   connectRecords: ConnectRecord[];
   disconnectRecords: DisconnectRecord[];
   filter: LogFilter;
+  onClearFilter?: () => void;
 }
 
 type LogEntry = {
@@ -34,7 +37,7 @@ type LogEntry = {
   varaVersion?: string;
 };
 
-export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, filter }: LogEntriesTableProps) {
+export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, filter, onClearFilter }: LogEntriesTableProps) {
   const entries = useMemo(() => {
     let result: LogEntry[] = [];
 
@@ -109,9 +112,22 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
   return (
     <div className="rounded-xl border border-border bg-card p-6 animate-slide-up">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-foreground">
-          {getFilterTitle()}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-foreground">
+            {getFilterTitle()}
+          </h3>
+          {filter !== 'all' && onClearFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilter}
+              className="h-7 px-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear filter
+            </Button>
+          )}
+        </div>
         <Badge variant="secondary" className="font-mono">
           {entries.length} entries
         </Badge>

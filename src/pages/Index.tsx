@@ -222,6 +222,7 @@ const Index = () => {
             connectRecords={filteredData.connectRecords}
             disconnectRecords={filteredData.disconnectRecords}
             filter={logFilter}
+            onClearFilter={() => setLogFilter('all')}
           />
         </div>
 
