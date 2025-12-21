@@ -15,7 +15,7 @@ interface DashboardHeaderProps {
   stations: string[];
   selectedStation: string | null;
   onStationChange: (station: string | null) => void;
-  dateRange: DateRange | null;
+  dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   dataDateRange?: { start: Date; end: Date };
 }
@@ -83,13 +83,11 @@ export function DashboardHeader({
             </SelectContent>
           </Select>
 
-          {dateRange && (
-            <DateRangeFilter
-              value={dateRange}
-              onChange={onDateRangeChange}
-              dataDateRange={dataDateRange}
-            />
-          )}
+          <DateRangeFilter
+            value={dateRange}
+            onChange={onDateRangeChange}
+            dataDateRange={dataDateRange}
+          />
 
           <div 
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
