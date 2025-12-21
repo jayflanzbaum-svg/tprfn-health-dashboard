@@ -342,7 +342,7 @@ const Index = () => {
 
         {/* S/N Timeline - Full Width */}
         <div className="mb-8">
-          <SNTimelineChart snRecords={filteredData.snRecords} />
+          <SNTimelineChart snRecords={filteredData.snRecords} dateRange={dateRange} />
         </div>
 
         {/* Hub Charts */}

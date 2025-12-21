@@ -10,52 +10,135 @@ import {
   Legend,
 } from 'recharts';
 import { SNRecord } from '@/lib/syslogParser';
+import { DateRange } from '@/components/DateRangeFilter';
+import { format, differenceInDays, differenceInMonths, differenceInYears, startOfHour, startOfDay, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
 
 interface SNTimelineChartProps {
   snRecords: SNRecord[];
+  dateRange?: DateRange | null;
 }
 
-export function SNTimelineChart({ snRecords }: SNTimelineChartProps) {
+type Granularity = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+function getGranularity(dateRange?: DateRange | null): Granularity {
+  if (!dateRange) return 'hourly';
+  
+  const { preset, start, end } = dateRange;
+  
+  // Based on preset
+  if (preset === 'today' || preset === 'yesterday') {
+    return 'hourly';
+  }
+  if (preset === 'last7days' || preset === 'lastWeek') {
+    return 'daily';
+  }
+  if (preset === 'lastMonth' || preset === 'last30days') {
+    return 'weekly';
+  }
+  if (preset === 'lastQuarter') {
+    return 'monthly';
+  }
+  if (preset === 'lastYear') {
+    return 'monthly';
+  }
+  
+  // For custom or all, calculate based on duration
+  const days = differenceInDays(end, start);
+  const months = differenceInMonths(end, start);
+  const years = differenceInYears(end, start);
+  
+  if (days <= 1) return 'hourly';
+  if (days <= 7) return 'daily';
+  if (months <= 1) return 'weekly';
+  if (years < 2) return 'monthly';
+  return 'yearly';
+}
+
+function getGroupKey(timestamp: Date, granularity: Granularity): string {
+  switch (granularity) {
+    case 'hourly':
+      return startOfHour(timestamp).toISOString();
+    case 'daily':
+      return startOfDay(timestamp).toISOString();
+    case 'weekly':
+      return startOfWeek(timestamp).toISOString();
+    case 'monthly':
+      return startOfMonth(timestamp).toISOString();
+    case 'yearly':
+      return startOfYear(timestamp).toISOString();
+  }
+}
+
+function formatLabel(date: Date, granularity: Granularity): string {
+  switch (granularity) {
+    case 'hourly':
+      return format(date, 'HH:mm');
+    case 'daily':
+      return format(date, 'MMM d');
+    case 'weekly':
+      return format(date, 'MMM d');
+    case 'monthly':
+      return format(date, 'MMM yyyy');
+    case 'yearly':
+      return format(date, 'yyyy');
+  }
+}
+
+function getSubtitle(granularity: Granularity): string {
+  switch (granularity) {
+    case 'hourly':
+      return 'Hourly average signal-to-noise across all connections';
+    case 'daily':
+      return 'Daily average signal-to-noise across all connections';
+    case 'weekly':
+      return 'Weekly average signal-to-noise across all connections';
+    case 'monthly':
+      return 'Monthly average signal-to-noise across all connections';
+    case 'yearly':
+      return 'Yearly average signal-to-noise across all connections';
+  }
+}
+
+export function SNTimelineChart({ snRecords, dateRange }: SNTimelineChartProps) {
+  const granularity = getGranularity(dateRange);
+  
   const chartData = useMemo(() => {
-    // Group by hour
-    const hourlyData = new Map<string, { total: number; count: number; min: number; max: number }>();
+    const groupedData = new Map<string, { total: number; count: number; min: number; max: number }>();
     
     snRecords.forEach(record => {
-      const hour = new Date(record.timestamp);
-      hour.setMinutes(0, 0, 0);
-      const key = hour.toISOString();
+      const key = getGroupKey(record.timestamp, granularity);
       
-      if (!hourlyData.has(key)) {
-        hourlyData.set(key, { total: 0, count: 0, min: Infinity, max: -Infinity });
+      if (!groupedData.has(key)) {
+        groupedData.set(key, { total: 0, count: 0, min: Infinity, max: -Infinity });
       }
       
-      const data = hourlyData.get(key)!;
+      const data = groupedData.get(key)!;
       data.total += record.snValue;
       data.count++;
       data.min = Math.min(data.min, record.snValue);
       data.max = Math.max(data.max, record.snValue);
     });
     
-    return Array.from(hourlyData.entries())
-      .map(([hour, data]) => ({
-        hour: new Date(hour),
+    return Array.from(groupedData.entries())
+      .map(([key, data]) => ({
+        date: new Date(key),
         avg: parseFloat((data.total / data.count).toFixed(1)),
         min: data.min === Infinity ? 0 : data.min,
         max: data.max === -Infinity ? 0 : data.max,
         count: data.count,
       }))
-      .sort((a, b) => a.hour.getTime() - b.hour.getTime());
-  }, [snRecords]);
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [snRecords, granularity]);
 
-  const formatHour = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const formatTick = (date: Date) => {
+    return formatLabel(date, granularity);
   };
 
   return (
     <div className="chart-card">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-foreground">S/N Ratio Over Time</h3>
-        <p className="text-sm text-muted-foreground mt-1">Hourly average signal-to-noise across all connections</p>
+        <p className="text-sm text-muted-foreground mt-1">{getSubtitle(granularity)}</p>
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -65,8 +148,8 @@ export function SNTimelineChart({ snRecords }: SNTimelineChartProps) {
           >
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis 
-              dataKey="hour"
-              tickFormatter={formatHour}
+              dataKey="date"
+              tickFormatter={formatTick}
               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
             />
             <YAxis 
@@ -80,7 +163,7 @@ export function SNTimelineChart({ snRecords }: SNTimelineChartProps) {
                 borderRadius: '8px',
                 boxShadow: 'var(--shadow-lg)',
               }}
-              labelFormatter={(label) => formatHour(label as Date)}
+              labelFormatter={(label) => formatTick(label as Date)}
               formatter={(value: number, name: string) => [
                 `${value} dB`,
                 name === 'avg' ? 'Average' : name === 'min' ? 'Min' : 'Max'
