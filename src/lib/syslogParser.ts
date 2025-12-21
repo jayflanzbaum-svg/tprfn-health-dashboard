@@ -72,6 +72,23 @@ function extractStation(hostname: string): string {
   return hostname;
 }
 
+// Normalize callsign by removing SSID suffix (e.g., "N4SFL-1" -> "N4SFL")
+export function normalizeCallsign(callsign: string): string {
+  return callsign.replace(/-\d+$/, '');
+}
+
+// Allowed callsigns for filtering
+const ALLOWED_CALLSIGNS = new Set([
+  'K1AJD', 'K5DAT', 'KA3VSP', 'KD4WLE', 'KK4DIV', 'KN4LQN', 'KP3FT', 
+  'N3MEL', 'N5MDT', 'N9SEO', 'W1DTX', 'WW6Q', 'AA5AF', 'K7EK', 
+  'WP4OH', 'NP4JN', 'N3HYM', 'N4SFL'
+]);
+
+// Check if a callsign (with or without SSID) is in the allowed list
+function isAllowedCallsign(callsign: string): boolean {
+  return ALLOWED_CALLSIGNS.has(normalizeCallsign(callsign));
+}
+
 function createConnectionId(station1: string, station2: string): string {
   // Sort alphabetically to ensure consistent ID regardless of direction
   const sorted = [station1, station2].sort();
@@ -118,27 +135,34 @@ export function parseSyslog(content: string): ParsedData {
       const partner = snMatch[3];
       const snValue = parseFloat(snMatch[4]);
 
+      // Skip if either station is not in the allowed list
+      if (!isAllowedCallsign(station) || !isAllowedCallsign(partner)) {
+        continue;
+      }
+
       if (timestamp < minDate) minDate = timestamp;
       if (timestamp > maxDate) maxDate = timestamp;
 
-      stations.add(station);
-      stations.add(partner);
+      stations.add(normalizeCallsign(station));
+      stations.add(normalizeCallsign(partner));
 
       const record: SNRecord = {
         timestamp,
-        station,
-        partner,
+        station: normalizeCallsign(station),
+        partner: normalizeCallsign(partner),
         snValue,
         direction: 'outgoing'
       };
       snRecords.push(record);
 
       // Add to hub connection
-      const connectionId = createConnectionId(station, partner);
+      const normalizedStation = normalizeCallsign(station);
+      const normalizedPartner = normalizeCallsign(partner);
+      const connectionId = createConnectionId(normalizedStation, normalizedPartner);
       if (!hubConnections.has(connectionId)) {
         hubConnections.set(connectionId, {
-          station1: station < partner ? station : partner,
-          station2: station < partner ? partner : station,
+          station1: normalizedStation < normalizedPartner ? normalizedStation : normalizedPartner,
+          station2: normalizedStation < normalizedPartner ? normalizedPartner : normalizedStation,
           connectionId,
           snRecords: [],
           connectRecords: [],
@@ -160,26 +184,34 @@ export function parseSyslog(content: string): ParsedData {
       const partner = connectOutgoingMatch[3];
       const varaVersion = connectOutgoingMatch[4];
 
+      // Skip if either station is not in the allowed list
+      if (!isAllowedCallsign(station) || !isAllowedCallsign(partner)) {
+        continue;
+      }
+
       if (timestamp < minDate) minDate = timestamp;
       if (timestamp > maxDate) maxDate = timestamp;
 
-      stations.add(station);
-      stations.add(partner);
+      const normalizedStation = normalizeCallsign(station);
+      const normalizedPartner = normalizeCallsign(partner);
+
+      stations.add(normalizedStation);
+      stations.add(normalizedPartner);
 
       const record: ConnectRecord = {
         timestamp,
-        station,
-        partner,
+        station: normalizedStation,
+        partner: normalizedPartner,
         varaVersion
       };
       connectRecords.push(record);
 
       // Add to hub connection
-      const connectionId = createConnectionId(station, partner);
+      const connectionId = createConnectionId(normalizedStation, normalizedPartner);
       if (!hubConnections.has(connectionId)) {
         hubConnections.set(connectionId, {
-          station1: station < partner ? station : partner,
-          station2: station < partner ? partner : station,
+          station1: normalizedStation < normalizedPartner ? normalizedStation : normalizedPartner,
+          station2: normalizedStation < normalizedPartner ? normalizedPartner : normalizedStation,
           connectionId,
           snRecords: [],
           connectRecords: [],
@@ -203,26 +235,34 @@ export function parseSyslog(content: string): ParsedData {
       const partner = connectIncomingMatch[3];
       const varaVersion = connectIncomingMatch[4];
 
+      // Skip if either station is not in the allowed list
+      if (!isAllowedCallsign(station) || !isAllowedCallsign(partner)) {
+        continue;
+      }
+
       if (timestamp < minDate) minDate = timestamp;
       if (timestamp > maxDate) maxDate = timestamp;
 
-      stations.add(station);
-      stations.add(partner);
+      const normalizedStation = normalizeCallsign(station);
+      const normalizedPartner = normalizeCallsign(partner);
+
+      stations.add(normalizedStation);
+      stations.add(normalizedPartner);
 
       const record: ConnectRecord = {
         timestamp,
-        station,
-        partner,
+        station: normalizedStation,
+        partner: normalizedPartner,
         varaVersion
       };
       connectRecords.push(record);
 
       // Add to hub connection
-      const connectionId = createConnectionId(station, partner);
+      const connectionId = createConnectionId(normalizedStation, normalizedPartner);
       if (!hubConnections.has(connectionId)) {
         hubConnections.set(connectionId, {
-          station1: station < partner ? station : partner,
-          station2: station < partner ? partner : station,
+          station1: normalizedStation < normalizedPartner ? normalizedStation : normalizedPartner,
+          station2: normalizedStation < normalizedPartner ? normalizedPartner : normalizedStation,
           connectionId,
           snRecords: [],
           connectRecords: [],
@@ -250,13 +290,17 @@ export function parseSyslog(content: string): ParsedData {
       const maxRxBps = parseInt(disconnectMatch[7]);
       const sessionTime = disconnectMatch[8];
 
-      if (timestamp < minDate) minDate = timestamp;
-      if (timestamp > maxDate) maxDate = timestamp;
+      // Skip if station is not in the allowed list
+      if (!isAllowedCallsign(station)) {
+        continue;
+      }
+
+      const normalizedStation = normalizeCallsign(station);
 
       // Find the partner from the most recent S/N record for this station
       let partner = '';
       for (let i = snRecords.length - 1; i >= 0; i--) {
-        if (snRecords[i].station === station && 
+        if (snRecords[i].station === normalizedStation && 
             Math.abs(snRecords[i].timestamp.getTime() - timestamp.getTime()) < 60000) {
           partner = snRecords[i].partner;
           break;
@@ -265,9 +309,12 @@ export function parseSyslog(content: string): ParsedData {
 
       if (!partner) continue; // Skip if we can't find the partner
 
+      if (timestamp < minDate) minDate = timestamp;
+      if (timestamp > maxDate) maxDate = timestamp;
+
       const record: DisconnectRecord = {
         timestamp,
-        station,
+        station: normalizedStation,
         partner,
         txBytes,
         rxBytes,
@@ -280,7 +327,7 @@ export function parseSyslog(content: string): ParsedData {
       disconnectRecords.push(record);
 
       // Add to hub connection
-      const connectionId = createConnectionId(station, partner);
+      const connectionId = createConnectionId(normalizedStation, partner);
       if (hubConnections.has(connectionId)) {
         const hub = hubConnections.get(connectionId)!;
         hub.disconnectRecords.push(record);
