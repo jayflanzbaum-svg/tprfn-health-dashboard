@@ -75,10 +75,10 @@ export function formatCallsign(callsign: string): string {
 }
 
 export function formatConnectionShort(connectionId: string): string {
-  // Convert "KK4DIV-1↔N4SFL-7" to "KK4DIV ↔ N4SFL"
+  // Convert "KK4DIV-1↔N4SFL-7" to "KK4DIV ↔ N4SFL" (NBSP prevents wrapping)
   const parts = connectionId.split('↔');
   if (parts.length === 2) {
-    return `${formatCallsign(parts[0])} ↔ ${formatCallsign(parts[1])}`;
+    return `${formatCallsign(parts[0])}\u00A0↔\u00A0${formatCallsign(parts[1])}`;
   }
   return connectionId;
 }
