@@ -14,39 +14,115 @@ import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection } from '@/lib/syslogParser';
-import { useMemo, useState, useRef } from 'react';
+import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
+import { useMemo, useState, useRef, useEffect } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const logTableRef = useRef<HTMLDivElement>(null);
 
-  // Filter data based on selected station
+  // Initialize date range when data loads
+  useEffect(() => {
+    if (data && !dateRange) {
+      setDateRange(getDefaultDateRange(data.dateRange));
+    }
+  }, [data, dateRange]);
+
+  // Filter data based on selected station and date range
   const filteredData = useMemo(() => {
-    if (!data) return null;
-    if (!selectedStation) return data;
+    if (!data || !dateRange) return null;
 
-    // Filter S/N records where station or partner matches
-    const snRecords = data.snRecords.filter(
-      r => r.station === selectedStation || r.partner === selectedStation
-    );
+    const isInDateRange = (timestamp: Date) => {
+      return timestamp >= dateRange.start && timestamp <= dateRange.end;
+    };
 
-    // Filter connect records where station or partner matches
-    const connectRecords = data.connectRecords.filter(
-      r => r.station === selectedStation || r.partner === selectedStation
-    );
+    // Filter S/N records by date and station
+    let snRecords = data.snRecords.filter(r => isInDateRange(r.timestamp));
+    if (selectedStation) {
+      snRecords = snRecords.filter(r => r.station === selectedStation || r.partner === selectedStation);
+    }
 
-    // Filter disconnect records where station or partner matches
-    const disconnectRecords = data.disconnectRecords.filter(
-      r => r.station === selectedStation || r.partner === selectedStation
-    );
+    // Filter connect records by date and station
+    let connectRecords = data.connectRecords.filter(r => isInDateRange(r.timestamp));
+    if (selectedStation) {
+      connectRecords = connectRecords.filter(r => r.station === selectedStation || r.partner === selectedStation);
+    }
 
-    // Filter hub connections that involve the selected station
+    // Filter disconnect records by date and station
+    let disconnectRecords = data.disconnectRecords.filter(r => isInDateRange(r.timestamp));
+    if (selectedStation) {
+      disconnectRecords = disconnectRecords.filter(r => r.station === selectedStation || r.partner === selectedStation);
+    }
+
+    // Rebuild hub connections from filtered records
     const hubConnections = new Map<string, HubConnection>();
-    data.hubConnections.forEach((hub, id) => {
-      if (hub.station1 === selectedStation || hub.station2 === selectedStation) {
-        hubConnections.set(id, hub);
+    
+    // Process filtered S/N records
+    snRecords.forEach(record => {
+      const sorted = [record.station, record.partner].sort();
+      const connectionId = `${sorted[0]}↔${sorted[1]}`;
+      
+      if (!hubConnections.has(connectionId)) {
+        hubConnections.set(connectionId, {
+          station1: sorted[0],
+          station2: sorted[1],
+          connectionId,
+          snRecords: [],
+          connectRecords: [],
+          disconnectRecords: [],
+          avgSN: 0,
+          totalTxBytes: 0,
+          totalRxBytes: 0,
+          sessionCount: 0
+        });
+      }
+      hubConnections.get(connectionId)!.snRecords.push(record);
+    });
+
+    // Process filtered connect records
+    connectRecords.forEach(record => {
+      const sorted = [record.station, record.partner].sort();
+      const connectionId = `${sorted[0]}↔${sorted[1]}`;
+      
+      if (!hubConnections.has(connectionId)) {
+        hubConnections.set(connectionId, {
+          station1: sorted[0],
+          station2: sorted[1],
+          connectionId,
+          snRecords: [],
+          connectRecords: [],
+          disconnectRecords: [],
+          avgSN: 0,
+          totalTxBytes: 0,
+          totalRxBytes: 0,
+          sessionCount: 0
+        });
+      }
+      const hub = hubConnections.get(connectionId)!;
+      hub.connectRecords.push(record);
+      hub.sessionCount++;
+    });
+
+    // Process filtered disconnect records
+    disconnectRecords.forEach(record => {
+      const sorted = [record.station, record.partner].sort();
+      const connectionId = `${sorted[0]}↔${sorted[1]}`;
+      
+      if (hubConnections.has(connectionId)) {
+        const hub = hubConnections.get(connectionId)!;
+        hub.disconnectRecords.push(record);
+        hub.totalTxBytes += record.txBytes;
+        hub.totalRxBytes += record.rxBytes;
+      }
+    });
+
+    // Calculate averages
+    hubConnections.forEach(hub => {
+      if (hub.snRecords.length > 0) {
+        hub.avgSN = hub.snRecords.reduce((sum, r) => sum + r.snValue, 0) / hub.snRecords.length;
       }
     });
 
@@ -57,7 +133,44 @@ const Index = () => {
       disconnectRecords,
       hubConnections,
     };
-  }, [data, selectedStation]);
+  }, [data, selectedStation, dateRange]);
+
+  // Calculate comparison period data
+  const comparisonData = useMemo(() => {
+    if (!data || !dateRange || dateRange.preset === 'all') return null;
+
+    const comparison = getComparisonPeriod(dateRange);
+    const isInPeriod = (timestamp: Date) => {
+      return timestamp >= comparison.start && timestamp <= comparison.end;
+    };
+
+    const snRecords = data.snRecords.filter(r => isInPeriod(r.timestamp));
+    const connectRecords = data.connectRecords.filter(r => isInPeriod(r.timestamp));
+    const disconnectRecords = data.disconnectRecords.filter(r => isInPeriod(r.timestamp));
+
+    const avgSN = snRecords.length > 0
+      ? snRecords.reduce((sum, r) => sum + r.snValue, 0) / snRecords.length
+      : 0;
+
+    const totalTx = disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
+    const totalRx = disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+
+    const excellentCount = snRecords.filter(r => 
+      getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good'
+    ).length;
+    const successRate = snRecords.length > 0 
+      ? (excellentCount / snRecords.length) * 100
+      : 0;
+
+    return {
+      label: comparison.label,
+      avgSN,
+      totalSessions: connectRecords.length,
+      totalData: totalTx + totalRx,
+      snReadings: snRecords.length,
+      successRate,
+    };
+  }, [data, dateRange]);
 
   const stats = useMemo(() => {
     if (!filteredData) return null;
@@ -104,11 +217,28 @@ const Index = () => {
 
   const stationsList = Array.from(data.stations);
 
+  // Calculate change percentages
+  const changes = useMemo(() => {
+    if (!comparisonData || !stats) return null;
+
+    const calcChange = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / Math.abs(previous)) * 100;
+    };
+
+    return {
+      avgSN: calcChange(parseFloat(stats.avgSN), comparisonData.avgSN),
+      sessions: calcChange(stats.totalSessions, comparisonData.totalSessions),
+      snReadings: calcChange(stats.snReadings, comparisonData.snReadings),
+      label: comparisonData.label,
+    };
+  }, [stats, comparisonData]);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <DashboardHeader 
-          dateRange={data.dateRange}
+          dateRange={dateRange ? { start: dateRange.start, end: dateRange.end } : data.dateRange}
           stationCount={selectedStation ? 1 : data.stations.size}
           connectionCount={filteredData.hubConnections.size}
           lastUpdated={new Date()}
@@ -116,6 +246,22 @@ const Index = () => {
           selectedStation={selectedStation}
           onStationChange={setSelectedStation}
         />
+
+        {/* Date Range Filter */}
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          {dateRange && (
+            <DateRangeFilter
+              value={dateRange}
+              onChange={setDateRange}
+              dataDateRange={data.dateRange}
+            />
+          )}
+          {changes && (
+            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+              Comparing {changes.label}
+            </div>
+          )}
+        </div>
 
         {/* Stats Cards */}
         <div className="relative">
@@ -141,6 +287,7 @@ const Index = () => {
               isActive={logFilter === 'sn'}
               onJumpToLogs={() => handleJumpToLogs('sn')}
               accentColor="teal"
+              trend={changes ? { value: Math.round(changes.avgSN * 10) / 10, label: changes.label } : undefined}
             />
             <StatsCard
               title="Connect Events"
@@ -152,6 +299,7 @@ const Index = () => {
               isActive={logFilter === 'sessions'}
               onJumpToLogs={() => handleJumpToLogs('sessions')}
               accentColor="blue"
+              trend={changes ? { value: Math.round(changes.sessions * 10) / 10, label: changes.label } : undefined}
             />
             <StatsCard
               title="Total Data Transfer"
@@ -174,6 +322,7 @@ const Index = () => {
               isActive={logFilter === 'readings'}
               onJumpToLogs={() => handleJumpToLogs('readings')}
               accentColor="orange"
+              trend={changes ? { value: Math.round(changes.snReadings * 10) / 10, label: changes.label } : undefined}
             />
           </div>
         </div>
