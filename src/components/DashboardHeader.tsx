@@ -1,13 +1,31 @@
 import { Radio, Calendar, Wifi, Clock } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface DashboardHeaderProps {
   dateRange: { start: Date; end: Date };
   stationCount: number;
   connectionCount: number;
   lastUpdated?: Date;
+  stations: string[];
+  selectedStation: string | null;
+  onStationChange: (station: string | null) => void;
 }
 
-export function DashboardHeader({ dateRange, stationCount, connectionCount, lastUpdated }: DashboardHeaderProps) {
+export function DashboardHeader({ 
+  dateRange, 
+  stationCount, 
+  connectionCount, 
+  lastUpdated,
+  stations,
+  selectedStation,
+  onStationChange
+}: DashboardHeaderProps) {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
@@ -42,6 +60,24 @@ export function DashboardHeader({ dateRange, stationCount, connectionCount, last
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
+          {/* Station Filter Dropdown */}
+          <Select 
+            value={selectedStation || 'all'} 
+            onValueChange={(value) => onStationChange(value === 'all' ? null : value)}
+          >
+            <SelectTrigger className="w-48 bg-card border-border">
+              <SelectValue placeholder="All Stations" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border z-50">
+              <SelectItem value="all">All Stations</SelectItem>
+              {stations.sort().map((station) => (
+                <SelectItem key={station} value={station} className="font-mono">
+                  {station}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">
