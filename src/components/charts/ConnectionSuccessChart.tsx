@@ -7,7 +7,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { HubConnection } from '@/lib/syslogParser';
+import { HubConnection, ConnectRecord, DisconnectRecord } from '@/lib/syslogParser';
 
 interface ConnectionSuccessChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -21,17 +21,29 @@ const STATUS_COLORS = {
 
 export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChartProps) {
   const { pieData, stats } = useMemo(() => {
-    let totalSuccess = 0;
-    let connectionFailed = 0; // TX: 0, RX: 0 - never connected
+    // Collect all connect and disconnect records
+    const allConnects: ConnectRecord[] = [];
+    const allDisconnects: DisconnectRecord[] = [];
+    
+    hubConnections.forEach((hub) => {
+      allConnects.push(...hub.connectRecords);
+      allDisconnects.push(...hub.disconnectRecords);
+    });
+
+    // Total sessions = number of connect events
+    const totalSessions = allConnects.length;
+
+    // Count outcomes from disconnect records
+    let success = 0;
+    let connectionFailed = 0; // TX: 0, RX: 0 - never exchanged data
     let signalLost = 0; // Had data, then timed out
 
-    // Track S/N values for successful vs failed sessions
+    // Track S/N values
     const successSNValues: number[] = [];
     const failedSNValues: number[] = [];
 
     hubConnections.forEach((hub) => {
       hub.disconnectRecords.forEach((record) => {
-        // Find S/N records close to this disconnect (within 5 minutes before)
         const relatedSN = hub.snRecords.filter(sn => {
           const timeDiff = record.timestamp.getTime() - sn.timestamp.getTime();
           return timeDiff >= 0 && timeDiff < 300000;
@@ -43,25 +55,24 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
 
         if (record.disconnectType === 'timeout') {
           if (avgSN !== null) failedSNValues.push(avgSN);
-          
-          // Categorize the failure
           if (record.txBytes === 0 && record.rxBytes === 0) {
             connectionFailed++;
           } else {
             signalLost++;
           }
         } else {
-          // 'normal' or 'command' disconnects are successful
-          totalSuccess++;
+          success++;
           if (avgSN !== null) successSNValues.push(avgSN);
         }
       });
     });
 
-    const totalFailed = connectionFailed + signalLost;
-    const total = totalSuccess + totalFailed;
+    // Sessions without disconnect record are counted as success (still connected or clean exit not logged)
+    const unaccounted = totalSessions - (success + connectionFailed + signalLost);
+    if (unaccounted > 0) {
+      success += unaccounted;
+    }
 
-    // Calculate average S/N
     const avgSuccessSN = successSNValues.length > 0 
       ? successSNValues.reduce((a, b) => a + b, 0) / successSNValues.length 
       : 0;
@@ -71,15 +82,15 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
 
     return {
       pieData: [
-        { name: 'Success', value: totalSuccess, color: STATUS_COLORS.success },
+        { name: 'Success', value: success, color: STATUS_COLORS.success },
         { name: 'No Connect', value: connectionFailed, color: STATUS_COLORS.connectionFailed },
         { name: 'Signal Lost', value: signalLost, color: STATUS_COLORS.signalLost },
       ].filter(d => d.value > 0),
       stats: {
-        success: totalSuccess,
+        success,
         connectionFailed,
         signalLost,
-        total,
+        total: totalSessions,
         avgSuccessSN: avgSuccessSN.toFixed(1),
         avgFailedSN: avgFailedSN.toFixed(1),
       },
@@ -106,7 +117,7 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
               outerRadius={65}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, value, percent }) => 
+              label={({ value, percent }) => 
                 percent > 0.03 ? `${value}` : ''
               }
               labelLine={false}
