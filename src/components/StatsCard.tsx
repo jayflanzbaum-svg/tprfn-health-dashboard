@@ -27,28 +27,32 @@ const icons = {
 
 const accentColors = {
   teal: {
-    bg: 'bg-teal-500/10',
-    text: 'text-teal-600',
+    cardBg: 'bg-teal-500/10',
+    text: 'text-teal-700 dark:text-teal-300',
     ring: 'ring-teal-500/50',
-    icon: 'text-teal-500',
+    icon: 'text-teal-600',
+    border: 'border-teal-200 dark:border-teal-800',
   },
   blue: {
-    bg: 'bg-blue-500/10',
-    text: 'text-blue-600',
+    cardBg: 'bg-blue-500/10',
+    text: 'text-blue-700 dark:text-blue-300',
     ring: 'ring-blue-500/50',
-    icon: 'text-blue-500',
+    icon: 'text-blue-600',
+    border: 'border-blue-200 dark:border-blue-800',
   },
   purple: {
-    bg: 'bg-purple-500/10',
-    text: 'text-purple-600',
+    cardBg: 'bg-purple-500/10',
+    text: 'text-purple-700 dark:text-purple-300',
     ring: 'ring-purple-500/50',
-    icon: 'text-purple-500',
+    icon: 'text-purple-600',
+    border: 'border-purple-200 dark:border-purple-800',
   },
   orange: {
-    bg: 'bg-orange-500/10',
-    text: 'text-orange-600',
+    cardBg: 'bg-orange-500/10',
+    text: 'text-orange-700 dark:text-orange-300',
     ring: 'ring-orange-500/50',
-    icon: 'text-orange-500',
+    icon: 'text-orange-600',
+    border: 'border-orange-200 dark:border-orange-800',
   },
 };
 
@@ -59,7 +63,9 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
   return (
     <div 
       className={cn(
-        "stat-card animate-slide-up transition-all duration-200",
+        "rounded-xl p-5 border animate-slide-up transition-all duration-200",
+        colors.cardBg,
+        colors.border,
         onClick && "cursor-pointer hover:ring-2",
         onClick && `hover:${colors.ring}`,
         isActive && `ring-2 ${colors.ring}`,
@@ -101,7 +107,7 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
             </button>
           )}
         </div>
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", colors.bg)}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white dark:bg-card border border-border/50 shadow-sm">
           <Icon className={cn("h-6 w-6", colors.icon)} />
         </div>
       </div>
