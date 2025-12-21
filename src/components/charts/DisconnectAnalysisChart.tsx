@@ -108,7 +108,7 @@ export function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisCh
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.command }}></div>
-            <span className="text-muted-foreground">Command: <span className="font-mono font-medium text-foreground">{overallStats.command}</span></span>
+            <span className="text-muted-foreground">Manual: <span className="font-mono font-medium text-foreground">{overallStats.command}</span></span>
           </div>
         </div>
       </div>
@@ -139,13 +139,13 @@ export function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisCh
                 boxShadow: 'var(--shadow-lg)',
               }}
               formatter={(value: number, name: string) => {
-                const label = name === 'normal' ? 'Normal' : name === 'timeout' ? 'Timeout' : 'Command';
+                const label = name === 'normal' ? 'Normal' : name === 'timeout' ? 'Timeout' : 'Manual';
                 return [value, label];
               }}
               labelFormatter={(label) => `Connection: ${label}`}
             />
             <Legend 
-              formatter={(value) => value === 'normal' ? 'Normal (Healthy)' : value === 'timeout' ? 'Timeout (Poor Signal)' : 'Command (Manual)'}
+              formatter={(value) => value === 'normal' ? 'Normal (Healthy)' : value === 'timeout' ? 'Timeout (Poor Signal)' : 'Manual'}
             />
             <Bar dataKey="normal" stackId="a" fill={DISCONNECT_COLORS.normal} name="normal" />
             <Bar dataKey="timeout" stackId="a" fill={DISCONNECT_COLORS.timeout} name="timeout" />
