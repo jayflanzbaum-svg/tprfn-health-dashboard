@@ -35,14 +35,14 @@ export function TXByHubChart({ hubConnections }: TXByHubChartProps) {
   const maxTotal = Math.max(...chartData.map(d => d.total), 1);
 
   return (
-    <div className="chart-card">
+    <div className="chart-card h-full flex flex-col">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-foreground">Data Transfer by Connection</h3>
         <p className="text-sm text-muted-foreground mt-1">Total bytes sent (TX) and received (RX) per hub pair</p>
       </div>
       
       {/* Custom bar chart for better clarity */}
-      <div className="space-y-3">
+      <div className="flex-1 space-y-3">
         {chartData.map((item, index) => {
           const txPercent = (item.txBytes / maxTotal) * 100;
           const rxPercent = (item.rxBytes / maxTotal) * 100;
