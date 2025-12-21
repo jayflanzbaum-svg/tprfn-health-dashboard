@@ -56,23 +56,23 @@ export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps)
   const totalRecords = snRecords.length;
 
   return (
-    <div className="chart-card">
-      <div className="mb-6">
+    <div className="chart-card h-full">
+      <div className="mb-2">
         <h3 className="text-lg font-semibold text-foreground">Signal Quality Distribution</h3>
-        <p className="text-sm text-muted-foreground mt-1">Breakdown of S/N readings by quality level</p>
+        <p className="text-xs text-muted-foreground mt-0.5">S/N readings by quality level</p>
       </div>
-      <div className="h-[300px] flex items-center justify-center">
+      <div className="h-[180px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={60}
-              outerRadius={100}
+              innerRadius={40}
+              outerRadius={65}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
               labelLine={false}
             >
               {chartData.map((entry, index) => (
@@ -93,7 +93,8 @@ export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps)
             />
             <Legend 
               verticalAlign="bottom"
-              formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+              wrapperStyle={{ fontSize: '11px' }}
+              formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
             />
           </PieChart>
         </ResponsiveContainer>
