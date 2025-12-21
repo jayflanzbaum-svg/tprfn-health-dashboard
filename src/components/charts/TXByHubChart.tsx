@@ -7,9 +7,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  Cell,
 } from 'recharts';
 import { HubConnection, formatBytes, formatConnectionShort } from '@/lib/syslogParser';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -22,59 +23,77 @@ export function TXByHubChart({ hubConnections }: TXByHubChartProps) {
       .map(hub => ({
         name: formatConnectionShort(hub.connectionId),
         fullName: hub.connectionId,
+        total: hub.totalTxBytes + hub.totalRxBytes,
         txBytes: hub.totalTxBytes,
         rxBytes: hub.totalRxBytes,
         sessions: hub.sessionCount,
       }))
-      .sort((a, b) => (b.txBytes + b.rxBytes) - (a.txBytes + a.rxBytes));
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10); // Top 10 for readability
   }, [hubConnections]);
+
+  const maxTotal = Math.max(...chartData.map(d => d.total), 1);
 
   return (
     <div className="chart-card">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Total TX/RX by Hub Connection</h3>
-        <p className="text-sm text-muted-foreground mt-1">Data transfer volume from VARAHF Disconnected events</p>
+        <h3 className="text-lg font-semibold text-foreground">Data Transfer by Connection</h3>
+        <p className="text-sm text-muted-foreground mt-1">Total bytes sent (TX) and received (RX) per hub pair</p>
       </div>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              type="number"
-              tickFormatter={(value) => formatBytes(value)}
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
-              width={90}
-              tick={{ fill: 'hsl(var(--foreground))', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-              labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
-              formatter={(value: number, name: string) => [
-                formatBytes(value),
-                name === 'txBytes' ? 'TX Bytes' : 'RX Bytes'
-              ]}
-            />
-            <Legend 
-              wrapperStyle={{ paddingTop: '20px' }}
-              formatter={(value) => value === 'txBytes' ? 'TX Bytes' : 'RX Bytes'}
-            />
-            <Bar dataKey="txBytes" fill="hsl(var(--chart-primary))" radius={[0, 4, 4, 0]} name="txBytes" />
-            <Bar dataKey="rxBytes" fill="hsl(var(--chart-info))" radius={[0, 4, 4, 0]} name="rxBytes" />
-          </BarChart>
-        </ResponsiveContainer>
+      
+      {/* Custom bar chart for better clarity */}
+      <div className="space-y-3">
+        {chartData.map((item, index) => {
+          const txPercent = (item.txBytes / maxTotal) * 100;
+          const rxPercent = (item.rxBytes / maxTotal) * 100;
+          
+          return (
+            <div key={item.name} className="group">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                <span className="text-xs text-muted-foreground">{formatBytes(item.total)} total</span>
+              </div>
+              <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
+                <div 
+                  className="bg-chart-primary transition-all duration-300 flex items-center justify-end px-1"
+                  style={{ width: `${Math.max(txPercent, 2)}%` }}
+                  title={`TX: ${formatBytes(item.txBytes)}`}
+                >
+                  {txPercent > 10 && (
+                    <span className="text-[10px] font-medium text-white/90">{formatBytes(item.txBytes)}</span>
+                  )}
+                </div>
+                <div 
+                  className="bg-chart-info transition-all duration-300 flex items-center px-1"
+                  style={{ width: `${Math.max(rxPercent, 2)}%` }}
+                  title={`RX: ${formatBytes(item.rxBytes)}`}
+                >
+                  {rxPercent > 10 && (
+                    <span className="text-[10px] font-medium text-white/90">{formatBytes(item.rxBytes)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-6 flex items-center justify-center gap-6">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ArrowUp className="h-3 w-3 text-chart-primary" />
+            <div className="h-3 w-6 rounded bg-chart-primary" />
+          </div>
+          <span className="text-xs text-muted-foreground">TX (Sent)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ArrowDown className="h-3 w-3 text-chart-info" />
+            <div className="h-3 w-6 rounded bg-chart-info" />
+          </div>
+          <span className="text-xs text-muted-foreground">RX (Received)</span>
+        </div>
       </div>
     </div>
   );
