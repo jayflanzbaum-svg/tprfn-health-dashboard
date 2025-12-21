@@ -18,7 +18,7 @@ import { useMemo, useState, useRef } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
-  const [logFilter, setLogFilter] = useState<LogFilter>('all');
+  const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const logTableRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +120,7 @@ const Index = () => {
         {/* Stats Cards */}
         <div className="relative">
           {logFilter !== 'all' && (
-            <div className="absolute -top-2 right-0 z-10">
+            <div className="mb-3">
               <button
                 onClick={() => setLogFilter('all')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
