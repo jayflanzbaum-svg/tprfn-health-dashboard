@@ -10,12 +10,13 @@ import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection } from '@/lib/syslogParser';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
   const [logFilter, setLogFilter] = useState<LogFilter>('all');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
+  const logTableRef = useRef<HTMLDivElement>(null);
 
   // Filter data based on selected station
   const filteredData = useMemo(() => {
@@ -84,6 +85,11 @@ const Index = () => {
     setLogFilter(prev => prev === filter ? 'all' : filter);
   };
 
+  const handleJumpToLogs = (filter: LogFilter) => {
+    setLogFilter(filter);
+    logTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   if (loading) {
     return <LoadingState />;
   }
@@ -117,6 +123,7 @@ const Index = () => {
             delay={0}
             onClick={() => handleFilterClick('sn')}
             isActive={logFilter === 'sn'}
+            onJumpToLogs={() => handleJumpToLogs('sn')}
           />
           <StatsCard
             title="Total Sessions"
@@ -126,6 +133,7 @@ const Index = () => {
             delay={100}
             onClick={() => handleFilterClick('sessions')}
             isActive={logFilter === 'sessions'}
+            onJumpToLogs={() => handleJumpToLogs('sessions')}
           />
           <StatsCard
             title="Total Data Transfer"
@@ -135,6 +143,7 @@ const Index = () => {
             delay={200}
             onClick={() => handleFilterClick('data')}
             isActive={logFilter === 'data'}
+            onJumpToLogs={() => handleJumpToLogs('data')}
           />
           <StatsCard
             title="S/N Readings"
@@ -144,6 +153,7 @@ const Index = () => {
             delay={300}
             onClick={() => handleFilterClick('readings')}
             isActive={logFilter === 'readings'}
+            onJumpToLogs={() => handleJumpToLogs('readings')}
           />
         </div>
 
@@ -167,7 +177,7 @@ const Index = () => {
         </div>
 
         {/* Log Entries Table */}
-        <div className="mb-8">
+        <div className="mb-8" ref={logTableRef}>
           <LogEntriesTable 
             snRecords={filteredData.snRecords}
             connectRecords={filteredData.connectRecords}
