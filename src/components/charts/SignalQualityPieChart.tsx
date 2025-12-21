@@ -21,6 +21,14 @@ const QUALITY_COLORS = {
   bad: 'hsl(0, 84%, 60%)',
 };
 
+const QUALITY_RANGES = {
+  Excellent: '≥ 10 dB',
+  Good: '5 to 10 dB',
+  Fair: '0 to 5 dB',
+  Poor: '-10 to 0 dB',
+  Bad: '< -10 dB',
+};
+
 export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps) {
   const chartData = useMemo(() => {
     const qualityCounts: Record<string, number> = {
@@ -78,9 +86,9 @@ export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps)
                 borderRadius: '8px',
                 boxShadow: 'var(--shadow-lg)',
               }}
-              formatter={(value: number) => [
-                `${value} readings (${((value / totalRecords) * 100).toFixed(1)}%)`,
-                'Count'
+              formatter={(value: number, name: string) => [
+                `${value} readings (${((value / totalRecords) * 100).toFixed(1)}%) — S/N: ${QUALITY_RANGES[name as keyof typeof QUALITY_RANGES]}`,
+                name
               ]}
             />
             <Legend 
