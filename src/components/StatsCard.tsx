@@ -12,6 +12,8 @@ interface StatsCardProps {
   };
   className?: string;
   delay?: number;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
 const icons = {
@@ -21,13 +23,19 @@ const icons = {
   signal: Signal,
 };
 
-export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0 }: StatsCardProps) {
+export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive }: StatsCardProps) {
   const Icon = icons[icon];
 
   return (
     <div 
-      className={cn("stat-card animate-slide-up", className)}
+      className={cn(
+        "stat-card animate-slide-up transition-all duration-200",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-accent/50",
+        isActive && "ring-2 ring-accent",
+        className
+      )}
       style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">

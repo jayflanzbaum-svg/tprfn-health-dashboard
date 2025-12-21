@@ -7,12 +7,14 @@ import { SNTimelineChart } from '@/components/charts/SNTimelineChart';
 import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart';
 import { SessionCountChart } from '@/components/charts/SessionCountChart';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
+import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality } from '@/lib/syslogParser';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 const Index = () => {
   const { data, loading, error } = useSyslogData();
+  const [logFilter, setLogFilter] = useState<LogFilter>('all');
 
   const stats = useMemo(() => {
     if (!data) return null;
@@ -40,6 +42,10 @@ const Index = () => {
     };
   }, [data]);
 
+  const handleFilterClick = (filter: LogFilter) => {
+    setLogFilter(prev => prev === filter ? 'all' : filter);
+  };
+
   if (loading) {
     return <LoadingState />;
   }
@@ -66,6 +72,8 @@ const Index = () => {
             subtitle="Across all connections"
             icon="signal"
             delay={0}
+            onClick={() => handleFilterClick('sn')}
+            isActive={logFilter === 'sn'}
           />
           <StatsCard
             title="Total Sessions"
@@ -73,6 +81,8 @@ const Index = () => {
             subtitle="VARAHF Disconnected events"
             icon="activity"
             delay={100}
+            onClick={() => handleFilterClick('sessions')}
+            isActive={logFilter === 'sessions'}
           />
           <StatsCard
             title="Total Data Transfer"
@@ -80,6 +90,8 @@ const Index = () => {
             subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx}`}
             icon="wifi"
             delay={200}
+            onClick={() => handleFilterClick('data')}
+            isActive={logFilter === 'data'}
           />
           <StatsCard
             title="S/N Readings"
@@ -87,6 +99,8 @@ const Index = () => {
             subtitle={`${stats?.successRate}% good/excellent`}
             icon="radio"
             delay={300}
+            onClick={() => handleFilterClick('readings')}
+            isActive={logFilter === 'readings'}
           />
         </div>
 
@@ -107,6 +121,15 @@ const Index = () => {
         {/* Session Count Chart */}
         <div className="mb-8">
           <SessionCountChart hubConnections={data.hubConnections} />
+        </div>
+
+        {/* Log Entries Table */}
+        <div className="mb-8">
+          <LogEntriesTable 
+            snRecords={data.snRecords}
+            disconnectRecords={data.disconnectRecords}
+            filter={logFilter}
+          />
         </div>
 
         {/* Detailed Table */}
