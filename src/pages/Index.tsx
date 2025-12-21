@@ -240,30 +240,25 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <DashboardHeader 
-          dateRange={dateRange ? { start: dateRange.start, end: dateRange.end } : data.dateRange}
           stationCount={selectedStation ? 1 : data.stations.size}
           connectionCount={filteredData.hubConnections.size}
           lastUpdated={new Date()}
           stations={stationsList}
           selectedStation={selectedStation}
           onStationChange={setSelectedStation}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          dataDateRange={data.dateRange}
         />
 
-        {/* Date Range Filter */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          {dateRange && (
-            <DateRangeFilter
-              value={dateRange}
-              onChange={setDateRange}
-              dataDateRange={data.dateRange}
-            />
-          )}
-          {changes && (
-            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+        {/* Comparison Label */}
+        {changes && (
+          <div className="mb-6">
+            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full inline-block">
               Comparing {changes.label}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="relative">

@@ -1,4 +1,4 @@
-import { Radio, Calendar, Wifi, Clock } from 'lucide-react';
+import { Radio, Wifi, Clock } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -6,25 +6,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter';
 
 interface DashboardHeaderProps {
-  dateRange: { start: Date; end: Date };
   stationCount: number;
   connectionCount: number;
   lastUpdated?: Date;
   stations: string[];
   selectedStation: string | null;
   onStationChange: (station: string | null) => void;
+  dateRange: DateRange | null;
+  onDateRangeChange: (range: DateRange) => void;
+  dataDateRange?: { start: Date; end: Date };
 }
 
 export function DashboardHeader({ 
-  dateRange, 
   stationCount, 
   connectionCount, 
   lastUpdated,
   stations,
   selectedStation,
-  onStationChange
+  onStationChange,
+  dateRange,
+  onDateRangeChange,
+  dataDateRange
 }: DashboardHeaderProps) {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
@@ -78,12 +83,13 @@ export function DashboardHeader({
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {formatDate(dateRange.start)} - {formatDate(dateRange.end)}
-            </span>
-          </div>
+          {dateRange && (
+            <DateRangeFilter
+              value={dateRange}
+              onChange={onDateRangeChange}
+              dataDateRange={dataDateRange}
+            />
+          )}
 
           <div 
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"

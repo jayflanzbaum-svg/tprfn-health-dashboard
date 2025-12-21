@@ -90,13 +90,13 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
     });
   };
 
-  const handleAllData = () => {
+  const handleAllDates = () => {
     if (dataDateRange) {
       onChange({
         start: dataDateRange.start,
         end: dataDateRange.end,
         preset: 'all',
-        label: 'All Data',
+        label: 'All Dates',
       });
     }
   };
@@ -126,8 +126,8 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[200px] bg-popover z-50">
-          <DropdownMenuItem onClick={handleAllData} className="cursor-pointer">
-            All Data
+          <DropdownMenuItem onClick={handleAllDates} className="cursor-pointer">
+            All Dates
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {presets.map((preset) => (
@@ -232,20 +232,13 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
   return { start: previousStart, end: previousEnd, label };
 }
 
-export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }): DateRange {
-  if (dataDateRange) {
-    return {
-      start: dataDateRange.start,
-      end: dataDateRange.end,
-      preset: 'all',
-      label: 'All Data',
-    };
-  }
-  const range = presets[2].getRange(); // Last 7 days
+export function getDefaultDateRange(_dataDateRange?: { start: Date; end: Date }): DateRange {
+  // Default to Today
+  const range = presets[0].getRange(); // Today
   return {
     start: range.start,
     end: range.end,
-    preset: 'last7days',
-    label: 'Last 7 Days',
+    preset: 'today',
+    label: 'Today',
   };
 }
