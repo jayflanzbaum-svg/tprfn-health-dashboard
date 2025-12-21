@@ -15,6 +15,7 @@ interface StatsCardProps {
   onClick?: () => void;
   isActive?: boolean;
   onJumpToLogs?: () => void;
+  accentColor?: 'teal' | 'blue' | 'purple' | 'orange';
 }
 
 const icons = {
@@ -24,15 +25,44 @@ const icons = {
   signal: Signal,
 };
 
-export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive, onJumpToLogs }: StatsCardProps) {
+const accentColors = {
+  teal: {
+    bg: 'bg-teal-500/10',
+    text: 'text-teal-600',
+    ring: 'ring-teal-500/50',
+    icon: 'text-teal-500',
+  },
+  blue: {
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-600',
+    ring: 'ring-blue-500/50',
+    icon: 'text-blue-500',
+  },
+  purple: {
+    bg: 'bg-purple-500/10',
+    text: 'text-purple-600',
+    ring: 'ring-purple-500/50',
+    icon: 'text-purple-500',
+  },
+  orange: {
+    bg: 'bg-orange-500/10',
+    text: 'text-orange-600',
+    ring: 'ring-orange-500/50',
+    icon: 'text-orange-500',
+  },
+};
+
+export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive, onJumpToLogs, accentColor = 'teal' }: StatsCardProps) {
   const Icon = icons[icon];
+  const colors = accentColors[accentColor];
 
   return (
     <div 
       className={cn(
         "stat-card animate-slide-up transition-all duration-200",
-        onClick && "cursor-pointer hover:ring-2 hover:ring-accent/50",
-        isActive && "ring-2 ring-accent",
+        onClick && "cursor-pointer hover:ring-2",
+        onClick && `hover:${colors.ring}`,
+        isActive && `ring-2 ${colors.ring}`,
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
@@ -64,15 +94,15 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
                 e.stopPropagation();
                 onJumpToLogs();
               }}
-              className="mt-2 flex items-center gap-1 text-accent hover:underline"
+              className={cn("mt-2 flex items-center gap-1 hover:underline", colors.text)}
             >
               <ArrowDown className="h-3 w-3" />
               <span className="text-xs font-medium">Jump to Log Entries</span>
             </button>
           )}
         </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
-          <Icon className="h-6 w-6 text-accent" />
+        <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", colors.bg)}>
+          <Icon className={cn("h-6 w-6", colors.icon)} />
         </div>
       </div>
     </div>
