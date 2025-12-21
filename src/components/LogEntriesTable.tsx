@@ -91,7 +91,7 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
     switch (filter) {
       case 'sn': return 'Average S/N Readings';
       case 'sessions': return 'Session Connection Events';
-      case 'data': return 'Data Transfer Records';
+      case 'data': return 'Data Transfer Log Entries';
       case 'readings': return 'S/N Signal Readings';
       default: return 'All Log Entries';
     }
