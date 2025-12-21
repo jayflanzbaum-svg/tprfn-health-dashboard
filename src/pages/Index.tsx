@@ -114,51 +114,64 @@ const Index = () => {
         />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatsCard
-            title="Average S/N Ratio"
-            value={`${stats?.avgSN} dB`}
-            subtitle={selectedStation ? `For ${selectedStation}` : "Across all connections"}
-            icon="signal"
-            delay={0}
-            onClick={() => handleFilterClick('sn')}
-            isActive={logFilter === 'sn'}
-            onJumpToLogs={() => handleJumpToLogs('sn')}
-            accentColor="teal"
-          />
-          <StatsCard
-            title="Total Sessions"
-            value={stats?.totalSessions || 0}
-            subtitle="VARAHF Connected events"
-            icon="activity"
-            delay={100}
-            onClick={() => handleFilterClick('sessions')}
-            isActive={logFilter === 'sessions'}
-            onJumpToLogs={() => handleJumpToLogs('sessions')}
-            accentColor="blue"
-          />
-          <StatsCard
-            title="Total Data Transfer"
-            value={stats?.totalData || '0 B'}
-            subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx} (per-station view)`}
-            icon="wifi"
-            delay={200}
-            onClick={() => handleFilterClick('data')}
-            isActive={logFilter === 'data'}
-            onJumpToLogs={() => handleJumpToLogs('data')}
-            accentColor="purple"
-          />
-          <StatsCard
-            title="S/N Readings"
-            value={stats?.snReadings || 0}
-            subtitle={`${stats?.successRate}% good/excellent`}
-            icon="radio"
-            delay={300}
-            onClick={() => handleFilterClick('readings')}
-            isActive={logFilter === 'readings'}
-            onJumpToLogs={() => handleJumpToLogs('readings')}
-            accentColor="orange"
-          />
+        <div className="relative">
+          {logFilter !== 'all' && (
+            <div className="absolute -top-2 right-0 z-10">
+              <button
+                onClick={() => setLogFilter('all')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>Clear filter</span>
+                <span className="text-lg leading-none">&times;</span>
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatsCard
+              title="Average S/N Ratio"
+              value={`${stats?.avgSN} dB`}
+              subtitle={selectedStation ? `For ${selectedStation}` : "Across all connections"}
+              icon="signal"
+              delay={0}
+              onClick={() => handleFilterClick('sn')}
+              isActive={logFilter === 'sn'}
+              onJumpToLogs={() => handleJumpToLogs('sn')}
+              accentColor="teal"
+            />
+            <StatsCard
+              title="Total Sessions"
+              value={stats?.totalSessions || 0}
+              subtitle="VARAHF Connected events"
+              icon="activity"
+              delay={100}
+              onClick={() => handleFilterClick('sessions')}
+              isActive={logFilter === 'sessions'}
+              onJumpToLogs={() => handleJumpToLogs('sessions')}
+              accentColor="blue"
+            />
+            <StatsCard
+              title="Total Data Transfer"
+              value={stats?.totalData || '0 B'}
+              subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx} (per-station view)`}
+              icon="wifi"
+              delay={200}
+              onClick={() => handleFilterClick('data')}
+              isActive={logFilter === 'data'}
+              onJumpToLogs={() => handleJumpToLogs('data')}
+              accentColor="purple"
+            />
+            <StatsCard
+              title="S/N Readings"
+              value={stats?.snReadings || 0}
+              subtitle={`${stats?.successRate}% good/excellent`}
+              icon="radio"
+              delay={300}
+              onClick={() => handleFilterClick('readings')}
+              isActive={logFilter === 'readings'}
+              onJumpToLogs={() => handleJumpToLogs('readings')}
+              accentColor="orange"
+            />
+          </div>
         </div>
 
         {/* S/N Charts - Top Priority */}
