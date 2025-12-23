@@ -34,46 +34,50 @@ interface DateRangeFilterProps {
   dataDateRange?: { start: Date; end: Date };
 }
 
-const presets: { value: DatePreset; label: string; getRange: () => { start: Date; end: Date } }[] = [
+const presetDefs: {
+  value: DatePreset;
+  label: string;
+  getRange: (base: Date) => { start: Date; end: Date };
+}[] = [
   {
     value: 'today',
     label: 'Today',
-    getRange: () => ({ start: startOfDay(new Date()), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(base), end: endOfDay(base) }),
   },
   {
     value: 'yesterday',
     label: 'Yesterday',
-    getRange: () => ({ start: startOfDay(subDays(new Date(), 1)), end: endOfDay(subDays(new Date(), 1)) }),
+    getRange: (base) => ({ start: startOfDay(subDays(base, 1)), end: endOfDay(subDays(base, 1)) }),
   },
   {
     value: 'last7days',
     label: 'Last 7 Days',
-    getRange: () => ({ start: startOfDay(subDays(new Date(), 6)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subDays(base, 6)), end: endOfDay(base) }),
   },
   {
     value: 'last30days',
     label: 'Last 30 Days',
-    getRange: () => ({ start: startOfDay(subDays(new Date(), 29)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subDays(base, 29)), end: endOfDay(base) }),
   },
   {
     value: 'lastWeek',
     label: 'Last Week',
-    getRange: () => ({ start: startOfDay(subWeeks(new Date(), 1)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subWeeks(base, 1)), end: endOfDay(base) }),
   },
   {
     value: 'lastMonth',
     label: 'Last Month',
-    getRange: () => ({ start: startOfDay(subMonths(new Date(), 1)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subMonths(base, 1)), end: endOfDay(base) }),
   },
   {
     value: 'lastQuarter',
     label: 'Last Quarter',
-    getRange: () => ({ start: startOfDay(subQuarters(new Date(), 1)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subQuarters(base, 1)), end: endOfDay(base) }),
   },
   {
     value: 'lastYear',
     label: 'Last Year',
-    getRange: () => ({ start: startOfDay(subYears(new Date(), 1)), end: endOfDay(new Date()) }),
+    getRange: (base) => ({ start: startOfDay(subYears(base, 1)), end: endOfDay(base) }),
   },
 ];
 
@@ -82,8 +86,12 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
   const [customStart, setCustomStart] = useState<Date | undefined>(value.start);
   const [customEnd, setCustomEnd] = useState<Date | undefined>(value.end);
 
-  const handlePresetSelect = (preset: typeof presets[0]) => {
-    const range = preset.getRange();
+  // Anchor preset ranges to the newest available data when provided,
+  // so "Today/Last 7 Days" still works for historical datasets.
+  const baseDate = dataDateRange?.end ?? new Date();
+
+  const handlePresetSelect = (preset: typeof presetDefs[0]) => {
+    const range = preset.getRange(baseDate);
     onChange({
       start: range.start,
       end: range.end,
@@ -131,11 +139,11 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[200px] bg-popover text-popover-foreground z-50">
-          <DropdownMenuItem onClick={handleAllDates} className="cursor-pointer">
+          <DropdownMenuItem onClick={handleAllDates} disabled={!dataDateRange} className="cursor-pointer">
             All Dates
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {presets.map((preset) => (
+          {presetDefs.map((preset) => (
             <DropdownMenuItem
               key={preset.value}
               onClick={() => handlePresetSelect(preset)}
@@ -253,7 +261,7 @@ export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }):
   }
 
   // Fallback: real-world "Today"
-  const range = presets[0].getRange(); // Today
+  const range = presetDefs[0].getRange(new Date()); // Today
   return {
     start: range.start,
     end: range.end,
