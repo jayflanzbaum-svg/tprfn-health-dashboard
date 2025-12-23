@@ -14,7 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      syslog_entries: {
+        Row: {
+          bandwidth: number | null
+          bitrate: number | null
+          bytes_received: number | null
+          bytes_sent: number | null
+          callsign: string
+          created_at: string | null
+          duration_seconds: number | null
+          event_type: string
+          frequency: number | null
+          hub: string
+          id: string
+          raw_message: string
+          remote_callsign: string | null
+          snr: number | null
+          timestamp: string
+          total_bytes: number | null
+        }
+        Insert: {
+          bandwidth?: number | null
+          bitrate?: number | null
+          bytes_received?: number | null
+          bytes_sent?: number | null
+          callsign: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          event_type: string
+          frequency?: number | null
+          hub: string
+          id?: string
+          raw_message: string
+          remote_callsign?: string | null
+          snr?: number | null
+          timestamp: string
+          total_bytes?: number | null
+        }
+        Update: {
+          bandwidth?: number | null
+          bitrate?: number | null
+          bytes_received?: number | null
+          bytes_sent?: number | null
+          callsign?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          event_type?: string
+          frequency?: number | null
+          hub?: string
+          id?: string
+          raw_message?: string
+          remote_callsign?: string | null
+          snr?: number | null
+          timestamp?: string
+          total_bytes?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

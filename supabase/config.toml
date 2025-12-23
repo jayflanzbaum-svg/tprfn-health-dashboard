@@ -2,3 +2,6 @@ project_id = "lcrayouskoctmbecomoi"
 
 [functions.fetch-syslog]
 verify_jwt = false
+
+[functions.import-syslog]
+verify_jwt = false
