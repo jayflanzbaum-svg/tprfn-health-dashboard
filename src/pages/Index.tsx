@@ -255,18 +255,38 @@ const Index = () => {
     filteredData.connectRecords.length > 0 ||
     filteredData.disconnectRecords.length > 0;
 
+  const stationsList = Array.from(data.stations);
+
   if (!hasAnyEvents) {
     return (
-      <EmptyState
-        title="No data for selected date range"
-        description="Try selecting “All Dates” or a wider range in the date filter."
-        onRefresh={refetch}
-        isRefreshing={isRefreshing}
-      />
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <DashboardHeader
+            stationCount={selectedStation ? 1 : data.stations.size}
+            connectionCount={filteredData.hubConnections.size}
+            lastUpdated={lastUpdated}
+            stations={stationsList}
+            selectedStation={selectedStation}
+            onStationChange={setSelectedStation}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            dataDateRange={data.dateRange}
+            onRefresh={refetch}
+            isRefreshing={isRefreshing}
+          />
+
+          <main className="mt-8">
+            <EmptyState
+              title="No data for selected date range"
+              description="Try selecting “All Dates” or choose a range near the newest available data."
+              onRefresh={refetch}
+              isRefreshing={isRefreshing}
+            />
+          </main>
+        </div>
+      </div>
     );
   }
-
-  const stationsList = Array.from(data.stations);
 
   return (
     <div className="min-h-screen bg-background">
