@@ -152,44 +152,46 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Popover open={isCustomOpen} onOpenChange={setIsCustomOpen}>
-        <PopoverTrigger asChild>
-          <span className="hidden" />
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-4 bg-popover z-50" align="start">
-          <div className="space-y-4">
-            <div className="text-sm font-medium">Select Date Range</div>
-            <div className="flex gap-4">
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">Start Date</div>
-                <Calendar
-                  mode="single"
-                  selected={customStart}
-                  onSelect={setCustomStart}
-                  className="rounded-md border pointer-events-auto"
-                />
+      {isCustomOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20" onClick={() => setIsCustomOpen(false)}>
+          <div 
+            className="bg-popover border rounded-lg p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              <div className="text-sm font-medium">Select Date Range</div>
+              <div className="flex gap-4">
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">Start Date</div>
+                  <Calendar
+                    mode="single"
+                    selected={customStart}
+                    onSelect={setCustomStart}
+                    className="rounded-md border pointer-events-auto"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">End Date</div>
+                  <Calendar
+                    mode="single"
+                    selected={customEnd}
+                    onSelect={setCustomEnd}
+                    className="rounded-md border pointer-events-auto"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">End Date</div>
-                <Calendar
-                  mode="single"
-                  selected={customEnd}
-                  onSelect={setCustomEnd}
-                  className="rounded-md border pointer-events-auto"
-                />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsCustomOpen(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleCustomApply} disabled={!customStart || !customEnd}>
+                  Apply
+                </Button>
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsCustomOpen(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleCustomApply} disabled={!customStart || !customEnd}>
-                Apply
-              </Button>
             </div>
           </div>
-        </PopoverContent>
-      </Popover>
+        </div>
+      )}
 
       {value.preset !== 'all' && (
         <div className="text-xs text-muted-foreground">
