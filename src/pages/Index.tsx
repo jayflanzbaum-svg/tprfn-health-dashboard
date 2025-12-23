@@ -12,7 +12,7 @@ import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
 import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
-import { LoadingState, ErrorState } from '@/components/LoadingState';
+import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
@@ -223,8 +223,19 @@ const Index = () => {
     return <LoadingState />;
   }
 
-  if (error || !data || !filteredData) {
-    return <ErrorState error={error || 'Failed to load data'} />;
+  if (error) {
+    return <ErrorState error={error} />;
+  }
+
+  if (!data || !filteredData) {
+    return (
+      <EmptyState
+        title="No recent log data"
+        description="No database entries were found for the current fetch window (last 30 days) and callsign filter."
+        onRefresh={refetch}
+        isRefreshing={isRefreshing}
+      />
+    );
   }
 
   const stationsList = Array.from(data.stations);
