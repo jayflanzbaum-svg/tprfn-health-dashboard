@@ -1,4 +1,4 @@
-import { useSyslogData } from '@/hooks/useSyslogData';
+import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
@@ -20,7 +20,7 @@ import { useMemo, useState, useRef } from 'react';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
-  const { data, loading, error, refetch, lastUpdated, isRefreshing } = useSyslogData(allowedCallsigns);
+  const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns);
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
