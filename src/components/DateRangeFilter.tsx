@@ -125,7 +125,7 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[200px] bg-popover z-50">
+        <DropdownMenuContent align="start" className="w-[200px] bg-white dark:bg-slate-900 z-50">
           <DropdownMenuItem onClick={handleAllDates} className="cursor-pointer">
             All Dates
           </DropdownMenuItem>
@@ -153,9 +153,9 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
       </DropdownMenu>
 
       {isCustomOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20" onClick={() => setIsCustomOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50" onClick={() => setIsCustomOpen(false)}>
           <div 
-            className="bg-popover border rounded-lg p-4 shadow-lg"
+            className="bg-white dark:bg-slate-900 border rounded-lg p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="space-y-4">
