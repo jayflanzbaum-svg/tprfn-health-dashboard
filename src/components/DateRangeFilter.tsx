@@ -11,10 +11,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 export type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'lastWeek' | 'lastMonth' | 'lastQuarter' | 'lastYear' | 'custom' | 'all';
@@ -155,49 +157,44 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {isCustomOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-start justify-center bg-background p-6 pt-20"
-          onClick={() => setIsCustomOpen(false)}
-        >
-          <div
-            className="w-full max-w-[900px] bg-popover text-popover-foreground border rounded-lg p-4 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="space-y-4">
-              <div className="text-sm font-medium">Select Date Range</div>
-              <div className="flex gap-4">
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">Start Date</div>
-                  <Calendar
-                    mode="single"
-                    selected={customStart}
-                    onSelect={setCustomStart}
-                    className="rounded-md border bg-background pointer-events-auto"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">End Date</div>
-                  <Calendar
-                    mode="single"
-                    selected={customEnd}
-                    onSelect={setCustomEnd}
-                    className="rounded-md border bg-background pointer-events-auto"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsCustomOpen(false)}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleCustomApply} disabled={!customStart || !customEnd}>
-                  Apply
-                </Button>
-              </div>
+      <Dialog open={isCustomOpen} onOpenChange={setIsCustomOpen}>
+        <DialogContent className="max-w-[900px] bg-popover text-popover-foreground">
+          <DialogHeader>
+            <DialogTitle>Select Date Range</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground">Start Date</div>
+              <Calendar
+                mode="single"
+                selected={customStart}
+                onSelect={setCustomStart}
+                className="rounded-md border bg-background pointer-events-auto"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground">End Date</div>
+              <Calendar
+                mode="single"
+                selected={customEnd}
+                onSelect={setCustomEnd}
+                className="rounded-md border bg-background pointer-events-auto"
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsCustomOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleCustomApply} disabled={!customStart || !customEnd}>
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {value.preset !== 'all' && (
         <div className="text-xs text-muted-foreground">
