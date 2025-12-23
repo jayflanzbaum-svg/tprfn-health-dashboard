@@ -1,4 +1,4 @@
-import { Radio, Wifi, Clock } from 'lucide-react';
+import { Radio, Wifi, Clock, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -7,17 +7,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface DashboardHeaderProps {
   stationCount: number;
   connectionCount: number;
-  lastUpdated?: Date;
+  lastUpdated?: Date | null;
   stations: string[];
   selectedStation: string | null;
   onStationChange: (station: string | null) => void;
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   dataDateRange?: { start: Date; end: Date };
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function DashboardHeader({ 
@@ -29,16 +33,10 @@ export function DashboardHeader({
   onStationChange,
   dateRange,
   onDateRangeChange,
-  dataDateRange
+  dataDateRange,
+  onRefresh,
+  isRefreshing
 }: DashboardHeaderProps) {
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
-
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
@@ -59,7 +57,7 @@ export function DashboardHeader({
               TPRFN <span className="gradient-text">HEALTH DASHBOARD</span>
             </h1>
             <p className="text-muted-foreground mt-0.5">
-              RF Connection Analytics
+              RF Connection Analytics • Auto-refreshes every 5 min
             </p>
           </div>
         </div>
@@ -111,12 +109,27 @@ export function DashboardHeader({
             </span>
           </div>
 
-          {lastUpdated && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span>Last updated: {formatTime(lastUpdated)}</span>
-            </div>
-          )}
+          {/* Refresh button and last updated */}
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="gap-1.5"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+            )}
+            {lastUpdated && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Updated: {formatTime(lastUpdated)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
