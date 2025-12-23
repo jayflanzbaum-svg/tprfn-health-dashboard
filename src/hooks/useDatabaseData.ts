@@ -163,7 +163,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       if (timestamp < minDate) minDate = timestamp;
       if (timestamp > maxDate) maxDate = timestamp;
 
-      if (entry.event_type === 'snr' && entry.snr !== null && partner) {
+      if (entry.event_type === 'sn_report' && entry.snr !== null && partner) {
         stations.add(station);
         stations.add(partner);
 
@@ -198,7 +198,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         hubConnections.get(connectionId)!.snRecords.push(record);
       }
 
-      if (entry.event_type === 'connect' && partner) {
+      if ((entry.event_type === 'connect_in' || entry.event_type === 'connect_out') && partner) {
         stations.add(station);
         stations.add(partner);
 
@@ -234,7 +234,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         hub.sessionCount++;
       }
 
-      if (entry.event_type === 'disconnect') {
+      if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
         // Find the partner from recent activity
         const lastPartner = lastPartnerMap.get(station);
         const disconnectPartner = partner || lastPartner?.partner || '';
