@@ -20,7 +20,7 @@ import { useMemo, useState, useRef } from 'react';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
-  const { data, loading, error } = useSyslogData(allowedCallsigns);
+  const { data, loading, error, refetch, lastUpdated, isRefreshing } = useSyslogData(allowedCallsigns);
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
@@ -235,13 +235,15 @@ const Index = () => {
         <DashboardHeader 
           stationCount={selectedStation ? 1 : data.stations.size}
           connectionCount={filteredData.hubConnections.size}
-          lastUpdated={new Date()}
+          lastUpdated={lastUpdated}
           stations={stationsList}
           selectedStation={selectedStation}
           onStationChange={setSelectedStation}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           dataDateRange={data.dateRange}
+          onRefresh={refetch}
+          isRefreshing={isRefreshing}
         />
 
         {/* Comparison Label */}
