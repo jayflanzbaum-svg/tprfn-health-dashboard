@@ -1,13 +1,68 @@
-import { Database, Loader2, RefreshCw } from 'lucide-react';
+import { Database, Loader2, Radio, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { useEffect, useState } from 'react';
 
 export function LoadingState() {
+  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState('Connecting to database...');
+
+  useEffect(() => {
+    const stages = [
+      { progress: 15, text: 'Connecting to database...' },
+      { progress: 35, text: 'Fetching syslog entries...' },
+      { progress: 55, text: 'Processing records...' },
+      { progress: 75, text: 'Building analytics...' },
+      { progress: 90, text: 'Preparing visualizations...' },
+    ];
+
+    let currentStage = 0;
+    const interval = setInterval(() => {
+      if (currentStage < stages.length) {
+        setProgress(stages[currentStage].progress);
+        setStatusText(stages[currentStage].text);
+        currentStage++;
+      }
+    }, 600);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-accent mx-auto" />
-        <p className="mt-4 text-lg font-medium text-foreground">Loading RF Analytics...</p>
-        <p className="mt-1 text-sm text-muted-foreground">Parsing syslog data</p>
+      <div className="text-center max-w-md w-full px-6">
+        {/* Animated radio waves */}
+        <div className="relative flex items-center justify-center mb-8">
+          <div className="absolute h-32 w-32 rounded-full border-2 border-accent/20 animate-ping" style={{ animationDuration: '2s' }} />
+          <div className="absolute h-24 w-24 rounded-full border-2 border-accent/30 animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.2s' }} />
+          <div className="absolute h-16 w-16 rounded-full border-2 border-accent/40 animate-ping" style={{ animationDuration: '1s', animationDelay: '0.4s' }} />
+          <div className="relative h-20 w-20 rounded-full bg-accent/10 border-2 border-accent flex items-center justify-center">
+            <Radio className="h-10 w-10 text-accent animate-pulse" />
+          </div>
+        </div>
+
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          Loading RF Analytics
+        </h2>
+        <p className="text-muted-foreground mb-6">
+          Fetching data from TPRFN network
+        </p>
+
+        {/* Progress bar */}
+        <div className="space-y-3">
+          <Progress value={progress} className="h-2" />
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            <span>{statusText}</span>
+          </div>
+        </div>
+
+        {/* Pulsing dots */}
+        <div className="flex justify-center gap-1.5 mt-6">
+          <span className="h-2 w-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="h-2 w-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="h-2 w-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
       </div>
     </div>
   );
