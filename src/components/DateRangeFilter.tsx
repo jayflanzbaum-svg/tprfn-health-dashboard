@@ -238,8 +238,21 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
   return { start: previousStart, end: previousEnd, label };
 }
 
-export function getDefaultDateRange(_dataDateRange?: { start: Date; end: Date }): DateRange {
-  // Default to Today
+export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }): DateRange {
+  // If the dataset is historical (or not aligned with the user's local "today"),
+  // default to a meaningful range anchored to the newest available data.
+  if (dataDateRange) {
+    const end = endOfDay(dataDateRange.end);
+    const start = startOfDay(subDays(end, 6));
+    return {
+      start,
+      end,
+      preset: 'last7days',
+      label: 'Last 7 Days',
+    };
+  }
+
+  // Fallback: real-world "Today"
   const range = presets[0].getRange(); // Today
   return {
     start: range.start,
