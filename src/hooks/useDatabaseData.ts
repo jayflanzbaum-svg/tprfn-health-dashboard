@@ -27,7 +27,7 @@ interface DatabaseEntry {
   total_bytes: number | null;
   bandwidth: number | null;
   frequency: number | null;
-  raw_message: string;
+  raw_message?: string | null;
 }
 
 function createConnectionId(station1: string, station2: string): string {

@@ -16,7 +16,7 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState'
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
-import { useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
@@ -25,6 +25,18 @@ const Index = () => {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
   const logTableRef = useRef<HTMLDivElement>(null);
+
+  // If the dataset isn't aligned with the user's current date, snap the initial
+  // filter to a meaningful window anchored to the newest available data.
+  useEffect(() => {
+    if (!data?.dateRange) return;
+
+    setDateRange((prev) => {
+      const overlaps = prev.start <= data.dateRange.end && prev.end >= data.dateRange.start;
+      if (overlaps) return prev;
+      return getDefaultDateRange(data.dateRange);
+    });
+  }, [data?.dateRange]);
 
   // Filter data based on selected station and date range
   const filteredData = useMemo(() => {
@@ -232,6 +244,22 @@ const Index = () => {
       <EmptyState
         title="No recent log data"
         description="No database entries were found for the current fetch window (last 30 days) and callsign filter."
+        onRefresh={refetch}
+        isRefreshing={isRefreshing}
+      />
+    );
+  }
+
+  const hasAnyEvents =
+    filteredData.snRecords.length > 0 ||
+    filteredData.connectRecords.length > 0 ||
+    filteredData.disconnectRecords.length > 0;
+
+  if (!hasAnyEvents) {
+    return (
+      <EmptyState
+        title="No data for selected date range"
+        description="Try selecting “All Dates” or a wider range in the date filter."
         onRefresh={refetch}
         isRefreshing={isRefreshing}
       />
