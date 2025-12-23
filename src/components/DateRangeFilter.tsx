@@ -103,11 +103,14 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 
   const handleCustomApply = () => {
     if (customStart && customEnd) {
+      const startLabelFormat =
+        customStart.getFullYear() !== customEnd.getFullYear() ? 'MMM d, yyyy' : 'MMM d';
+
       onChange({
         start: startOfDay(customStart),
         end: endOfDay(customEnd),
         preset: 'custom',
-        label: `${format(customStart, 'MMM d')} - ${format(customEnd, 'MMM d, yyyy')}`,
+        label: `${format(customStart, startLabelFormat)} - ${format(customEnd, 'MMM d, yyyy')}`,
       });
       setIsCustomOpen(false);
     }
@@ -195,7 +198,8 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 
       {value.preset !== 'all' && (
         <div className="text-xs text-muted-foreground">
-          {format(value.start, 'MMM d')} - {format(value.end, 'MMM d, yyyy')}
+          {format(value.start, value.start.getFullYear() !== value.end.getFullYear() ? 'MMM d, yyyy' : 'MMM d')} -{' '}
+          {format(value.end, 'MMM d, yyyy')}
         </div>
       )}
     </div>
