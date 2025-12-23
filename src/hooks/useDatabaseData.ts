@@ -56,11 +56,32 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       }
       
       console.log('Fetching syslog data from database...');
-      
-      // Fetch entries from the last 30 days to avoid timeout issues
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
+      // First, get the max timestamp in the database so we fetch relative to actual data
+      const { data: rangeData, error: rangeError } = await supabase
+        .from('syslog_entries')
+        .select('timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+      if (rangeError) {
+        throw new Error(rangeError.message);
+      }
+
+      if (!rangeData || rangeData.length === 0) {
+        console.log('No entries found in database');
+        setRawData([]);
+        setLastUpdated(new Date());
+        setError(null);
+        return;
+      }
+
+      const maxTimestamp = new Date(rangeData[0].timestamp);
+      const thirtyDaysBeforeMax = new Date(maxTimestamp);
+      thirtyDaysBeforeMax.setDate(thirtyDaysBeforeMax.getDate() - 30);
+
+      console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${thirtyDaysBeforeMax.toISOString()}`);
+
       const allEntries: DatabaseEntry[] = [];
       let page = 0;
       const pageSize = 1000;
@@ -71,7 +92,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         const { data: entries, error: queryError } = await supabase
           .from('syslog_entries')
           .select('*')
-          .gte('timestamp', thirtyDaysAgo.toISOString())
+          .gte('timestamp', thirtyDaysBeforeMax.toISOString())
           .order('timestamp', { ascending: true })
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -88,7 +109,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         }
       }
 
-      console.log(`Fetched ${allEntries.length} entries from database (last 30 days)`);
+      console.log(`Fetched ${allEntries.length} entries from database (last 30 days of available data)`);
       setRawData(allEntries);
       setLastUpdated(new Date());
       setError(null);
