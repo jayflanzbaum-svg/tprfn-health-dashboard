@@ -57,17 +57,21 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       
       console.log('Fetching syslog data from database...');
       
-      // Fetch all entries from the database
-      // Note: Supabase has a default limit of 1000, so we need to paginate
+      // Fetch entries from the last 30 days to avoid timeout issues
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
       const allEntries: DatabaseEntry[] = [];
       let page = 0;
       const pageSize = 1000;
       let hasMore = true;
+      const maxPages = 100; // Safety limit
 
-      while (hasMore) {
+      while (hasMore && page < maxPages) {
         const { data: entries, error: queryError } = await supabase
           .from('syslog_entries')
           .select('*')
+          .gte('timestamp', thirtyDaysAgo.toISOString())
           .order('timestamp', { ascending: true })
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -84,7 +88,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         }
       }
 
-      console.log(`Fetched ${allEntries.length} entries from database`);
+      console.log(`Fetched ${allEntries.length} entries from database (last 30 days)`);
       setRawData(allEntries);
       setLastUpdated(new Date());
       setError(null);
