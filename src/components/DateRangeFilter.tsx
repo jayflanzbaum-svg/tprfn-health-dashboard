@@ -128,7 +128,7 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[200px] bg-white dark:bg-slate-900 z-50">
+        <DropdownMenuContent align="start" className="w-[200px] bg-popover text-popover-foreground z-50">
           <DropdownMenuItem onClick={handleAllDates} className="cursor-pointer">
             All Dates
           </DropdownMenuItem>
@@ -156,9 +156,12 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
       </DropdownMenu>
 
       {isCustomOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50" onClick={() => setIsCustomOpen(false)}>
-          <div 
-            className="bg-white dark:bg-slate-900 border rounded-lg p-4 shadow-lg"
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center bg-background p-6 pt-20"
+          onClick={() => setIsCustomOpen(false)}
+        >
+          <div
+            className="w-full max-w-[900px] bg-popover text-popover-foreground border rounded-lg p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="space-y-4">
@@ -170,7 +173,7 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
                     mode="single"
                     selected={customStart}
                     onSelect={setCustomStart}
-                    className="rounded-md border pointer-events-auto"
+                    className="rounded-md border bg-background pointer-events-auto"
                   />
                 </div>
                 <div className="space-y-2">
@@ -179,7 +182,7 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
                     mode="single"
                     selected={customEnd}
                     onSelect={setCustomEnd}
-                    className="rounded-md border pointer-events-auto"
+                    className="rounded-md border bg-background pointer-events-auto"
                   />
                 </div>
               </div>
