@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -18,7 +18,7 @@ interface BitrateAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
-export function BitrateAnalysisChart({ hubConnections }: BitrateAnalysisChartProps) {
+export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConnections }: BitrateAnalysisChartProps) {
   const { connectionData, scatterData, stats } = useMemo(() => {
     const connectionStats: {
       name: string;
@@ -231,4 +231,4 @@ export function BitrateAnalysisChart({ hubConnections }: BitrateAnalysisChartPro
       </div>
     </div>
   );
-}
+});

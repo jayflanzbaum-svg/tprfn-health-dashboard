@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -99,7 +99,7 @@ function getSubtitle(granularity: Granularity): string {
   }
 }
 
-export function SNTimelineChart({ snRecords, dateRange }: SNTimelineChartProps) {
+export const SNTimelineChart = memo(function SNTimelineChart({ snRecords, dateRange }: SNTimelineChartProps) {
   const granularity = getGranularity(dateRange);
   
   const chartData = useMemo(() => {
@@ -200,4 +200,4 @@ export function SNTimelineChart({ snRecords, dateRange }: SNTimelineChartProps) 
       </div>
     </div>
   );
-}
+});

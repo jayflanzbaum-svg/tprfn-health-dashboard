@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   PieChart,
   Pie,
@@ -22,7 +22,7 @@ const STATUS_COLORS = {
 
 const MAX_SESSION_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChartProps) {
+export const ConnectionSuccessChart = memo(function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChartProps) {
   const { pieData, stats } = useMemo(() => {
     let totalConnectEvents = 0;
 
@@ -178,4 +178,4 @@ export function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChar
       </div>
     </div>
   );
-}
+});

@@ -1,14 +1,4 @@
-import { useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
+import { memo, useMemo } from 'react';
 import { HubConnection, formatBytes, formatConnectionShort } from '@/lib/syslogParser';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -16,7 +6,7 @@ interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
-export function TXByHubChart({ hubConnections }: TXByHubChartProps) {
+export const TXByHubChart = memo(function TXByHubChart({ hubConnections }: TXByHubChartProps) {
   const chartData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.disconnectRecords.length > 0)
@@ -97,4 +87,4 @@ export function TXByHubChart({ hubConnections }: TXByHubChartProps) {
       </div>
     </div>
   );
-}
+});

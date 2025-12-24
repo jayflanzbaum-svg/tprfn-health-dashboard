@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -15,7 +15,7 @@ interface StationBitrateChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
-export function StationBitrateChart({ hubConnections }: StationBitrateChartProps) {
+export const StationBitrateChart = memo(function StationBitrateChart({ hubConnections }: StationBitrateChartProps) {
   const stationData = useMemo(() => {
     const stationStats = new Map<string, {
       avgTxBps: number[];
@@ -135,4 +135,4 @@ export function StationBitrateChart({ hubConnections }: StationBitrateChartProps
       </div>
     </div>
   );
-}
+});
