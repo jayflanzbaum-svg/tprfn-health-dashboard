@@ -38,20 +38,17 @@ const presetDefs: {
   value: DatePreset;
   label: string;
   getRange: (base: Date) => { start: Date; end: Date };
-  useRealDate?: boolean; // If true, use current date instead of data's end date
   requiresLoading?: boolean; // If true, show loading indicator when selected
 }[] = [
   {
     value: 'today',
     label: 'Today',
-    getRange: () => ({ start: startOfDay(new Date()), end: endOfDay(new Date()) }),
-    useRealDate: true,
+    getRange: (base) => ({ start: startOfDay(base), end: endOfDay(base) }),
   },
   {
     value: 'yesterday',
     label: 'Yesterday',
-    getRange: () => ({ start: startOfDay(subDays(new Date(), 1)), end: endOfDay(subDays(new Date(), 1)) }),
-    useRealDate: true,
+    getRange: (base) => ({ start: startOfDay(subDays(base, 1)), end: endOfDay(subDays(base, 1)) }),
   },
   {
     value: 'last7days',
@@ -97,9 +94,8 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
   const baseDate = dataDateRange?.end ?? new Date();
 
   const handlePresetSelect = (preset: typeof presetDefs[0]) => {
-    // Use real date for today/yesterday, otherwise use data's end date
-    const base = preset.useRealDate ? new Date() : baseDate;
-    const range = preset.getRange(base);
+    // Always use the newest available data date as the base
+    const range = preset.getRange(baseDate);
     onChange({
       start: range.start,
       end: range.end,
@@ -258,35 +254,23 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
 }
 
 export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }): DateRange {
-  // Always default to real "Today" first
-  const today = new Date();
-  const range = { start: startOfDay(today), end: endOfDay(today) };
-  
-  // If we have data range, check if today overlaps with the data
+  // If we have data, anchor "Today" to the newest available data
   if (dataDateRange) {
-    const todayOverlaps = range.start <= dataDateRange.end && range.end >= dataDateRange.start;
-    if (todayOverlaps) {
-      return {
-        start: range.start,
-        end: range.end,
-        preset: 'today',
-        label: 'Today',
-      };
-    }
-    // If today doesn't overlap, use last 7 days of available data
     const end = endOfDay(dataDateRange.end);
-    const start = startOfDay(subDays(end, 6));
+    const start = startOfDay(dataDateRange.end);
     return {
       start,
       end,
-      preset: 'last7days',
-      label: 'Last 7 Days',
+      preset: 'today',
+      label: 'Today',
     };
   }
 
+  // Fallback to actual current date if no data range provided
+  const today = new Date();
   return {
-    start: range.start,
-    end: range.end,
+    start: startOfDay(today),
+    end: endOfDay(today),
     preset: 'today',
     label: 'Today',
   };
