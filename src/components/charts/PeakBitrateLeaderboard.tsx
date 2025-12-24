@@ -1,4 +1,4 @@
-import { forwardRef, memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { HubConnection, formatConnectionShort, formatBytes, formatDuration } from '@/lib/syslogParser';
 import { Trophy, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -16,8 +16,7 @@ interface LeaderboardEntry {
   bytesTransferred: number;
 }
 
-export const PeakBitrateLeaderboard = memo(
-  forwardRef<HTMLDivElement, PeakBitrateLeaderboardProps>(function PeakBitrateLeaderboard({ hubConnections }, ref) {
+export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hubConnections }: PeakBitrateLeaderboardProps) {
   const leaderboard = useMemo(() => {
     const entries: LeaderboardEntry[] = [];
 
@@ -74,7 +73,7 @@ export const PeakBitrateLeaderboard = memo(
   };
 
   return (
-    <div ref={ref} className="chart-card h-full flex flex-col">
+    <div className="chart-card h-full flex flex-col">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-5 w-5 text-amber-400" />
         <div>
@@ -133,7 +132,5 @@ export const PeakBitrateLeaderboard = memo(
       </div>
     </div>
   );
-  }),
-);
-PeakBitrateLeaderboard.displayName = 'PeakBitrateLeaderboard';
+});
 
