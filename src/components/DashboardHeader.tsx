@@ -41,6 +41,13 @@ function formatZulu(date: Date) {
   return date.toISOString().slice(11, 19) + 'Z';
 }
 
+function formatDateMMDDYYYY(date: Date) {
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  return `${month}-${day}-${year}`;
+}
+
 function formatLocal(date: Date) {
   return date.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
@@ -181,9 +188,13 @@ export function DashboardHeader({
             <span className="text-xs text-muted-foreground uppercase">UTC</span>
           </div>
           <div className="h-5 w-px bg-border/50" />
+          <span className="text-xl font-mono font-bold text-accent tracking-wide">
+            {formatDateMMDDYYYY(now)}
+          </span>
+          <div className="h-5 w-px bg-border/50" />
           <div className="flex items-center gap-1.5">
             <span className="text-lg font-mono font-bold text-foreground tracking-wide">
-              {format(now, 'yyyy-MM-dd HH:mm:ss')}
+              {format(now, 'HH:mm:ss')}
             </span>
             <span className="text-xs text-muted-foreground uppercase">{tzAbbr}</span>
           </div>
