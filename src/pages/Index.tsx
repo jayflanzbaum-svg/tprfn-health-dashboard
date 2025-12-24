@@ -16,7 +16,7 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState'
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -27,18 +27,6 @@ const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
   const logTableRef = useRef<HTMLDivElement>(null);
-
-  // If the dataset isn't aligned with the user's current date, snap the initial
-  // filter to a meaningful window anchored to the newest available data.
-  useEffect(() => {
-    if (!data?.dateRange) return;
-
-    setDateRange((prev) => {
-      const overlaps = prev.start <= data.dateRange.end && prev.end >= data.dateRange.start;
-      if (overlaps) return prev;
-      return getDefaultDateRange(data.dateRange);
-    });
-  }, [data?.dateRange]);
 
   // Filter data based on selected station and date range
   const filteredData = useMemo(() => {

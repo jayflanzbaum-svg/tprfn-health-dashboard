@@ -152,14 +152,14 @@ const presetDefs: {
 ];
 
 export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFilterProps) {
-  const useUtc = Boolean(dataDateRange);
+  const useUtc = false;
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [customStart, setCustomStart] = useState<Date | undefined>(toDisplayDay(value.start, useUtc));
   const [customEnd, setCustomEnd] = useState<Date | undefined>(toDisplayDay(value.end, useUtc));
 
-  // Anchor preset ranges to the newest available data when provided,
-  // so "Today/Last 7 Days" still works for historical datasets.
-  const baseDate = dataDateRange?.end ?? new Date();
+  // Presets should follow the user's actual calendar (browser local time).
+  // If there's no data for the chosen range, the dashboard will show an empty state.
+  const baseDate = new Date();
 
   const handlePresetSelect = (preset: typeof presetDefs[0]) => {
     // Always use the newest available data date as the base
@@ -346,20 +346,8 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
   return { start: previousStart, end: previousEnd, label };
 }
 
-export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }): DateRange {
-  // If we have data, anchor "Today" to the newest available data (UTC day)
-  if (dataDateRange) {
-    const start = startOfUtcDay(dataDateRange.end);
-    const end = endOfUtcDay(dataDateRange.end);
-    return {
-      start,
-      end,
-      preset: 'today',
-      label: 'Today',
-    };
-  }
-
-  // Fallback to actual current date if no data range provided (local day)
+export function getDefaultDateRange(_dataDateRange?: { start: Date; end: Date }): DateRange {
+  // Default to the user's actual current day (local time).
   const today = new Date();
   return {
     start: startOfDay(today),
