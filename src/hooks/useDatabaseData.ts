@@ -260,7 +260,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
           maxRxBps: entry.bitrate || 0,
           sessionTime: `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`,
           sessionSeconds,
-          disconnectType: entry.raw_message.toLowerCase().includes('timeout') ? 'timeout' : 'normal'
+          disconnectType: (entry.raw_message ?? '').toLowerCase().includes('timeout') ? 'timeout' : 'normal'
         };
         disconnectRecords.push(record);
 
