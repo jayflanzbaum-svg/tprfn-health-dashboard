@@ -34,60 +34,128 @@ interface DateRangeFilterProps {
   dataDateRange?: { start: Date; end: Date };
 }
 
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+function endOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+}
+
+function addDaysUtc(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+function addMonthsUtc(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+}
+
+function addYearsUtc(date: Date, years: number): Date {
+  const d = new Date(date);
+  d.setUTCFullYear(d.getUTCFullYear() + years);
+  return d;
+}
+
+// Calendar selection is in local time; convert to a UTC day range with the same YYYY-MM-DD.
+function startOfUtcDayFromLocalDay(dateLocal: Date): Date {
+  return new Date(Date.UTC(dateLocal.getFullYear(), dateLocal.getMonth(), dateLocal.getDate(), 0, 0, 0, 0));
+}
+
+function endOfUtcDayFromLocalDay(dateLocal: Date): Date {
+  return new Date(Date.UTC(dateLocal.getFullYear(), dateLocal.getMonth(), dateLocal.getDate(), 23, 59, 59, 999));
+}
+
+// When dates are UTC-anchored, display them as calendar days without timezone shifting.
+function toDisplayDay(date: Date, useUtc: boolean): Date {
+  if (!useUtc) return date;
+  // Noon local time avoids DST edge cases while keeping the same Y-M-D.
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0);
+}
+
 const presetDefs: {
   value: DatePreset;
   label: string;
-  getRange: (base: Date) => { start: Date; end: Date };
+  getRange: (base: Date, useUtc: boolean) => { start: Date; end: Date };
   requiresLoading?: boolean; // If true, show loading indicator when selected
 }[] = [
   {
     value: 'today',
     label: 'Today',
-    getRange: (base) => ({ start: startOfDay(base), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(base), end: endOfUtcDay(base) }
+        : { start: startOfDay(base), end: endOfDay(base) },
   },
   {
     value: 'yesterday',
     label: 'Yesterday',
-    getRange: (base) => ({ start: startOfDay(subDays(base, 1)), end: endOfDay(subDays(base, 1)) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addDaysUtc(base, -1)), end: endOfUtcDay(addDaysUtc(base, -1)) }
+        : { start: startOfDay(subDays(base, 1)), end: endOfDay(subDays(base, 1)) },
   },
   {
     value: 'last7days',
     label: 'Last 7 Days',
-    getRange: (base) => ({ start: startOfDay(subDays(base, 6)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addDaysUtc(base, -6)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subDays(base, 6)), end: endOfDay(base) },
   },
   {
     value: 'last30days',
     label: 'Last 30 Days',
-    getRange: (base) => ({ start: startOfDay(subDays(base, 29)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addDaysUtc(base, -29)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subDays(base, 29)), end: endOfDay(base) },
   },
   {
     value: 'lastWeek',
     label: 'Last Week',
-    getRange: (base) => ({ start: startOfDay(subWeeks(base, 1)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addDaysUtc(base, -7)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subWeeks(base, 1)), end: endOfDay(base) },
   },
   {
     value: 'lastMonth',
     label: 'Last Month',
-    getRange: (base) => ({ start: startOfDay(subMonths(base, 1)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addMonthsUtc(base, -1)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subMonths(base, 1)), end: endOfDay(base) },
   },
   {
     value: 'lastQuarter',
     label: 'Last Quarter',
-    getRange: (base) => ({ start: startOfDay(subQuarters(base, 1)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addMonthsUtc(base, -3)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subQuarters(base, 1)), end: endOfDay(base) },
     requiresLoading: true,
   },
   {
     value: 'lastYear',
     label: 'Last Year',
-    getRange: (base) => ({ start: startOfDay(subYears(base, 1)), end: endOfDay(base) }),
+    getRange: (base, useUtc) =>
+      useUtc
+        ? { start: startOfUtcDay(addYearsUtc(base, -1)), end: endOfUtcDay(base) }
+        : { start: startOfDay(subYears(base, 1)), end: endOfDay(base) },
     requiresLoading: true,
   },
 ];
 
 export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFilterProps) {
+  const useUtc = Boolean(dataDateRange);
   const [isCustomOpen, setIsCustomOpen] = useState(false);
-  const [customStart, setCustomStart] = useState<Date | undefined>(value.start);
-  const [customEnd, setCustomEnd] = useState<Date | undefined>(value.end);
+  const [customStart, setCustomStart] = useState<Date | undefined>(toDisplayDay(value.start, useUtc));
+  const [customEnd, setCustomEnd] = useState<Date | undefined>(toDisplayDay(value.end, useUtc));
 
   // Anchor preset ranges to the newest available data when provided,
   // so "Today/Last 7 Days" still works for historical datasets.
@@ -95,37 +163,44 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 
   const handlePresetSelect = (preset: typeof presetDefs[0]) => {
     // Always use the newest available data date as the base
-    const range = preset.getRange(baseDate);
-    onChange({
-      start: range.start,
-      end: range.end,
-      preset: preset.value,
-      label: preset.label,
-    }, preset.requiresLoading);
+    const range = preset.getRange(baseDate, useUtc);
+    onChange(
+      {
+        start: range.start,
+        end: range.end,
+        preset: preset.value,
+        label: preset.label,
+      },
+      preset.requiresLoading,
+    );
   };
 
   const handleAllDates = () => {
     if (dataDateRange) {
       // All dates is a large range, requires loading
-      const durationDays = Math.ceil((dataDateRange.end.getTime() - dataDateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+      const allStart = useUtc ? startOfUtcDay(dataDateRange.start) : startOfDay(dataDateRange.start);
+      const allEnd = useUtc ? endOfUtcDay(dataDateRange.end) : endOfDay(dataDateRange.end);
+      const durationDays = Math.ceil((allEnd.getTime() - allStart.getTime()) / (1000 * 60 * 60 * 24));
       const requiresLoading = durationDays > 60; // More than 60 days needs loading indicator
-      onChange({
-        start: dataDateRange.start,
-        end: dataDateRange.end,
-        preset: 'all',
-        label: 'All Dates',
-      }, requiresLoading);
+      onChange(
+        {
+          start: allStart,
+          end: allEnd,
+          preset: 'all',
+          label: 'All Dates',
+        },
+        requiresLoading,
+      );
     }
   };
 
   const handleCustomApply = () => {
     if (customStart && customEnd) {
-      const startLabelFormat =
-        customStart.getFullYear() !== customEnd.getFullYear() ? 'MMM d, yyyy' : 'MMM d';
+      const startLabelFormat = customStart.getFullYear() !== customEnd.getFullYear() ? 'MMM d, yyyy' : 'MMM d';
 
       onChange({
-        start: startOfDay(customStart),
-        end: endOfDay(customEnd),
+        start: useUtc ? startOfUtcDayFromLocalDay(customStart) : startOfDay(customStart),
+        end: useUtc ? endOfUtcDayFromLocalDay(customEnd) : endOfDay(customEnd),
         preset: 'custom',
         label: `${format(customStart, startLabelFormat)} - ${format(customEnd, 'MMM d, yyyy')}`,
       });
@@ -172,7 +247,16 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={isCustomOpen} onOpenChange={setIsCustomOpen}>
+      <Dialog
+        open={isCustomOpen}
+        onOpenChange={(open) => {
+          setIsCustomOpen(open);
+          if (open) {
+            setCustomStart(toDisplayDay(value.start, useUtc));
+            setCustomEnd(toDisplayDay(value.end, useUtc));
+          }
+        }}
+      >
         <DialogContent className="max-w-[900px] bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle>Select Date Range</DialogTitle>
@@ -213,8 +297,17 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 
       {value.preset !== 'all' && (
         <div className="text-xs text-muted-foreground">
-          {format(value.start, value.start.getFullYear() !== value.end.getFullYear() ? 'MMM d, yyyy' : 'MMM d')} -{' '}
-          {format(value.end, 'MMM d, yyyy')}
+          {(() => {
+            const start = toDisplayDay(value.start, useUtc);
+            const end = toDisplayDay(value.end, useUtc);
+            const startLabelFormat = start.getFullYear() !== end.getFullYear() ? 'MMM d, yyyy' : 'MMM d';
+
+            return (
+              <>
+                {format(start, startLabelFormat)} - {format(end, 'MMM d, yyyy')}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -254,10 +347,10 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
 }
 
 export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }): DateRange {
-  // If we have data, anchor "Today" to the newest available data
+  // If we have data, anchor "Today" to the newest available data (UTC day)
   if (dataDateRange) {
-    const end = endOfDay(dataDateRange.end);
-    const start = startOfDay(dataDateRange.end);
+    const start = startOfUtcDay(dataDateRange.end);
+    const end = endOfUtcDay(dataDateRange.end);
     return {
       start,
       end,
@@ -266,7 +359,7 @@ export function getDefaultDateRange(dataDateRange?: { start: Date; end: Date }):
     };
   }
 
-  // Fallback to actual current date if no data range provided
+  // Fallback to actual current date if no data range provided (local day)
   const today = new Date();
   return {
     start: startOfDay(today),
