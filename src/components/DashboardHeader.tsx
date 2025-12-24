@@ -18,7 +18,7 @@ interface DashboardHeaderProps {
   selectedStation: string | null;
   onStationChange: (station: string | null) => void;
   dateRange: DateRange;
-  onDateRangeChange: (range: DateRange) => void;
+  onDateRangeChange: (range: DateRange, requiresLoading?: boolean) => void;
   dataDateRange?: { start: Date; end: Date };
   onRefresh?: () => void;
   isRefreshing?: boolean;

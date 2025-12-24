@@ -3,11 +3,21 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useEffect, useState } from 'react';
 
-export function LoadingState() {
+interface LoadingStateProps {
+  message?: string;
+}
+
+export function LoadingState({ message }: LoadingStateProps = {}) {
   const [progress, setProgress] = useState(0);
-  const [statusText, setStatusText] = useState('Connecting to database...');
+  const [statusText, setStatusText] = useState(message || 'Connecting to database...');
 
   useEffect(() => {
+    // If custom message, don't animate through stages
+    if (message) {
+      setProgress(50);
+      return;
+    }
+    
     const stages = [
       { progress: 15, text: 'Connecting to database...' },
       { progress: 35, text: 'Fetching syslog entries...' },
@@ -26,7 +36,7 @@ export function LoadingState() {
     }, 600);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [message]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
