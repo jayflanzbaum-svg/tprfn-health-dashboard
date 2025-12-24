@@ -255,7 +255,10 @@ const Index = () => {
     filteredData.connectRecords.length > 0 ||
     filteredData.disconnectRecords.length > 0;
 
-  const stationsList = Array.from(data.stations);
+  // Station dropdown should only show callsigns from the managed callsigns list
+  const stationsList = Array.from(data.stations).filter(s => 
+    allowedCallsigns.map(c => c.toUpperCase().trim()).includes(s.toUpperCase().trim())
+  );
 
   if (!hasAnyEvents) {
     return (
