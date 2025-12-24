@@ -17,6 +17,7 @@ import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
@@ -233,6 +234,13 @@ const Index = () => {
   };
 
   const handleDateRangeChange = (range: DateRange, requiresLoading?: boolean) => {
+    if (data?.dateRange && (range.end < data.dateRange.start || range.start > data.dateRange.end)) {
+      toast({
+        title: 'No data for that date range',
+        description: 'There are no log entries available for the dates you selected.',
+      });
+    }
+
     if (requiresLoading) {
       setIsLoadingLargeRange(true);
       // Use setTimeout to allow the loading state to render before heavy computation
