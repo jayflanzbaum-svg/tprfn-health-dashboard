@@ -82,6 +82,7 @@ export function DashboardHeader({
 
   return (
     <header className="mb-8 animate-fade-in">
+      {/* Row 1: Title and controls */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20">
@@ -115,15 +116,6 @@ export function DashboardHeader({
               ))}
             </SelectContent>
           </Select>
-
-          {/* Current Time Display */}
-          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-secondary border border-border/50">
-            <Globe className="h-4 w-4 text-chart-tertiary" />
-            <div className="flex flex-col text-xs leading-tight">
-              <span className="font-mono font-semibold text-foreground">{formatZulu(now)}</span>
-              <span className="text-muted-foreground">{formatLocal(now)} {tzAbbr}</span>
-            </div>
-          </div>
 
           <DateRangeFilter
             value={dateRange}
@@ -173,6 +165,32 @@ export function DashboardHeader({
                 <span>Updated: {formatTime(lastUpdated)}</span>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Prominent Time Display */}
+      <div className="mt-4 flex items-center justify-center">
+        <div className="flex items-center gap-6 px-8 py-4 rounded-xl bg-gradient-to-r from-accent/10 via-primary/10 to-chart-secondary/10 border border-accent/20 shadow-lg">
+          <Globe className="h-8 w-8 text-accent" />
+          <div className="flex items-baseline gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-mono font-bold text-foreground tracking-wider">
+                {formatZulu(now)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wide">
+                Zulu / UTC
+              </div>
+            </div>
+            <div className="h-10 w-px bg-border/50" />
+            <div className="text-center">
+              <div className="text-3xl font-mono font-bold text-foreground tracking-wider">
+                {formatLocal(now)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wide">
+                {tzAbbr}
+              </div>
+            </div>
           </div>
         </div>
       </div>
