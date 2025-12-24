@@ -1,4 +1,4 @@
-import { forwardRef, memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -99,8 +99,7 @@ function getSubtitle(granularity: Granularity): string {
   }
 }
 
-export const SNTimelineChart = memo(
-  forwardRef<HTMLDivElement, SNTimelineChartProps>(function SNTimelineChart({ snRecords, dateRange }, ref) {
+export const SNTimelineChart = memo(function SNTimelineChart({ snRecords, dateRange }: SNTimelineChartProps) {
   const granularity = getGranularity(dateRange);
   
   const chartData = useMemo(() => {
@@ -134,9 +133,8 @@ export const SNTimelineChart = memo(
   const formatTick = (date: Date) => {
     return formatLabel(date, granularity);
   };
-
   return (
-    <div ref={ref} className="chart-card">
+    <div className="chart-card">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-foreground">S/N Ratio Over Time</h3>
         <p className="text-sm text-muted-foreground mt-1">{getSubtitle(granularity)}</p>
@@ -201,7 +199,5 @@ export const SNTimelineChart = memo(
       </div>
     </div>
   );
-  }),
-);
-SNTimelineChart.displayName = 'SNTimelineChart';
+});
 

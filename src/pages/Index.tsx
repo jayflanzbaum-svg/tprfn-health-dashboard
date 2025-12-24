@@ -1,4 +1,4 @@
-import { lazy, Suspense, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
@@ -12,16 +12,16 @@ import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/componen
 import { LazySection } from '@/components/LazySection';
 import { toast } from '@/hooks/use-toast';
 
-// Lazy load chart components for better initial load performance
-const SNByHubChart = lazy(() => import('@/components/charts/SNByHubChart').then(m => ({ default: m.SNByHubChart })));
-const TXByHubChart = lazy(() => import('@/components/charts/TXByHubChart').then(m => ({ default: m.TXByHubChart })));
-const SNTimelineChart = lazy(() => import('@/components/charts/SNTimelineChart').then(m => ({ default: m.SNTimelineChart })));
-const SignalQualityPieChart = lazy(() => import('@/components/charts/SignalQualityPieChart').then(m => ({ default: m.SignalQualityPieChart })));
-const ConnectionSuccessChart = lazy(() => import('@/components/charts/ConnectionSuccessChart').then(m => ({ default: m.ConnectionSuccessChart })));
-const DisconnectAnalysisChart = lazy(() => import('@/components/charts/DisconnectAnalysisChart').then(m => ({ default: m.DisconnectAnalysisChart })));
-const BitrateAnalysisChart = lazy(() => import('@/components/charts/BitrateAnalysisChart').then(m => ({ default: m.BitrateAnalysisChart })));
-const StationBitrateChart = lazy(() => import('@/components/charts/StationBitrateChart').then(m => ({ default: m.StationBitrateChart })));
-const PeakBitrateLeaderboard = lazy(() => import('@/components/charts/PeakBitrateLeaderboard').then(m => ({ default: m.PeakBitrateLeaderboard })));
+// Direct imports - memoized at component level
+import { SNByHubChart } from '@/components/charts/SNByHubChart';
+import { TXByHubChart } from '@/components/charts/TXByHubChart';
+import { SNTimelineChart } from '@/components/charts/SNTimelineChart';
+import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart';
+import { ConnectionSuccessChart } from '@/components/charts/ConnectionSuccessChart';
+import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisChart';
+import { BitrateAnalysisChart } from '@/components/charts/BitrateAnalysisChart';
+import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
+import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
@@ -401,69 +401,51 @@ const Index = () => {
         {/* Signal Quality & Session Outcomes - Balanced Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <LazySection fallback={<PieChartSkeleton />}>
-            <Suspense fallback={<PieChartSkeleton />}>
-              <SignalQualityPieChart snRecords={deferredFilteredData?.snRecords ?? []} />
-            </Suspense>
+            <SignalQualityPieChart snRecords={deferredFilteredData?.snRecords ?? []} />
           </LazySection>
           <LazySection fallback={<PieChartSkeleton />}>
-            <Suspense fallback={<PieChartSkeleton />}>
-              <ConnectionSuccessChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <ConnectionSuccessChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
         </div>
 
         {/* Disconnect Analysis by Connection */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[350px]" title="Disconnect Analysis" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[350px]" title="Disconnect Analysis" />}>
-              <DisconnectAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <DisconnectAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
         </div>
 
         {/* S/N Timeline - Full Width */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N Timeline" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[300px]" title="S/N Timeline" />}>
-              <SNTimelineChart snRecords={deferredFilteredData?.snRecords ?? []} dateRange={dateRange} />
-            </Suspense>
+            <SNTimelineChart snRecords={deferredFilteredData?.snRecords ?? []} dateRange={dateRange} />
           </LazySection>
         </div>
 
         {/* Hub Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N by Hub" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[300px]" title="S/N by Hub" />}>
-              <SNByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <SNByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="Data Transfer" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[300px]" title="Data Transfer" />}>
-              <TXByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <TXByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
         </div>
 
         {/* Bitrate Analysis */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[280px]" title="Bitrate Analysis" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[280px]" title="Bitrate Analysis" />}>
-              <BitrateAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <BitrateAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
         </div>
 
         {/* Station Bitrate Comparison */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[280px]" title="Station Bitrate" />}>
-            <Suspense fallback={<ChartSkeleton height="h-[280px]" title="Station Bitrate" />}>
-              <StationBitrateChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <StationBitrateChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
           <LazySection fallback={<LeaderboardSkeleton />}>
-            <Suspense fallback={<LeaderboardSkeleton />}>
-              <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
-            </Suspense>
+            <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
           </LazySection>
         </div>
 
