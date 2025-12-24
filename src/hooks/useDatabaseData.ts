@@ -16,6 +16,9 @@ const DEFAULT_DAYS = 7; // Fetch only 7 days by default for performance
 // Only fetch the columns we actually need
 const SELECTED_COLUMNS = 'id,timestamp,hub,callsign,remote_callsign,event_type,snr,bytes_sent,bytes_received,bitrate,duration_seconds,raw_message';
 
+// The live syslog URL for current data
+const LIVE_SYSLOG_URL = 'https://tprfn.k1ajd.net/VARAHF.txt';
+
 interface DatabaseEntry {
   id: string;
   timestamp: string;
@@ -48,6 +51,31 @@ export function useDatabaseData(allowedCallsigns: string[]) {
     [allowedCallsigns]
   );
 
+  // Fetch fresh data from the live URL and import into database
+  const fetchLiveData = useCallback(async () => {
+    try {
+      console.log('Fetching live syslog data from remote URL...');
+      const { data, error } = await supabase.functions.invoke('import-syslog', {
+        body: { 
+          url: LIVE_SYSLOG_URL, 
+          year: new Date().getFullYear(),
+          chunkSize: 5000000 // 5MB - reasonable for live data
+        }
+      });
+      
+      if (error) {
+        console.warn('Failed to fetch live data:', error.message);
+        return false;
+      }
+      
+      console.log('Live data import result:', data);
+      return true;
+    } catch (err) {
+      console.warn('Error fetching live data:', err);
+      return false;
+    }
+  }, []);
+
   const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) {
@@ -55,6 +83,10 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       } else {
         setLoading(true);
       }
+      
+      // First, try to fetch fresh data from the live URL
+      console.log('Refreshing from live syslog URL...');
+      await fetchLiveData();
       
       console.log('Fetching syslog data from database...');
 
@@ -125,7 +157,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [fetchLiveData]);
 
   // Initial fetch and set up polling
   useEffect(() => {
