@@ -7,16 +7,7 @@ interface LazySectionProps {
   rootMargin?: string;
 }
 
-function scheduleIdle(cb: () => void) {
-  const w = window as unknown as { requestIdleCallback?: (fn: () => void, opts?: { timeout: number }) => number };
-  if (typeof w.requestIdleCallback === 'function') {
-    w.requestIdleCallback(cb, { timeout: 500 });
-  } else {
-    setTimeout(cb, 0);
-  }
-}
-
-export function LazySection({ children, fallback = null, rootMargin = '600px 0px' }: LazySectionProps) {
+export function LazySection({ children, fallback = null, rootMargin = '200px 0px' }: LazySectionProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(false);
 
@@ -26,7 +17,7 @@ export function LazySection({ children, fallback = null, rootMargin = '600px 0px
     const el = hostRef.current;
     if (!el) return;
 
-    // If IntersectionObserver isn't available, just render.
+    // If IntersectionObserver isn't available, just render immediately
     if (typeof IntersectionObserver === 'undefined') {
       setActive(true);
       return;
@@ -37,7 +28,7 @@ export function LazySection({ children, fallback = null, rootMargin = '600px 0px
         const entry = entries[0];
         if (!entry?.isIntersecting) return;
         obs.disconnect();
-        scheduleIdle(() => setActive(true));
+        setActive(true);
       },
       { root: null, rootMargin, threshold: 0.01 },
     );
