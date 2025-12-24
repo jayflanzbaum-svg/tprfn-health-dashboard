@@ -29,13 +29,14 @@ export default function ImportSyslog() {
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const dropboxUrl = 'https://www.dropbox.com/scl/fi/aevha2wgdyngssc7fqrbb/VARAHFa.txt?rlkey=ftwq8gld3kbq96f2p5buaqx25&st=6nx72erj&dl=0';
+  const [dropboxUrl, setDropboxUrl] = useState('https://www.dropbox.com/scl/fi/14dart6eh5kjt163agkks/2025.txt?rlkey=wbvrn7r2hgz184avxcvaon9wg&st=uh5zoro1&dl=0');
+  const [forcedYear, setForcedYear] = useState(2025);
   const chunkSize = 5000000; // 5MB chunks
 
   const importChunk = useCallback(async (startByte: number): Promise<ImportResponse | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('import-syslog', {
-        body: { url: dropboxUrl, startByte, chunkSize }
+        body: { url: dropboxUrl, startByte, chunkSize, year: forcedYear }
       });
 
       if (error) throw error;
@@ -44,7 +45,7 @@ export default function ImportSyslog() {
       console.error('Import chunk error:', err);
       return null;
     }
-  }, []);
+  }, [dropboxUrl, forcedYear]);
 
   const startImport = async () => {
     setImporting(true);

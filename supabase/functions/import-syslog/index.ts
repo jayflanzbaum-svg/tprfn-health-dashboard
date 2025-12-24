@@ -6,37 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Year inference state - logs go from oldest to newest
-// Last known record is Dec 22, 2025, so we work backwards when month increases
+// Month mapping for parsing
 const monthMap: Record<string, number> = {
   'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
   'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
 };
 
-// We need to first scan to find the last month, then process forward
-// Since file ends in Dec 2025, we process forward and detect year boundaries
-// When month goes from Dec -> Jan (or similar decreases), we're in a new year going forward
-// But since log is chronological (oldest first), month going from Dec to Jan means year++
-
-let lastMonth: number | null = null;
-let currentYear = 2025; // Data ends in Dec 2025, starts in Jan 2025
-
-function resetYearState() {
-  lastMonth = null;
-  currentYear = 2025;
-}
-
-function inferYearForMonth(month: string, day: number): number {
-  const monthNum = monthMap[month];
-  
-  if (lastMonth !== null && lastMonth === 11 && monthNum === 0) {
-    // Dec -> Jan = year increment (logs are chronological, oldest first)
-    currentYear++;
-  }
-  
-  lastMonth = monthNum;
-  return currentYear;
-}
+// Forced year - passed in request body, no inference
+let forcedYear = 2025;
 
 // Parse syslog line and extract structured data
 function parseSyslogLine(line: string): {
@@ -76,9 +53,8 @@ function parseSyslogLine(line: string): {
   const timeStr = dateStr.match(/(\d+:\d+:\d+)/)?.[1] || '00:00:00';
   const [hours, minutes, seconds] = timeStr.split(':').map(Number);
   
-  // Infer year based on month transitions
-  const year = inferYearForMonth(monthStr, day);
-  const parsedDate = new Date(year, monthMap[monthStr] || 0, day, hours, minutes, seconds);
+  // Use the forced year directly (no inference)
+  const parsedDate = new Date(forcedYear, monthMap[monthStr] || 0, day, hours, minutes, seconds);
   
   result.timestamp = parsedDate.toISOString();
 
@@ -165,7 +141,10 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { url, startByte = 0, chunkSize = 10000000 } = await req.json(); // 10MB default chunks
+    const { url, startByte = 0, chunkSize = 10000000, year = 2025 } = await req.json(); // 10MB default chunks
+    
+    // Set the forced year for this import
+    forcedYear = year;
     
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
