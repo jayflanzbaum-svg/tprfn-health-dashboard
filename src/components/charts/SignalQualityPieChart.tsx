@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { forwardRef, memo, useMemo } from 'react';
 import {
   PieChart,
   Pie,
@@ -29,7 +29,8 @@ const QUALITY_RANGES = {
   Bad: '< -10 dB',
 };
 
-export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps) {
+export const SignalQualityPieChart = memo(
+  forwardRef<HTMLDivElement, SignalQualityPieChartProps>(function SignalQualityPieChart({ snRecords }, ref) {
   const chartData = useMemo(() => {
     const qualityCounts: Record<string, number> = {
       excellent: 0,
@@ -56,7 +57,7 @@ export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRec
   const totalRecords = snRecords.length;
 
   return (
-    <div className="chart-card h-full">
+    <div ref={ref} className="chart-card h-full">
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-foreground">Signal Quality Distribution</h3>
         <p className="text-xs text-muted-foreground mt-0.5">S/N readings by quality level</p>
@@ -101,4 +102,7 @@ export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRec
       </div>
     </div>
   );
-});
+  }),
+);
+SignalQualityPieChart.displayName = 'SignalQualityPieChart';
+

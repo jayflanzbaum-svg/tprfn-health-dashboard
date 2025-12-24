@@ -104,6 +104,9 @@ export function useDatabaseData(allowedCallsigns: string[]) {
           allEntries.push(...entries);
           page++;
           hasMore = entries.length === pageSize;
+
+          // Yield to the browser between pages so large fetches don't freeze the UI.
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
         } else {
           hasMore = false;
         }
