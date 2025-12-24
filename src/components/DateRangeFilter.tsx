@@ -152,7 +152,7 @@ const presetDefs: {
 ];
 
 export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFilterProps) {
-  const useUtc = false;
+  const useUtc = true; // Database stores Zulu time
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [customStart, setCustomStart] = useState<Date | undefined>(toDisplayDay(value.start, useUtc));
   const [customEnd, setCustomEnd] = useState<Date | undefined>(toDisplayDay(value.end, useUtc));

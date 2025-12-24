@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { format } from 'date-fns';
 import { SNRecord, ConnectRecord, DisconnectRecord, formatBytes } from '@/lib/syslogParser';
 import { SignalBadge } from './SignalBadge';
 import {
@@ -13,6 +12,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+
+// Format timestamp in Zulu time with Z suffix
+function formatTimestampZulu(date: Date): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${months[date.getUTCMonth()]} ${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}Z`;
+}
 
 export type LogFilter = 'all' | 'sn' | 'sessions' | 'data' | 'readings';
 
@@ -137,7 +143,7 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
-              <TableHead className="w-40">Timestamp</TableHead>
+              <TableHead className="w-44">Timestamp (UTC)</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Station</TableHead>
               <TableHead>Partner</TableHead>
@@ -153,7 +159,7 @@ export function LogEntriesTable({ snRecords, connectRecords, disconnectRecords, 
               return (
               <TableRow key={entry.id} className={rowHighlight}>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {format(entry.timestamp, 'MMM dd HH:mm:ss')}
+                  {formatTimestampZulu(entry.timestamp)}
                 </TableCell>
                 <TableCell>
                   <Badge variant={entry.type === 'sn' ? 'outline' : entry.type === 'connect' ? 'default' : 'secondary'}>

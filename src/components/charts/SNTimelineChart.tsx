@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { SNRecord } from '@/lib/syslogParser';
 import { DateRange } from '@/components/DateRangeFilter';
-import { format, differenceInDays, differenceInMonths, differenceInYears, startOfHour, startOfDay, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
+import { format, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns';
 
 interface SNTimelineChartProps {
   snRecords: SNRecord[];
@@ -54,33 +54,56 @@ function getGranularity(dateRange?: DateRange | null): Granularity {
   return 'yearly';
 }
 
+// UTC-aware grouping functions
+function startOfUtcHour(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), 0, 0, 0));
+}
+function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+function startOfUtcWeek(d: Date): Date {
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - day;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), diff, 0, 0, 0, 0));
+}
+function startOfUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+function startOfUtcYear(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+}
+
 function getGroupKey(timestamp: Date, granularity: Granularity): string {
   switch (granularity) {
     case 'hourly':
-      return startOfHour(timestamp).toISOString();
+      return startOfUtcHour(timestamp).toISOString();
     case 'daily':
-      return startOfDay(timestamp).toISOString();
+      return startOfUtcDay(timestamp).toISOString();
     case 'weekly':
-      return startOfWeek(timestamp).toISOString();
+      return startOfUtcWeek(timestamp).toISOString();
     case 'monthly':
-      return startOfMonth(timestamp).toISOString();
+      return startOfUtcMonth(timestamp).toISOString();
     case 'yearly':
-      return startOfYear(timestamp).toISOString();
+      return startOfUtcYear(timestamp).toISOString();
   }
 }
 
+// Format labels using UTC values with Z suffix
 function formatLabel(date: Date, granularity: Granularity): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
   switch (granularity) {
     case 'hourly':
-      return format(date, 'HH:mm');
+      return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}Z`;
     case 'daily':
-      return format(date, 'MMM d');
+      return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
     case 'weekly':
-      return format(date, 'MMM d');
+      return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
     case 'monthly':
-      return format(date, 'MMM yyyy');
+      return `${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
     case 'yearly':
-      return format(date, 'yyyy');
+      return `${date.getUTCFullYear()}`;
   }
 }
 
