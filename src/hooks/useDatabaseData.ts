@@ -11,6 +11,10 @@ import {
 } from '@/lib/syslogParser';
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_DAYS = 7; // Fetch only 7 days by default for performance
+
+// Only fetch the columns we actually need
+const SELECTED_COLUMNS = 'id,timestamp,hub,callsign,remote_callsign,event_type,snr,bytes_sent,bytes_received,bitrate,duration_seconds,raw_message';
 
 interface DatabaseEntry {
   id: string;
@@ -24,9 +28,6 @@ interface DatabaseEntry {
   bytes_received: number | null;
   bitrate: number | null;
   duration_seconds: number | null;
-  total_bytes: number | null;
-  bandwidth: number | null;
-  frequency: number | null;
   raw_message?: string | null;
 }
 
@@ -77,42 +78,43 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       }
 
       const maxTimestamp = new Date(rangeData[0].timestamp);
-      const thirtyDaysBeforeMax = new Date(maxTimestamp);
-      thirtyDaysBeforeMax.setDate(thirtyDaysBeforeMax.getDate() - 30);
+      const startDate = new Date(maxTimestamp);
+      startDate.setDate(startDate.getDate() - DEFAULT_DAYS);
 
-      console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${thirtyDaysBeforeMax.toISOString()}`);
+      console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${startDate.toISOString()}`);
 
       const allEntries: DatabaseEntry[] = [];
-      let page = 0;
+      let lastTimestamp = startDate.toISOString();
       const pageSize = 1000;
-      let hasMore = true;
-      const maxPages = 100; // Safety limit
+      const maxIterations = 50; // Safety limit
+      let iterations = 0;
 
-      while (hasMore && page < maxPages) {
+      // Keyset pagination: faster than offset for large tables
+      while (iterations < maxIterations) {
         const { data: entries, error: queryError } = await supabase
           .from('syslog_entries')
-          .select('*')
-          .gte('timestamp', thirtyDaysBeforeMax.toISOString())
+          .select(SELECTED_COLUMNS)
+          .gt('timestamp', lastTimestamp)
           .order('timestamp', { ascending: true })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .limit(pageSize);
 
         if (queryError) {
           throw new Error(queryError.message);
         }
 
-        if (entries && entries.length > 0) {
-          allEntries.push(...entries);
-          page++;
-          hasMore = entries.length === pageSize;
+        if (!entries || entries.length === 0) break;
 
-          // Yield to the browser between pages so large fetches don't freeze the UI.
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        } else {
-          hasMore = false;
-        }
+        allEntries.push(...entries);
+        lastTimestamp = entries[entries.length - 1].timestamp;
+        iterations++;
+
+        if (entries.length < pageSize) break;
+
+        // Yield to the browser between pages
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
 
-      console.log(`Fetched ${allEntries.length} entries from database (last 30 days of available data)`);
+      console.log(`Fetched ${allEntries.length} entries from database (last ${DEFAULT_DAYS} days)`);
       setRawData(allEntries);
       setLastUpdated(new Date());
       setError(null);
