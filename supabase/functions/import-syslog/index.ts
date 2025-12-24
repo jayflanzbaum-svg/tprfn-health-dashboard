@@ -19,11 +19,11 @@ const monthMap: Record<string, number> = {
 // But since log is chronological (oldest first), month going from Dec to Jan means year++
 
 let lastMonth: number | null = null;
-let currentYear = 2024; // Start with 2024, will increment when we cross Dec->Jan
+let currentYear = 2025; // Data ends in Dec 2025, starts in Jan 2025
 
 function resetYearState() {
   lastMonth = null;
-  currentYear = 2024;
+  currentYear = 2025;
 }
 
 function inferYearForMonth(month: string, day: number): number {
