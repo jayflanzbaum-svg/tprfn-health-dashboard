@@ -1,4 +1,5 @@
-import { Radio, Wifi, Clock, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Radio, Wifi, Clock, RefreshCw, Globe } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -24,6 +25,37 @@ interface DashboardHeaderProps {
   isRefreshing?: boolean;
 }
 
+function useCurrentTime() {
+  const [now, setNow] = useState(new Date());
+  
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return now;
+}
+
+function formatZulu(date: Date) {
+  return date.toISOString().slice(11, 19) + 'Z';
+}
+
+function formatLocal(date: Date) {
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+function getTimezoneAbbr() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Try to get a short abbreviation
+  const abbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+  return abbr || tz;
+}
+
 export function DashboardHeader({ 
   stationCount, 
   connectionCount, 
@@ -37,6 +69,9 @@ export function DashboardHeader({
   onRefresh,
   isRefreshing
 }: DashboardHeaderProps) {
+  const now = useCurrentTime();
+  const tzAbbr = getTimezoneAbbr();
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
@@ -80,6 +115,15 @@ export function DashboardHeader({
               ))}
             </SelectContent>
           </Select>
+
+          {/* Current Time Display */}
+          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-secondary border border-border/50">
+            <Globe className="h-4 w-4 text-chart-tertiary" />
+            <div className="flex flex-col text-xs leading-tight">
+              <span className="font-mono font-semibold text-foreground">{formatZulu(now)}</span>
+              <span className="text-muted-foreground">{formatLocal(now)} {tzAbbr}</span>
+            </div>
+          </div>
 
           <DateRangeFilter
             value={dateRange}
