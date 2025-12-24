@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Radio, Wifi, Clock, RefreshCw, Globe } from 'lucide-react';
 import {
   Select,
@@ -170,27 +171,21 @@ export function DashboardHeader({
       </div>
 
       {/* Row 2: Prominent Time Display */}
-      <div className="mt-4 flex items-center justify-center">
-        <div className="flex items-center gap-6 px-8 py-4 rounded-xl bg-gradient-to-r from-accent/10 via-primary/10 to-chart-secondary/10 border border-accent/20 shadow-lg">
-          <Globe className="h-8 w-8 text-accent" />
-          <div className="flex items-baseline gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-foreground tracking-wider">
-                {formatZulu(now)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wide">
-                Zulu / UTC
-              </div>
-            </div>
-            <div className="h-10 w-px bg-border/50" />
-            <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-foreground tracking-wider">
-                {formatLocal(now)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wide">
-                {tzAbbr}
-              </div>
-            </div>
+      <div className="mt-3 flex items-center justify-center">
+        <div className="inline-flex flex-wrap items-center justify-center gap-4 px-5 py-2.5 rounded-lg bg-gradient-to-r from-accent/10 via-primary/10 to-chart-secondary/10 border border-accent/20 shadow-md">
+          <Globe className="h-5 w-5 text-accent" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-mono font-bold text-foreground tracking-wide">
+              {formatZulu(now)}
+            </span>
+            <span className="text-xs text-muted-foreground uppercase">UTC</span>
+          </div>
+          <div className="h-5 w-px bg-border/50" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-mono font-bold text-foreground tracking-wide">
+              {format(now, 'yyyy-MM-dd HH:mm:ss')}
+            </span>
+            <span className="text-xs text-muted-foreground uppercase">{tzAbbr}</span>
           </div>
         </div>
       </div>
