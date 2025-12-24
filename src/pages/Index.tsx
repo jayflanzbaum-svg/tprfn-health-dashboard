@@ -16,7 +16,7 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState'
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
@@ -24,6 +24,7 @@ const Index = () => {
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
+  const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
   const logTableRef = useRef<HTMLDivElement>(null);
 
   // If the dataset isn't aligned with the user's current date, snap the initial
@@ -231,8 +232,21 @@ const Index = () => {
     logTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  if (loading) {
-    return <LoadingState />;
+  const handleDateRangeChange = (range: DateRange, requiresLoading?: boolean) => {
+    if (requiresLoading) {
+      setIsLoadingLargeRange(true);
+      // Use setTimeout to allow the loading state to render before heavy computation
+      setTimeout(() => {
+        setDateRange(range);
+        setIsLoadingLargeRange(false);
+      }, 100);
+    } else {
+      setDateRange(range);
+    }
+  };
+
+  if (loading || isLoadingLargeRange) {
+    return <LoadingState message={isLoadingLargeRange ? "Loading large date range..." : undefined} />;
   }
 
   if (error) {
@@ -272,7 +286,7 @@ const Index = () => {
             selectedStation={selectedStation}
             onStationChange={setSelectedStation}
             dateRange={dateRange}
-            onDateRangeChange={setDateRange}
+            onDateRangeChange={handleDateRangeChange}
             dataDateRange={data.dateRange}
             onRefresh={refetch}
             isRefreshing={isRefreshing}
@@ -302,7 +316,7 @@ const Index = () => {
           selectedStation={selectedStation}
           onStationChange={setSelectedStation}
           dateRange={dateRange}
-          onDateRangeChange={setDateRange}
+          onDateRangeChange={handleDateRangeChange}
           dataDateRange={data.dateRange}
           onRefresh={refetch}
           isRefreshing={isRefreshing}

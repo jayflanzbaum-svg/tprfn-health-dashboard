@@ -30,7 +30,7 @@ export interface DateRange {
 
 interface DateRangeFilterProps {
   value: DateRange;
-  onChange: (range: DateRange) => void;
+  onChange: (range: DateRange, requiresLoading?: boolean) => void;
   dataDateRange?: { start: Date; end: Date };
 }
 
@@ -39,6 +39,7 @@ const presetDefs: {
   label: string;
   getRange: (base: Date) => { start: Date; end: Date };
   useRealDate?: boolean; // If true, use current date instead of data's end date
+  requiresLoading?: boolean; // If true, show loading indicator when selected
 }[] = [
   {
     value: 'today',
@@ -76,11 +77,13 @@ const presetDefs: {
     value: 'lastQuarter',
     label: 'Last Quarter',
     getRange: (base) => ({ start: startOfDay(subQuarters(base, 1)), end: endOfDay(base) }),
+    requiresLoading: true,
   },
   {
     value: 'lastYear',
     label: 'Last Year',
     getRange: (base) => ({ start: startOfDay(subYears(base, 1)), end: endOfDay(base) }),
+    requiresLoading: true,
   },
 ];
 
@@ -102,17 +105,20 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
       end: range.end,
       preset: preset.value,
       label: preset.label,
-    });
+    }, preset.requiresLoading);
   };
 
   const handleAllDates = () => {
     if (dataDateRange) {
+      // All dates is a large range, requires loading
+      const durationDays = Math.ceil((dataDateRange.end.getTime() - dataDateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+      const requiresLoading = durationDays > 60; // More than 60 days needs loading indicator
       onChange({
         start: dataDateRange.start,
         end: dataDateRange.end,
         preset: 'all',
         label: 'All Dates',
-      });
+      }, requiresLoading);
     }
   };
 
