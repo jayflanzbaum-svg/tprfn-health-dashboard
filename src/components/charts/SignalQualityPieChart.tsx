@@ -61,18 +61,35 @@ export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRec
         <h3 className="text-lg font-semibold text-foreground">Signal Quality Distribution</h3>
         <p className="text-xs text-muted-foreground mt-0.5">S/N readings by quality level</p>
       </div>
-      <div className="h-[180px] flex items-center justify-center">
+      <div className="h-[200px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
             <Pie
               data={chartData}
               cx="50%"
-              cy="50%"
-              innerRadius={40}
-              outerRadius={65}
+              cy="45%"
+              innerRadius={35}
+              outerRadius={55}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+              label={({ cx, cy, midAngle, outerRadius, percent }) => {
+                const RADIAN = Math.PI / 180;
+                const radius = outerRadius + 18;
+                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                return (
+                  <text
+                    x={x}
+                    y={y}
+                    fill="hsl(var(--foreground))"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={11}
+                  >
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                );
+              }}
               labelLine={false}
             >
               {chartData.map((entry, index) => (
