@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -16,7 +16,7 @@ interface SNByHubChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
-export function SNByHubChart({ hubConnections }: SNByHubChartProps) {
+export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByHubChartProps) {
   const chartData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.snRecords.length > 0)
@@ -113,4 +113,4 @@ export function SNByHubChart({ hubConnections }: SNByHubChartProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -22,7 +22,7 @@ const DISCONNECT_COLORS = {
   command: 'hsl(199, 89%, 48%)',   // Blue - manual
 };
 
-export function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisChartProps) {
+export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisChartProps) {
   const chartData = useMemo(() => {
     const data: {
       name: string;
@@ -155,4 +155,4 @@ export function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisCh
       </div>
     </div>
   );
-}
+});

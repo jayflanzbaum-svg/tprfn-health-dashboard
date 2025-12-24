@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   PieChart,
   Pie,
@@ -29,7 +29,7 @@ const QUALITY_RANGES = {
   Bad: '< -10 dB',
 };
 
-export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps) {
+export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps) {
   const chartData = useMemo(() => {
     const qualityCounts: Record<string, number> = {
       excellent: 0,
@@ -101,4 +101,4 @@ export function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps)
       </div>
     </div>
   );
-}
+});
