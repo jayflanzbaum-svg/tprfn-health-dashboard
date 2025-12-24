@@ -131,6 +131,48 @@ async function* streamLines(reader: ReadableStreamDefaultReader<Uint8Array>): As
   }
 }
 
+// Allowed domains for URL fetching (prevents SSRF attacks)
+const ALLOWED_DOMAINS = [
+  'dropbox.com',
+  'www.dropbox.com', 
+  'dl.dropboxusercontent.com',
+  'dropboxusercontent.com',
+  'tprfn.k1ajd.net',
+];
+
+// Maximum chunk size (10MB)
+const MAX_CHUNK_SIZE = 10000000;
+
+// Valid year range
+const MIN_YEAR = 2020;
+const MAX_YEAR = 2030;
+
+function isAllowedUrl(urlString: string): boolean {
+  try {
+    const urlObj = new URL(urlString);
+    // Check for private IP ranges and localhost
+    const hostname = urlObj.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname === '169.254.169.254' ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return false;
+    }
+    // Check against allowed domains
+    return ALLOWED_DOMAINS.some(domain => 
+      hostname === domain || hostname.endsWith('.' + domain)
+    );
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -141,13 +183,26 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { url, startByte = 0, chunkSize = 10000000, year = 2025 } = await req.json(); // 10MB default chunks
+    const body = await req.json();
+    const url = body.url;
+    const startByte = Math.max(0, parseInt(body.startByte) || 0);
+    const chunkSize = Math.min(MAX_CHUNK_SIZE, Math.max(1, parseInt(body.chunkSize) || MAX_CHUNK_SIZE));
+    const year = Math.min(MAX_YEAR, Math.max(MIN_YEAR, parseInt(body.year) || 2025));
     
     // Set the forced year for this import
     forcedYear = year;
     
-    if (!url) {
-      return new Response(JSON.stringify({ error: 'URL is required' }), {
+    if (!url || typeof url !== 'string') {
+      return new Response(JSON.stringify({ error: 'URL is required and must be a string' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate URL against allowed domains (SSRF protection)
+    if (!isAllowedUrl(url)) {
+      console.error('URL validation failed:', url);
+      return new Response(JSON.stringify({ error: 'URL domain not allowed. Only Dropbox and tprfn.k1ajd.net are permitted.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
