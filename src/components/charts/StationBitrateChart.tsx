@@ -1,17 +1,8 @@
 import { memo, useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
 import { HubConnection, formatCallsign } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 interface StationBitrateChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -31,7 +22,6 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     hubConnections.forEach((hub) => {
       if (hub.disconnectRecords.length === 0) return;
 
-      // Process each station in the connection
       [hub.station1, hub.station2].forEach((station) => {
         if (!stationStats.has(station)) {
           stationStats.set(station, {
@@ -67,13 +57,14 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
       sessions: stats.sessionCount,
     }));
 
-    // Sort by combined average bitrate
     result.sort((a, b) => (b.avgTx + b.avgRx) - (a.avgTx + a.avgRx));
 
     return result;
   }, [hubConnections]);
 
   const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10, resetKey: dateRangeKey });
+
+  const maxBitrate = Math.max(...displayItems.map(d => d.avgTx + d.avgRx), 1);
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
@@ -82,11 +73,11 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
 
   return (
     <div className="chart-card h-full flex flex-col">
-      <div className="mb-4 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Average and peak bitrates achieved by each station
+          <p className="text-sm text-muted-foreground mt-1">
+            Average TX and RX bitrates achieved by each station
           </p>
         </div>
         {hasMore && (
@@ -99,54 +90,58 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
         )}
       </div>
 
-      <div className={`flex-1 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'min-h-[280px]'}`} style={isExpanded ? { height: Math.min(500, displayItems.length * 35 + 100) } : undefined}>
-        <ResponsiveContainer width="100%" height={isExpanded ? displayItems.length * 35 + 100 : '100%'}>
-          <BarChart
-            data={displayItems}
-            margin={{ left: 10, right: 20, top: 5, bottom: 60 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-            <XAxis 
-              dataKey="station" 
-              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-              angle={-45}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis 
-              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-              tickFormatter={formatBps}
-              label={{ value: 'bps', angle: -90, position: 'insideLeft', fontSize: 10 }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                fontSize: '11px',
-              }}
-              formatter={(value: number, name: string) => [
-                `${value.toLocaleString()} bps`,
-                name === 'avgTx' ? 'Avg TX' : name === 'avgRx' ? 'Avg RX' : name === 'maxTx' ? 'Peak TX' : 'Peak RX'
-              ]}
-              labelFormatter={(label) => `Station: ${label}`}
-            />
-            <Legend 
-              wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
-              formatter={(value) => {
-                const labels: Record<string, string> = {
-                  avgTx: 'Avg TX',
-                  avgRx: 'Avg RX',
-                  maxTx: 'Peak TX',
-                  maxRx: 'Peak RX',
-                };
-                return labels[value] || value;
-              }}
-            />
-            <Bar dataKey="avgTx" fill="hsl(var(--chart-primary))" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="avgRx" fill="hsl(var(--chart-secondary))" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div className={`flex-1 space-y-3 ${isExpanded ? 'max-h-[600px] overflow-y-auto pr-2' : ''}`}>
+        {displayItems.map((item) => {
+          const txPercent = (item.avgTx / maxBitrate) * 100;
+          const rxPercent = (item.avgRx / maxBitrate) * 100;
+          
+          return (
+            <div key={item.station} className="group">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-mono font-medium text-foreground">{item.station}</span>
+                <span className="text-xs text-muted-foreground">{formatBps(item.avgTx + item.avgRx)} bps avg</span>
+              </div>
+              <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
+                <div 
+                  className="bg-chart-primary transition-all duration-300 flex items-center justify-end px-1"
+                  style={{ width: `${Math.max(txPercent, 2)}%` }}
+                  title={`Avg TX: ${formatBps(item.avgTx)} bps`}
+                >
+                  {txPercent > 15 && (
+                    <span className="text-[10px] font-medium text-white/90">{formatBps(item.avgTx)}</span>
+                  )}
+                </div>
+                <div 
+                  className="bg-chart-info transition-all duration-300 flex items-center px-1"
+                  style={{ width: `${Math.max(rxPercent, 2)}%` }}
+                  title={`Avg RX: ${formatBps(item.avgRx)} bps`}
+                >
+                  {rxPercent > 15 && (
+                    <span className="text-[10px] font-medium text-white/90">{formatBps(item.avgRx)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-6 flex items-center justify-center gap-6">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ArrowUp className="h-3 w-3 text-chart-primary" />
+            <div className="h-3 w-6 rounded bg-chart-primary" />
+          </div>
+          <span className="text-xs text-muted-foreground">Avg TX</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ArrowDown className="h-3 w-3 text-chart-info" />
+            <div className="h-3 w-6 rounded bg-chart-info" />
+          </div>
+          <span className="text-xs text-muted-foreground">Avg RX</span>
+        </div>
       </div>
     </div>
   );
