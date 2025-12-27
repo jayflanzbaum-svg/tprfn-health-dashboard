@@ -18,9 +18,10 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface BitrateAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
-export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConnections }: BitrateAnalysisChartProps) {
+export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConnections, dateRangeKey }: BitrateAnalysisChartProps) {
   const { connectionData, scatterData, stats } = useMemo(() => {
     const connectionStats: {
       name: string;
@@ -119,7 +120,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
     };
   }, [hubConnections]);
 
-  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(connectionData, { defaultLimit: 10 });
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(connectionData, { defaultLimit: 10, resetKey: dateRangeKey });
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;

@@ -6,9 +6,10 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
-export const TXByHubChart = memo(function TXByHubChart({ hubConnections }: TXByHubChartProps) {
+export const TXByHubChart = memo(function TXByHubChart({ hubConnections, dateRangeKey }: TXByHubChartProps) {
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.disconnectRecords.length > 0)
@@ -23,7 +24,7 @@ export const TXByHubChart = memo(function TXByHubChart({ hubConnections }: TXByH
       .sort((a, b) => b.total - a.total);
   }, [hubConnections]);
 
-  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData, { resetKey: dateRangeKey });
   const maxTotal = Math.max(...chartData.map(d => d.total), 1);
 
   return (

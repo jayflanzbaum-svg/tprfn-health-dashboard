@@ -6,6 +6,7 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface PeakBitrateLeaderboardProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
 interface LeaderboardEntry {
@@ -18,7 +19,7 @@ interface LeaderboardEntry {
   bytesTransferred: number;
 }
 
-export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hubConnections }: PeakBitrateLeaderboardProps) {
+export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hubConnections, dateRangeKey }: PeakBitrateLeaderboardProps) {
   const allEntries = useMemo(() => {
     const entries: LeaderboardEntry[] = [];
 
@@ -58,7 +59,7 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
     return entries;
   }, [hubConnections]);
 
-  const { displayItems: leaderboard, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allEntries);
+  const { displayItems: leaderboard, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allEntries, { resetKey: dateRangeKey });
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k bps`;

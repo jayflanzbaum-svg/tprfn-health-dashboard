@@ -16,6 +16,7 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface DisconnectAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
 const DISCONNECT_COLORS = {
@@ -24,7 +25,7 @@ const DISCONNECT_COLORS = {
   command: 'hsl(199, 89%, 48%)',   // Blue - manual
 };
 
-export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections }: DisconnectAnalysisChartProps) {
+export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections, dateRangeKey }: DisconnectAnalysisChartProps) {
   const chartData = useMemo(() => {
     const data: {
       name: string;
@@ -62,7 +63,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     return data.sort((a, b) => b.total - a.total);
   }, [hubConnections]);
 
-  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(chartData, { defaultLimit: 10 });
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(chartData, { defaultLimit: 10, resetKey: dateRangeKey });
 
   // Overall stats
   const overallStats = useMemo(() => {

@@ -32,6 +32,9 @@ const Index = () => {
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
   const logTableRef = useRef<HTMLDivElement>(null);
 
+  // Create a stable key for resetting chart expanded states when date range changes
+  const dateRangeKey = `${dateRange.start.getTime()}-${dateRange.end.getTime()}`;
+
   // Filter data based on selected station and date range
   const filteredData = useMemo(() => {
     if (!data) return null;
@@ -411,7 +414,7 @@ const Index = () => {
         {/* Disconnect Analysis by Connection */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[350px]" title="Disconnect Analysis" />}>
-            <DisconnectAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <DisconnectAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
         </div>
 
@@ -425,27 +428,27 @@ const Index = () => {
         {/* Hub Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N by Hub" />}>
-            <SNByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <SNByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="Data Transfer" />}>
-            <TXByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <TXByHubChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
         </div>
 
         {/* Bitrate Analysis */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[280px]" title="Bitrate Analysis" />}>
-            <BitrateAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <BitrateAnalysisChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
         </div>
 
         {/* Station Bitrate Comparison */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[280px]" title="Station Bitrate" />}>
-            <StationBitrateChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <StationBitrateChart hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
           <LazySection fallback={<LeaderboardSkeleton />}>
-            <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} />
+            <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
         </div>
 

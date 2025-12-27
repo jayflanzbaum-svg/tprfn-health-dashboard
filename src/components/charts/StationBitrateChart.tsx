@@ -15,9 +15,10 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface StationBitrateChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
-export const StationBitrateChart = memo(function StationBitrateChart({ hubConnections }: StationBitrateChartProps) {
+export const StationBitrateChart = memo(function StationBitrateChart({ hubConnections, dateRangeKey }: StationBitrateChartProps) {
   const stationData = useMemo(() => {
     const stationStats = new Map<string, {
       avgTxBps: number[];
@@ -72,7 +73,7 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     return result;
   }, [hubConnections]);
 
-  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10 });
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10, resetKey: dateRangeKey });
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
