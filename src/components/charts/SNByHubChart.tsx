@@ -46,7 +46,7 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
     return colors[quality] || colors.fair;
   };
 
-  const chartHeight = isExpanded ? Math.max(300, chartData.length * 35) : 300;
+  const chartHeight = isExpanded ? Math.max(300, chartData.length * 35) : Math.min(300, Math.max(200, chartData.length * 35));
 
   return (
     <div className="chart-card h-full flex flex-col">
@@ -64,7 +64,7 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
           />
         )}
       </div>
-      <div className={`flex-1 ${isExpanded ? 'max-h-[600px] overflow-y-auto' : ''}`} style={{ minHeight: isExpanded ? chartHeight : 300 }}>
+      <div className={`flex-1 ${isExpanded ? 'max-h-[600px] overflow-y-auto' : ''}`}>
         <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart
             data={chartData}
