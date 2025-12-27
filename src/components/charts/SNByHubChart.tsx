@@ -1,15 +1,4 @@
 import { memo, useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  ReferenceLine,
-} from 'recharts';
 import { HubConnection, getSignalQuality, formatConnectionShort } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
@@ -37,17 +26,19 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
 
   const getBarColor = (quality: string) => {
     const colors: Record<string, string> = {
-      excellent: 'hsl(142, 70%, 45%)',
-      good: 'hsl(142, 70%, 55%)',
-      fair: 'hsl(38, 92%, 50%)',
-      poor: 'hsl(25, 95%, 53%)',
-      bad: 'hsl(0, 84%, 60%)',
+      excellent: 'bg-signal-excellent',
+      good: 'bg-signal-good',
+      fair: 'bg-signal-fair',
+      poor: 'bg-signal-poor',
+      bad: 'bg-signal-bad',
     };
     return colors[quality] || colors.fair;
   };
 
-  // Match Data Transfer chart sizing: ~50px per item for consistent visual height
-  const chartHeight = chartData.length * 50;
+  // Find the range for scaling bars
+  const minSN = Math.min(...chartData.map(d => d.avgSN), 0);
+  const maxSN = Math.max(...chartData.map(d => d.avgSN), 1);
+  const range = maxSN - minSN;
 
   return (
     <div className="chart-card h-full flex flex-col">
@@ -65,49 +56,37 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
           />
         )}
       </div>
-      <div className={`flex-1 ${isExpanded ? 'max-h-[600px] overflow-y-auto' : ''}`}>
-        <ResponsiveContainer width="100%" height={chartHeight}>
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              type="number" 
-              domain={['dataMin - 5', 'dataMax + 5']}
-              tickFormatter={(value) => `${value} dB`}
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
-              width={90}
-              tick={{ fill: 'hsl(var(--foreground))', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-              labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
-              formatter={(value: number, name: string) => [
-                `${value} dB`,
-                name === 'avgSN' ? 'Average S/N' : name
-              ]}
-            />
-            <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-            <Bar dataKey="avgSN" radius={[0, 4, 4, 0]}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getBarColor(entry.quality)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      
+      {/* Custom bar chart matching Data Transfer style */}
+      <div className={`flex-1 space-y-3 ${isExpanded ? 'max-h-[600px] overflow-y-auto pr-2' : ''}`}>
+        {chartData.map((item) => {
+          // Calculate bar width as percentage of range
+          const barPercent = ((item.avgSN - minSN) / range) * 100;
+          
+          return (
+            <div key={item.name} className="group">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                <span className="text-xs text-muted-foreground">{item.avgSN} dB</span>
+              </div>
+              <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
+                <div 
+                  className={`${getBarColor(item.quality)} transition-all duration-300 flex items-center justify-end px-2 rounded-r`}
+                  style={{ width: `${Math.max(barPercent, 5)}%` }}
+                  title={`${item.avgSN} dB - ${item.quality}`}
+                >
+                  {barPercent > 15 && (
+                    <span className="text-[10px] font-medium text-white/90">{item.quality}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-4 flex flex-wrap gap-4 justify-center">
+
+      {/* Legend */}
+      <div className="mt-6 flex flex-wrap gap-4 justify-center">
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-signal-excellent" />
           <span className="text-xs text-muted-foreground">Excellent (≥10 dB)</span>
