@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      station_locations: {
+        Row: {
+          address: string | null
+          callsign: string
+          city: string | null
+          country: string | null
+          created_at: string
+          grid_square: string | null
+          id: string
+          is_manual_override: boolean
+          last_fetched_at: string | null
+          latitude: number | null
+          longitude: number | null
+          source: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          callsign: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          grid_square?: string | null
+          id?: string
+          is_manual_override?: boolean
+          last_fetched_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          source?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          callsign?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          grid_square?: string | null
+          id?: string
+          is_manual_override?: boolean
+          last_fetched_at?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          source?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       syslog_entries: {
         Row: {
           bandwidth: number | null

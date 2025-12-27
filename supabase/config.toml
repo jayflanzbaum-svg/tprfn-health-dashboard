@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.import-syslog]
 verify_jwt = false
+
+[functions.lookup-callsign]
+verify_jwt = false

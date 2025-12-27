@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import { HubConnection, getSignalQuality, formatConnectionShort } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { useStationLocations } from '@/hooks/useStationLocations';
 
 interface SNByHubChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -9,18 +10,42 @@ interface SNByHubChartProps {
 }
 
 export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRangeKey }: SNByHubChartProps) {
+  const { distances, lookupCallsigns, loading: locationsLoading } = useStationLocations();
+
+  // Get unique callsigns from hub connections
+  const callsigns = useMemo(() => {
+    const set = new Set<string>();
+    hubConnections.forEach(hub => {
+      set.add(hub.station1);
+      set.add(hub.station2);
+    });
+    return Array.from(set);
+  }, [hubConnections]);
+
+  // Fetch locations for callsigns on mount
+  useEffect(() => {
+    if (callsigns.length > 0) {
+      lookupCallsigns(callsigns);
+    }
+  }, [callsigns.join(',')]); // Only re-fetch when callsigns change
+
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.snRecords.length > 0)
-      .map(hub => ({
-        name: formatConnectionShort(hub.connectionId),
-        fullName: hub.connectionId,
-        avgSN: parseFloat(hub.avgSN.toFixed(1)),
-        sessions: hub.sessionCount,
-        quality: getSignalQuality(hub.avgSN),
-      }))
+      .map(hub => {
+        const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+        const distance = distances.get(distanceKey);
+        return {
+          name: formatConnectionShort(hub.connectionId),
+          fullName: hub.connectionId,
+          avgSN: parseFloat(hub.avgSN.toFixed(1)),
+          sessions: hub.sessionCount,
+          quality: getSignalQuality(hub.avgSN),
+          distance,
+        };
+      })
       .sort((a, b) => b.avgSN - a.avgSN);
-  }, [hubConnections]);
+  }, [hubConnections, distances]);
 
   const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData, { resetKey: dateRangeKey });
 
@@ -66,14 +91,21 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
           return (
             <div key={item.name} className="group">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                  {item.distance && (
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {item.distance} mi
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">{item.avgSN} dB</span>
               </div>
               <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
                 <div 
                   className={`${getBarColor(item.quality)} transition-all duration-300 flex items-center justify-end px-2 rounded-r`}
                   style={{ width: `${Math.max(barPercent, 5)}%` }}
-                  title={`${item.avgSN} dB - ${item.quality}`}
+                  title={`${item.avgSN} dB - ${item.quality}${item.distance ? ` - ${item.distance} miles` : ''}`}
                 >
                   {barPercent > 15 && (
                     <span className="text-[10px] font-medium text-white/90">{item.quality}</span>
