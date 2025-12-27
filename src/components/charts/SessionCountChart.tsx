@@ -9,13 +9,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { HubConnection } from '@/lib/syslogParser';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface SessionCountChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
 export function SessionCountChart({ hubConnections }: SessionCountChartProps) {
-  const chartData = useMemo(() => {
+  const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.sessionCount > 0)
       .map(hub => ({
@@ -25,14 +27,27 @@ export function SessionCountChart({ hubConnections }: SessionCountChartProps) {
       .sort((a, b) => b.sessions - a.sessions);
   }, [hubConnections]);
 
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
+  const chartHeight = isExpanded ? Math.max(400, chartData.length * 35) : 400;
+
   return (
     <div className="chart-card">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Session Count by Hub Connection</h3>
-        <p className="text-sm text-muted-foreground mt-1">Total VARAHF Disconnected sessions per connection pair</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Session Count by Hub Connection</h3>
+          <p className="text-sm text-muted-foreground mt-1">Total VARAHF Disconnected sessions per connection pair</p>
+        </div>
+        {hasMore && (
+          <ExpandCollapseButton 
+            isExpanded={isExpanded} 
+            onToggle={toggle} 
+            hiddenCount={hiddenCount}
+            totalCount={totalCount}
+          />
+        )}
       </div>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className={isExpanded ? 'max-h-[600px] overflow-y-auto' : ''} style={{ height: chartHeight }}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart
             data={chartData}
             layout="vertical"

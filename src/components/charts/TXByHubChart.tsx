@@ -1,13 +1,15 @@
 import { memo, useMemo } from 'react';
 import { HubConnection, formatBytes, formatConnectionShort } from '@/lib/syslogParser';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
 export const TXByHubChart = memo(function TXByHubChart({ hubConnections }: TXByHubChartProps) {
-  const chartData = useMemo(() => {
+  const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.disconnectRecords.length > 0)
       .map(hub => ({
@@ -18,21 +20,31 @@ export const TXByHubChart = memo(function TXByHubChart({ hubConnections }: TXByH
         rxBytes: hub.totalRxBytes,
         sessions: hub.sessionCount,
       }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10); // Top 10 for readability
+      .sort((a, b) => b.total - a.total);
   }, [hubConnections]);
 
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
   const maxTotal = Math.max(...chartData.map(d => d.total), 1);
 
   return (
     <div className="chart-card h-full flex flex-col">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Data Transfer by Connection</h3>
-        <p className="text-sm text-muted-foreground mt-1">Total bytes sent (TX) and received (RX) per hub pair</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Data Transfer by Connection</h3>
+          <p className="text-sm text-muted-foreground mt-1">Total bytes sent (TX) and received (RX) per hub pair</p>
+        </div>
+        {hasMore && (
+          <ExpandCollapseButton 
+            isExpanded={isExpanded} 
+            onToggle={toggle} 
+            hiddenCount={hiddenCount}
+            totalCount={totalCount}
+          />
+        )}
       </div>
       
       {/* Custom bar chart for better clarity */}
-      <div className="flex-1 space-y-3">
+      <div className={`flex-1 space-y-3 ${isExpanded ? 'max-h-[600px] overflow-y-auto pr-2' : ''}`}>
         {chartData.map((item, index) => {
           const txPercent = (item.txBytes / maxTotal) * 100;
           const rxPercent = (item.rxBytes / maxTotal) * 100;

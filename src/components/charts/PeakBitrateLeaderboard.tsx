@@ -1,6 +1,8 @@
 import { memo, useMemo } from 'react';
 import { HubConnection, formatConnectionShort, formatBytes, formatDuration } from '@/lib/syslogParser';
 import { Trophy, ArrowUp, ArrowDown } from 'lucide-react';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface PeakBitrateLeaderboardProps {
   hubConnections: Map<string, HubConnection>;
@@ -17,7 +19,7 @@ interface LeaderboardEntry {
 }
 
 export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hubConnections }: PeakBitrateLeaderboardProps) {
-  const leaderboard = useMemo(() => {
+  const allEntries = useMemo(() => {
     const entries: LeaderboardEntry[] = [];
 
     hubConnections.forEach((hub) => {
@@ -53,8 +55,10 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
       entry.rank = idx + 1;
     });
 
-    return entries.slice(0, 10);
+    return entries;
   }, [hubConnections]);
+
+  const { displayItems: leaderboard, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allEntries);
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k bps`;
@@ -74,17 +78,27 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
 
   return (
     <div className="chart-card h-full flex flex-col">
-      <div className="mb-4 flex items-center gap-2">
-        <Trophy className="h-5 w-5 text-amber-400" />
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Peak Bitrate Leaderboard</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Top 10 highest bitrate sessions recorded
-          </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-amber-400" />
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Peak Bitrate Leaderboard</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Top highest bitrate sessions recorded
+            </p>
+          </div>
         </div>
+        {hasMore && (
+          <ExpandCollapseButton 
+            isExpanded={isExpanded} 
+            onToggle={toggle} 
+            hiddenCount={hiddenCount}
+            totalCount={totalCount}
+          />
+        )}
       </div>
 
-      <div className="flex-1 space-y-2 overflow-auto">
+      <div className={`flex-1 space-y-2 ${isExpanded ? 'max-h-[600px] overflow-y-auto pr-2' : 'overflow-auto'}`}>
         {leaderboard.map((entry) => (
           <div
             key={`${entry.connection}-${entry.timestamp.getTime()}-${entry.type}`}
@@ -133,4 +147,3 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
     </div>
   );
 });
-
