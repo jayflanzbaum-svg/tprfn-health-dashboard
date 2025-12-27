@@ -11,6 +11,7 @@ import {
 import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { StationLocationsManager } from '@/components/StationLocationsManager';
 
 interface DashboardHeaderProps {
   stationCount: number;
@@ -152,6 +153,9 @@ export function DashboardHeader({
               <span className="text-muted-foreground ml-1">station pairs</span>
             </span>
           </div>
+
+          {/* Station Locations Manager */}
+          <StationLocationsManager callsigns={stations} />
 
           {/* Refresh button and last updated */}
           <div className="flex items-center gap-2">
