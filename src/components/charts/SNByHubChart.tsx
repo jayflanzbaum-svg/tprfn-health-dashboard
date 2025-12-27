@@ -16,9 +16,10 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface SNByHubChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
-export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByHubChartProps) {
+export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRangeKey }: SNByHubChartProps) {
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.snRecords.length > 0)
@@ -32,7 +33,7 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByH
       .sort((a, b) => b.avgSN - a.avgSN);
   }, [hubConnections]);
 
-  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData, { resetKey: dateRangeKey });
 
   const getBarColor = (quality: string) => {
     const colors: Record<string, string> = {

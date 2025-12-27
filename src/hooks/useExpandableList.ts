@@ -1,12 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 interface UseExpandableListOptions {
   defaultLimit?: number;
+  resetKey?: string | number;
 }
 
 export function useExpandableList<T>(items: T[], options: UseExpandableListOptions = {}) {
-  const { defaultLimit = 10 } = options;
+  const { defaultLimit = 10, resetKey } = options;
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Reset to collapsed when resetKey changes
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [resetKey]);
 
   const displayItems = useMemo(() => {
     if (isExpanded) return items;

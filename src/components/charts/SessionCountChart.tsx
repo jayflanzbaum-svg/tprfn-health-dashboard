@@ -14,9 +14,10 @@ import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface SessionCountChartProps {
   hubConnections: Map<string, HubConnection>;
+  dateRangeKey?: string;
 }
 
-export function SessionCountChart({ hubConnections }: SessionCountChartProps) {
+export function SessionCountChart({ hubConnections, dateRangeKey }: SessionCountChartProps) {
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.sessionCount > 0)
@@ -27,7 +28,7 @@ export function SessionCountChart({ hubConnections }: SessionCountChartProps) {
       .sort((a, b) => b.sessions - a.sessions);
   }, [hubConnections]);
 
-  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData, { resetKey: dateRangeKey });
   const chartHeight = isExpanded ? Math.max(400, chartData.length * 35) : 400;
 
   return (
