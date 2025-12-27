@@ -11,13 +11,15 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { HubConnection, getSignalQuality, formatConnectionShort } from '@/lib/syslogParser';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface SNByHubChartProps {
   hubConnections: Map<string, HubConnection>;
 }
 
 export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByHubChartProps) {
-  const chartData = useMemo(() => {
+  const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.snRecords.length > 0)
       .map(hub => ({
@@ -30,6 +32,8 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByH
       .sort((a, b) => b.avgSN - a.avgSN);
   }, [hubConnections]);
 
+  const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData);
+
   const getBarColor = (quality: string) => {
     const colors: Record<string, string> = {
       excellent: 'hsl(142, 70%, 45%)',
@@ -41,14 +45,26 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections }: SNByH
     return colors[quality] || colors.fair;
   };
 
+  const chartHeight = isExpanded ? Math.max(300, chartData.length * 35) : 300;
+
   return (
     <div className="chart-card h-full flex flex-col">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Average S/N by Hub Connection</h3>
-        <p className="text-sm text-muted-foreground mt-1">Signal-to-noise ratio indicates connection quality</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Average S/N by Hub Connection</h3>
+          <p className="text-sm text-muted-foreground mt-1">Signal-to-noise ratio indicates connection quality</p>
+        </div>
+        {hasMore && (
+          <ExpandCollapseButton 
+            isExpanded={isExpanded} 
+            onToggle={toggle} 
+            hiddenCount={hiddenCount}
+            totalCount={totalCount}
+          />
+        )}
       </div>
-      <div className="flex-1 min-h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className={`flex-1 ${isExpanded ? 'max-h-[600px] overflow-y-auto' : ''}`} style={{ minHeight: isExpanded ? chartHeight : 300 }}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart
             data={chartData}
             layout="vertical"
