@@ -6,30 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface HamQTHResponse {
-  session?: {
-    session_id?: string;
-    error?: string;
+interface CallookResponse {
+  status: string;
+  type: string;
+  current: {
+    callsign: string;
+    operClass: string;
   };
-  search?: {
-    callsign?: string;
-    nick?: string;
-    qth?: string;
-    country?: string;
-    adif?: string;
-    itu?: string;
-    cq?: string;
-    grid?: string;
-    adr_name?: string;
-    adr_street1?: string;
-    adr_city?: string;
-    adr_zip?: string;
-    adr_country?: string;
-    adr_adif?: string;
-    us_state?: string;
-    latitude?: string;
-    longitude?: string;
-    error?: string;
+  name: string;
+  address: {
+    line1: string;
+    line2: string;
+  };
+  location: {
+    latitude: string;
+    longitude: string;
+    gridsquare: string;
   };
 }
 
@@ -144,39 +136,34 @@ serve(async (req) => {
 
     console.log(`Found ${Object.keys(results).length} cached, need to fetch ${toFetch.length}`);
 
-    // Fetch from HamQTH for missing callsigns
+    // Fetch from Callook.info for missing callsigns (free, no auth required)
     for (const callsign of toFetch) {
       try {
-        // HamQTH free API (no auth required for basic lookups)
-        const url = `https://www.hamqth.com/xml.php?callsign=${encodeURIComponent(callsign)}&prg=varahf-dashboard`;
-        console.log(`Fetching from HamQTH: ${callsign}`);
+        const url = `https://callook.info/${encodeURIComponent(callsign)}/json`;
+        console.log(`Fetching from Callook.info: ${callsign}`);
         
         const response = await fetch(url);
-        const text = await response.text();
+        const data = await response.json() as CallookResponse;
         
-        // Parse XML response (simple parsing for the fields we need)
-        const getField = (field: string): string | null => {
-          const match = text.match(new RegExp(`<${field}>([^<]*)</${field}>`));
-          return match ? match[1] : null;
-        };
+        if (data.status !== 'VALID') {
+          console.log(`Callsign ${callsign} not found or invalid`);
+          results[callsign] = { callsign, error: 'Not found' };
+          continue;
+        }
 
-        const latitude = getField('latitude');
-        const longitude = getField('longitude');
-        const grid = getField('grid');
-        const city = getField('adr_city');
-        const state = getField('us_state');
-        const country = getField('adr_country') || getField('country');
-        const address = getField('adr_street1');
-
-        let lat = latitude ? parseFloat(latitude) : null;
-        let lon = longitude ? parseFloat(longitude) : null;
-
-        // If no lat/lon but we have grid, calculate from grid
-        if ((!lat || !lon) && grid) {
-          const coords = gridToLatLon(grid);
-          if (coords) {
-            lat = coords.lat;
-            lon = coords.lon;
+        const lat = data.location?.latitude ? parseFloat(data.location.latitude) : null;
+        const lon = data.location?.longitude ? parseFloat(data.location.longitude) : null;
+        const grid = data.location?.gridsquare || null;
+        
+        // Parse city and state from address line2 (format: "CITY, ST ZIP")
+        let city: string | null = null;
+        let state: string | null = null;
+        if (data.address?.line2) {
+          const parts = data.address.line2.split(',');
+          if (parts.length >= 2) {
+            city = parts[0].trim();
+            const stateZip = parts[1].trim().split(' ');
+            state = stateZip[0] || null;
           }
         }
 
@@ -187,12 +174,14 @@ serve(async (req) => {
           grid_square: grid,
           city,
           state,
-          country,
-          address,
-          source: 'hamqth',
+          country: 'USA', // Callook.info is FCC data, so US only
+          address: data.address?.line1 || null,
+          source: 'callook',
           is_manual_override: false,
           last_fetched_at: new Date().toISOString(),
         };
+
+        console.log(`Got location for ${callsign}: grid=${grid}, lat=${lat}, lon=${lon}`);
 
         // Upsert to database
         const { data: upserted, error: upsertError } = await supabase
@@ -207,9 +196,9 @@ serve(async (req) => {
           results[callsign] = upserted;
         }
 
-        // Rate limit: wait 500ms between requests to be nice to HamQTH
+        // Rate limit: wait 200ms between requests to be nice
         if (toFetch.indexOf(callsign) < toFetch.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       } catch (err) {
         console.error(`Error fetching ${callsign}:`, err);
