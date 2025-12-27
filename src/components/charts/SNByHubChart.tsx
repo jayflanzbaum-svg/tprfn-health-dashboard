@@ -46,7 +46,8 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
     return colors[quality] || colors.fair;
   };
 
-  const chartHeight = isExpanded ? Math.max(300, chartData.length * 35) : Math.min(300, Math.max(200, chartData.length * 35));
+  // Match Data Transfer chart sizing: ~50px per item for consistent visual height
+  const chartHeight = chartData.length * 50;
 
   return (
     <div className="chart-card h-full flex flex-col">
