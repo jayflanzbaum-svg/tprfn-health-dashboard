@@ -134,12 +134,21 @@ export function DashboardHeader({
 
           <div 
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
-            title="Unique stations (callsigns) in the data"
+            title={selectedStation ? `Selected station: ${selectedStation}` : "Hub stations (callsigns) in the data"}
           >
             <Wifi className="h-4 w-4 text-accent" />
             <span className="text-sm">
-              <span className="font-mono font-semibold text-foreground">{stationCount}</span>
-              <span className="text-muted-foreground ml-1">unique stations</span>
+              {selectedStation ? (
+                <>
+                  <span className="font-mono font-semibold text-foreground">{selectedStation}</span>
+                  <span className="text-muted-foreground ml-1">Hub Station</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-mono font-semibold text-foreground">{stationCount}</span>
+                  <span className="text-muted-foreground ml-1">Hub Stations</span>
+                </>
+              )}
             </span>
           </div>
 
