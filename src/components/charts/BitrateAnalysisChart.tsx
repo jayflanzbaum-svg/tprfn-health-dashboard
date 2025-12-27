@@ -13,6 +13,8 @@ import {
   ZAxis,
 } from 'recharts';
 import { HubConnection, formatConnectionShort } from '@/lib/syslogParser';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface BitrateAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -106,7 +108,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       : 0;
 
     return {
-      connectionData: connectionStats.slice(0, 10), // Top 10
+      connectionData: connectionStats,
       scatterData: snBitrateCorrelation,
       stats: {
         peakBitrate,
@@ -116,6 +118,8 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       },
     };
   }, [hubConnections]);
+
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(connectionData, { defaultLimit: 10 });
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
@@ -134,11 +138,23 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Average Bitrate by Connection */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">Average Bitrate by Connection (Top 10)</h4>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-muted-foreground">
+              Average Bitrate by Connection {isExpanded ? `(All ${totalCount})` : '(Top 10)'}
+            </h4>
+            {hasMore && (
+              <ExpandCollapseButton
+                isExpanded={isExpanded}
+                onToggle={toggle}
+                hiddenCount={hiddenCount}
+                totalCount={totalCount}
+              />
+            )}
+          </div>
+          <div className={isExpanded ? 'max-h-[400px] overflow-y-auto' : 'h-[280px]'} style={isExpanded ? { height: Math.min(400, displayItems.length * 30 + 40) } : undefined}>
+            <ResponsiveContainer width="100%" height={isExpanded ? displayItems.length * 30 + 40 : '100%'}>
               <BarChart
-                data={connectionData}
+                data={displayItems}
                 layout="vertical"
                 margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
               >

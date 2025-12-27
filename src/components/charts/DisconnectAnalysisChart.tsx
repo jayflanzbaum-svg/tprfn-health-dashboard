@@ -11,6 +11,8 @@ import {
   Cell,
 } from 'recharts';
 import { HubConnection, formatConnectionShort } from '@/lib/syslogParser';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface DisconnectAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -56,9 +58,11 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       }
     });
 
-    // Sort by total disconnects descending, take top 10
-    return data.sort((a, b) => b.total - a.total).slice(0, 10);
+    // Sort by total disconnects descending
+    return data.sort((a, b) => b.total - a.total);
   }, [hubConnections]);
+
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(chartData, { defaultLimit: 10 });
 
   // Overall stats
   const overallStats = useMemo(() => {
@@ -90,9 +94,19 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             <h3 className="text-lg font-semibold text-foreground">Disconnect Analysis by Connection</h3>
             <p className="text-sm text-muted-foreground mt-1">RF connection health indicator - breakdown by disconnect reason</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-foreground">{overallStats.healthPercent}%</div>
-            <div className="text-xs text-muted-foreground">Overall Health</div>
+          <div className="flex items-center gap-4">
+            {hasMore && (
+              <ExpandCollapseButton
+                isExpanded={isExpanded}
+                onToggle={toggle}
+                hiddenCount={hiddenCount}
+                totalCount={totalCount}
+              />
+            )}
+            <div className="text-right">
+              <div className="text-2xl font-bold text-foreground">{overallStats.healthPercent}%</div>
+              <div className="text-xs text-muted-foreground">Overall Health</div>
+            </div>
           </div>
         </div>
         
@@ -113,10 +127,10 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
         </div>
       </div>
 
-      <div className="h-[350px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className={isExpanded ? 'max-h-[500px] overflow-y-auto' : 'h-[350px]'} style={isExpanded ? { height: Math.min(500, displayItems.length * 35 + 50) } : undefined}>
+        <ResponsiveContainer width="100%" height={isExpanded ? displayItems.length * 35 + 50 : '100%'}>
           <BarChart
-            data={chartData}
+            data={displayItems}
             layout="vertical"
             margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
           >

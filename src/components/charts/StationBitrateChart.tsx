@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { HubConnection, formatCallsign } from '@/lib/syslogParser';
+import { useExpandableList } from '@/hooks/useExpandableList';
+import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 
 interface StationBitrateChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -67,8 +69,10 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     // Sort by combined average bitrate
     result.sort((a, b) => (b.avgTx + b.avgRx) - (a.avgTx + a.avgRx));
 
-    return result.slice(0, 12);
+    return result;
   }, [hubConnections]);
+
+  const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10 });
 
   const formatBps = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
@@ -77,17 +81,27 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
 
   return (
     <div className="chart-card h-full flex flex-col">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Average and peak bitrates achieved by each station
-        </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Average and peak bitrates achieved by each station
+          </p>
+        </div>
+        {hasMore && (
+          <ExpandCollapseButton
+            isExpanded={isExpanded}
+            onToggle={toggle}
+            hiddenCount={hiddenCount}
+            totalCount={totalCount}
+          />
+        )}
       </div>
 
-      <div className="flex-1 min-h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className={`flex-1 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'min-h-[280px]'}`} style={isExpanded ? { height: Math.min(500, displayItems.length * 35 + 100) } : undefined}>
+        <ResponsiveContainer width="100%" height={isExpanded ? displayItems.length * 35 + 100 : '100%'}>
           <BarChart
-            data={stationData}
+            data={displayItems}
             margin={{ left: 10, right: 20, top: 5, bottom: 60 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
