@@ -285,7 +285,7 @@ const Index = () => {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <DashboardHeader
-            stationCount={selectedStation ? 1 : data.stations.size}
+            stationCount={stationsList.length}
             connectionCount={filteredData.hubConnections.size}
             lastUpdated={lastUpdated}
             stations={stationsList}
@@ -315,7 +315,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <DashboardHeader 
-          stationCount={selectedStation ? 1 : data.stations.size}
+          stationCount={stationsList.length}
           connectionCount={filteredData.hubConnections.size}
           lastUpdated={lastUpdated}
           stations={stationsList}
