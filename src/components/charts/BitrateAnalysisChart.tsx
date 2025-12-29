@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -15,6 +15,7 @@ import {
 import { HubConnection, formatConnectionShort } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { useStationLocations } from '@/hooks/useStationLocations';
 
 interface BitrateAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -22,6 +23,25 @@ interface BitrateAnalysisChartProps {
 }
 
 export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConnections, dateRangeKey }: BitrateAnalysisChartProps) {
+  const { distances, lookupCallsigns } = useStationLocations();
+
+  // Get unique callsigns from hub connections
+  const callsigns = useMemo(() => {
+    const set = new Set<string>();
+    hubConnections.forEach(hub => {
+      set.add(hub.station1);
+      set.add(hub.station2);
+    });
+    return Array.from(set);
+  }, [hubConnections]);
+
+  // Fetch locations for callsigns on mount
+  useEffect(() => {
+    if (callsigns.length > 0) {
+      lookupCallsigns(callsigns);
+    }
+  }, [callsigns.join(',')]);
+
   const { connectionData, scatterData, stats } = useMemo(() => {
     const connectionStats: {
       name: string;
@@ -30,6 +50,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       maxTxBps: number;
       maxRxBps: number;
       sessionCount: number;
+      distance?: number;
     }[] = [];
 
     const snBitrateCorrelation: {
@@ -60,6 +81,9 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       const maxTx = Math.max(...txBpsValues, 0);
       const maxRx = Math.max(...rxBpsValues, 0);
 
+      const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+      const distance = distances.get(distanceKey);
+
       connectionStats.push({
         name: formatConnectionShort(hub.connectionId),
         avgTxBps: Math.round(avgTxBps),
@@ -67,6 +91,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
         maxTxBps: maxTx,
         maxRxBps: maxRx,
         sessionCount: hub.disconnectRecords.length,
+        distance,
       });
 
       totalMaxTx = Math.max(totalMaxTx, maxTx);
@@ -118,7 +143,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
         totalSessions,
       },
     };
-  }, [hubConnections]);
+  }, [hubConnections, distances]);
 
   const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(connectionData, { defaultLimit: 10, resetKey: dateRangeKey });
 
@@ -169,8 +194,20 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
                 <YAxis 
                   dataKey="name" 
                   type="category" 
-                  tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
-                  width={90}
+                  tick={({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+                    const item = displayItems.find(d => d.name === payload.value);
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text x={-5} y={0} dy={4} textAnchor="end" fontSize={9} fill="hsl(var(--muted-foreground))">
+                          {payload.value}
+                          {item?.distance && (
+                            <tspan fill="hsl(var(--muted-foreground))" opacity={0.7}> ({item.distance}mi)</tspan>
+                          )}
+                        </text>
+                      </g>
+                    );
+                  }}
+                  width={120}
                 />
                 <Tooltip
                   contentStyle={{
@@ -183,6 +220,13 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
                     `${value.toLocaleString()} bps`,
                     name === 'avgTxBps' ? 'Avg TX' : 'Avg RX'
                   ]}
+                  labelFormatter={(label, payload) => {
+                    const item = payload?.[0]?.payload;
+                    if (item?.distance) {
+                      return `${label} (${item.distance} mi)`;
+                    }
+                    return label;
+                  }}
                 />
                 <Legend 
                   wrapperStyle={{ fontSize: '10px' }}

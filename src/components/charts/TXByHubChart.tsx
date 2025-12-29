@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import { HubConnection, formatBytes, formatConnectionShort } from '@/lib/syslogParser';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { useStationLocations } from '@/hooks/useStationLocations';
 
 interface TXByHubChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -10,19 +11,43 @@ interface TXByHubChartProps {
 }
 
 export const TXByHubChart = memo(function TXByHubChart({ hubConnections, dateRangeKey }: TXByHubChartProps) {
+  const { distances, lookupCallsigns } = useStationLocations();
+
+  // Get unique callsigns from hub connections
+  const callsigns = useMemo(() => {
+    const set = new Set<string>();
+    hubConnections.forEach(hub => {
+      set.add(hub.station1);
+      set.add(hub.station2);
+    });
+    return Array.from(set);
+  }, [hubConnections]);
+
+  // Fetch locations for callsigns on mount
+  useEffect(() => {
+    if (callsigns.length > 0) {
+      lookupCallsigns(callsigns);
+    }
+  }, [callsigns.join(',')]);
+
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
       .filter(hub => hub.disconnectRecords.length > 0)
-      .map(hub => ({
-        name: formatConnectionShort(hub.connectionId),
-        fullName: hub.connectionId,
-        total: hub.totalTxBytes + hub.totalRxBytes,
-        txBytes: hub.totalTxBytes,
-        rxBytes: hub.totalRxBytes,
-        sessions: hub.sessionCount,
-      }))
+      .map(hub => {
+        const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+        const distance = distances.get(distanceKey);
+        return {
+          name: formatConnectionShort(hub.connectionId),
+          fullName: hub.connectionId,
+          total: hub.totalTxBytes + hub.totalRxBytes,
+          txBytes: hub.totalTxBytes,
+          rxBytes: hub.totalRxBytes,
+          sessions: hub.sessionCount,
+          distance,
+        };
+      })
       .sort((a, b) => b.total - a.total);
-  }, [hubConnections]);
+  }, [hubConnections, distances]);
 
   const { displayItems: chartData, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allData, { resetKey: dateRangeKey });
   const maxTotal = Math.max(...chartData.map(d => d.total), 1);
@@ -53,7 +78,14 @@ export const TXByHubChart = memo(function TXByHubChart({ hubConnections, dateRan
           return (
             <div key={item.name} className="group">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono font-medium text-foreground">{item.name}</span>
+                  {item.distance && (
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {item.distance} mi
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">{formatBytes(item.total)} total</span>
               </div>
               <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
