@@ -62,24 +62,37 @@ export function useStationLocations(): UseStationLocationsResult {
     setError(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('lookup-callsign', {
-        body: { callsigns }
-      });
-
-      if (error) throw error;
-
-      // Update locations
       const newLocations = new Map(locations);
-      Object.entries(data.locations || {}).forEach(([callsign, loc]) => {
-        newLocations.set(callsign, loc as StationLocation);
-      });
-      setLocations(newLocations);
-
-      // Update distances
       const newDistances = new Map(distances);
-      Object.entries(data.distances || {}).forEach(([key, dist]) => {
-        newDistances.set(key, dist as number);
-      });
+      
+      // Batch requests into chunks of 50 (edge function limit)
+      const BATCH_SIZE = 50;
+      const batches: string[][] = [];
+      for (let i = 0; i < callsigns.length; i += BATCH_SIZE) {
+        batches.push(callsigns.slice(i, i + BATCH_SIZE));
+      }
+      
+      console.log(`Looking up ${callsigns.length} callsigns in ${batches.length} batch(es)`);
+      
+      for (const batch of batches) {
+        const { data, error } = await supabase.functions.invoke('lookup-callsign', {
+          body: { callsigns: batch }
+        });
+
+        if (error) throw error;
+
+        // Update locations from this batch
+        Object.entries(data.locations || {}).forEach(([callsign, loc]) => {
+          newLocations.set(callsign, loc as StationLocation);
+        });
+
+        // Update distances from this batch
+        Object.entries(data.distances || {}).forEach(([key, dist]) => {
+          newDistances.set(key, dist as number);
+        });
+      }
+      
+      setLocations(newLocations);
       setDistances(newDistances);
     } catch (err: any) {
       console.error('Error looking up callsigns:', err);
