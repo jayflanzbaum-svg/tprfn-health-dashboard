@@ -121,7 +121,7 @@ export function StationMap({ locations, hubConnections, distances, hubCallsigns 
     return [...hubStations, ...pollingStations];
   }, [stationFilter, hubStations, pollingStations]);
 
-  // Calculate connection data for lines
+  // Calculate connection data for lines - only show lines where BOTH endpoints are visible
   const connectionLines = useMemo(() => {
     const lines: Array<{
       from: StationLocation;
@@ -132,18 +132,22 @@ export function StationMap({ locations, hubConnections, distances, hubCallsigns 
       distance: number | null;
     }> = [];
 
+    // Create a set of displayed station callsigns for fast lookup
+    const displayedCallsigns = new Set(displayedStations.map(s => s.callsign.toUpperCase()));
+
     hubConnections.forEach(hub => {
-      const loc1 = locations.get(hub.station1.toUpperCase());
-      const loc2 = locations.get(hub.station2.toUpperCase());
+      const station1Upper = hub.station1.toUpperCase();
+      const station2Upper = hub.station2.toUpperCase();
+      
+      // Only draw line if BOTH endpoints are displayed on the map
+      if (!displayedCallsigns.has(station1Upper) || !displayedCallsigns.has(station2Upper)) {
+        return;
+      }
+
+      const loc1 = locations.get(station1Upper);
+      const loc2 = locations.get(station2Upper);
       
       if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
-        // Filter based on station filter
-        if (stationFilter === 'hub') {
-          const isHub1 = normalizedHubCallsigns.has(hub.station1.toUpperCase());
-          const isHub2 = normalizedHubCallsigns.has(hub.station2.toUpperCase());
-          if (!isHub1 && !isHub2) return; // Skip if neither is a hub
-        }
-
         const avgBitrate = hub.disconnectRecords.length > 0
           ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
           : 0;
@@ -163,7 +167,7 @@ export function StationMap({ locations, hubConnections, distances, hubCallsigns 
     });
 
     return lines;
-  }, [hubConnections, locations, distances, stationFilter, normalizedHubCallsigns]);
+  }, [hubConnections, locations, distances, displayedStations]);
 
   // Initialize map
   useEffect(() => {
