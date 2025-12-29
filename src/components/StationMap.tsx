@@ -4,9 +4,9 @@ import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Map, Radio, Wifi, Signal, Eye, EyeOff } from 'lucide-react';
+import { Map, Radio, Wifi, Signal, Eye, EyeOff, Building2, Users } from 'lucide-react';
 import { StationLocation } from '@/hooks/useStationLocations';
-import { HubConnection, getSignalQuality } from '@/lib/syslogParser';
+import { HubConnection } from '@/lib/syslogParser';
 
 // Fix for default marker icons in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -16,13 +16,36 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Custom marker icons
+const createCustomIcon = (color: string) => {
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      background-color: ${color};
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    "></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
+
+const HUB_STATION_COLOR = '#3b82f6'; // Blue for hub stations
+const POLLING_STATION_COLOR = '#f97316'; // Orange for polling stations
+
 interface StationMapProps {
   locations: Map<string, StationLocation>;
   hubConnections: Map<string, HubConnection>;
   distances: Map<string, number>;
+  hubCallsigns: string[];
 }
 
 type ConnectionColorMode = 'snr' | 'bitrate' | 'sessions';
+type StationFilter = 'hub' | 'all';
 
 const getSnrColor = (snr: number): string => {
   if (snr >= 20) return '#10b981'; // Excellent - green
@@ -32,7 +55,7 @@ const getSnrColor = (snr: number): string => {
 };
 
 const getBitrateColor = (bitrate: number): string => {
-  if (bitrate >= 5000) return '#10b981'; // High
+  if (bitrate >= 5000) return '#10b981';
   if (bitrate >= 2000) return '#22c55e';
   if (bitrate >= 500) return '#f59e0b';
   return '#ef4444';
@@ -45,7 +68,7 @@ const getSessionColor = (sessions: number): string => {
   return '#ef4444';
 };
 
-export function StationMap({ locations, hubConnections, distances }: StationMapProps) {
+export function StationMap({ locations, hubConnections, distances, hubCallsigns }: StationMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
@@ -53,17 +76,50 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
   
   const [showConnections, setShowConnections] = useState(true);
   const [colorMode, setColorMode] = useState<ConnectionColorMode>('snr');
+  const [stationFilter, setStationFilter] = useState<StationFilter>('hub');
 
-  // Get stations with valid coordinates
-  const validStations = useMemo(() => {
-    const stations: StationLocation[] = [];
+  // Normalize hub callsigns for comparison
+  const normalizedHubCallsigns = useMemo(() => 
+    new Set(hubCallsigns.map(c => c.toUpperCase().trim())),
+    [hubCallsigns]
+  );
+
+  // Get all unique callsigns from connections (for polling stations)
+  const allConnectedCallsigns = useMemo(() => {
+    const callsigns = new Set<string>();
+    hubConnections.forEach(hub => {
+      callsigns.add(hub.station1.toUpperCase());
+      callsigns.add(hub.station2.toUpperCase());
+    });
+    return callsigns;
+  }, [hubConnections]);
+
+  // Categorize stations
+  const { hubStations, pollingStations } = useMemo(() => {
+    const hub: StationLocation[] = [];
+    const polling: StationLocation[] = [];
+    
     locations.forEach(loc => {
       if (loc.latitude && loc.longitude) {
-        stations.push(loc);
+        const upperCallsign = loc.callsign.toUpperCase();
+        if (normalizedHubCallsigns.has(upperCallsign)) {
+          hub.push(loc);
+        } else if (allConnectedCallsigns.has(upperCallsign)) {
+          polling.push(loc);
+        }
       }
     });
-    return stations;
-  }, [locations]);
+    
+    return { hubStations: hub, pollingStations: polling };
+  }, [locations, normalizedHubCallsigns, allConnectedCallsigns]);
+
+  // Get stations to display based on filter
+  const displayedStations = useMemo(() => {
+    if (stationFilter === 'hub') {
+      return hubStations;
+    }
+    return [...hubStations, ...pollingStations];
+  }, [stationFilter, hubStations, pollingStations]);
 
   // Calculate connection data for lines
   const connectionLines = useMemo(() => {
@@ -81,7 +137,14 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
       const loc2 = locations.get(hub.station2.toUpperCase());
       
       if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
-      const avgBitrate = hub.disconnectRecords.length > 0
+        // Filter based on station filter
+        if (stationFilter === 'hub') {
+          const isHub1 = normalizedHubCallsigns.has(hub.station1.toUpperCase());
+          const isHub2 = normalizedHubCallsigns.has(hub.station2.toUpperCase());
+          if (!isHub1 && !isHub2) return; // Skip if neither is a hub
+        }
+
+        const avgBitrate = hub.disconnectRecords.length > 0
           ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
           : 0;
         
@@ -100,7 +163,7 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
     });
 
     return lines;
-  }, [hubConnections, locations, distances]);
+  }, [hubConnections, locations, distances, stationFilter, normalizedHubCallsigns]);
 
   // Initialize map
   useEffect(() => {
@@ -134,16 +197,23 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
 
     markersRef.current.clearLayers();
 
-    validStations.forEach(station => {
-      const marker = L.marker([station.latitude!, station.longitude!]);
+    displayedStations.forEach(station => {
+      const isHub = normalizedHubCallsigns.has(station.callsign.toUpperCase());
+      const color = isHub ? HUB_STATION_COLOR : POLLING_STATION_COLOR;
+      const stationType = isHub ? 'Hub Station' : 'Polling Station';
+      
+      const marker = L.marker(
+        [station.latitude!, station.longitude!],
+        { icon: createCustomIcon(color) }
+      );
       
       const popupContent = `
         <div class="p-2 min-w-[180px]">
-          <div class="font-bold text-lg mb-2">${station.callsign}</div>
+          <div class="font-bold text-lg mb-1">${station.callsign}</div>
+          <div class="text-xs font-medium mb-2" style="color: ${color}">${stationType}</div>
           ${station.grid_square ? `<div class="text-sm text-gray-600">Grid: ${station.grid_square}</div>` : ''}
           ${station.city || station.state ? `<div class="text-sm text-gray-600">${[station.city, station.state].filter(Boolean).join(', ')}</div>` : ''}
           <div class="text-xs text-gray-500 mt-1">${station.latitude?.toFixed(4)}, ${station.longitude?.toFixed(4)}</div>
-          <div class="text-xs text-gray-400 mt-1">Source: ${station.source}</div>
         </div>
       `;
       
@@ -152,13 +222,13 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
     });
 
     // Fit bounds if we have stations
-    if (validStations.length > 0) {
+    if (displayedStations.length > 0) {
       const bounds = L.latLngBounds(
-        validStations.map(s => [s.latitude!, s.longitude!] as [number, number])
+        displayedStations.map(s => [s.latitude!, s.longitude!] as [number, number])
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [validStations]);
+  }, [displayedStations, normalizedHubCallsigns]);
 
   // Update connection lines
   useEffect(() => {
@@ -213,9 +283,6 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
     });
   }, [connectionLines, showConnections, colorMode]);
 
-  const stationCount = validStations.length;
-  const connectionCount = connectionLines.length;
-
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
@@ -226,19 +293,48 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
           </CardTitle>
           
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              <Radio className="h-3 w-3 mr-1" />
-              {stationCount} stations
+            <Badge variant="secondary" className="text-xs gap-1">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: HUB_STATION_COLOR }} />
+              {hubStations.length} hub
+            </Badge>
+            <Badge variant="secondary" className="text-xs gap-1">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: POLLING_STATION_COLOR }} />
+              {pollingStations.length} polling
             </Badge>
             <Badge variant="secondary" className="text-xs">
               <Wifi className="h-3 w-3 mr-1" />
-              {connectionCount} connections
+              {connectionLines.length} connections
             </Badge>
           </div>
         </div>
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
+          {/* Station filter */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1">Show:</span>
+            <Button
+              variant={stationFilter === 'hub' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStationFilter('hub')}
+              className="gap-1.5"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Hub Only
+            </Button>
+            <Button
+              variant={stationFilter === 'all' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStationFilter('all')}
+              className="gap-1.5"
+            >
+              <Users className="h-3.5 w-3.5" />
+              All Stations
+            </Button>
+          </div>
+
+          <div className="h-4 w-px bg-border mx-1" />
+
           <Button
             variant={showConnections ? "default" : "outline"}
             size="sm"
@@ -279,27 +375,44 @@ export function StationMap({ locations, hubConnections, distances }: StationMapP
         </div>
 
         {/* Legend */}
-        {showConnections && (
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-            <span>Legend:</span>
+        <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Stations:</span>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-full bg-[#10b981]" />
-              <span>Excellent</span>
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: HUB_STATION_COLOR }} />
+              <span>Hub</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-full bg-[#22c55e]" />
-              <span>Good</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-              <span>Fair</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
-              <span>Poor</span>
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: POLLING_STATION_COLOR }} />
+              <span>Polling</span>
             </div>
           </div>
-        )}
+          
+          {showConnections && (
+            <>
+              <div className="h-3 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Quality:</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-[#10b981]" />
+                  <span>Excellent</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-[#22c55e]" />
+                  <span>Good</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
+                  <span>Fair</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
+                  <span>Poor</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="p-0">
