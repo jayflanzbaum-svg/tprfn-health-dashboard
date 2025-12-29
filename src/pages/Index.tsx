@@ -1,5 +1,6 @@
-import { useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
+import { useStationLocations } from '@/hooks/useStationLocations';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
@@ -11,6 +12,7 @@ import { CallsignManager } from '@/components/CallsignManager';
 import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/components/ChartSkeleton';
 import { LazySection } from '@/components/LazySection';
 import { toast } from '@/hooks/use-toast';
+import { StationMap } from '@/components/StationMap';
 
 // Direct imports - memoized at component level
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
@@ -26,11 +28,20 @@ import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboa
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
   const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns);
+  const { locations, distances, lookupCallsigns } = useStationLocations();
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
   const logTableRef = useRef<HTMLDivElement>(null);
+
+  // Auto-fetch locations for all stations when data loads
+  useEffect(() => {
+    if (data && data.stations.size > 0) {
+      const callsigns = Array.from(data.stations);
+      lookupCallsigns(callsigns);
+    }
+  }, [data?.stations.size]);
 
   // Create a stable key for resetting chart expanded states when date range changes
   const dateRangeKey = `${dateRange.start.getTime()}-${dateRange.end.getTime()}`;
@@ -452,6 +463,14 @@ const Index = () => {
           </LazySection>
         </div>
 
+        {/* Station Map */}
+        <div className="mb-8">
+          <StationMap 
+            locations={locations}
+            hubConnections={filteredData.hubConnections}
+            distances={distances}
+          />
+        </div>
 
         {/* Detailed Table */}
         <HubConnectionsTable hubConnections={filteredData.hubConnections} />
