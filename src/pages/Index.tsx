@@ -469,6 +469,7 @@ const Index = () => {
             locations={locations}
             hubConnections={filteredData.hubConnections}
             distances={distances}
+            hubCallsigns={allowedCallsigns}
           />
         </div>
 

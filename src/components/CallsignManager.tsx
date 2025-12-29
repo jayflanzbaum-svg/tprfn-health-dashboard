@@ -55,9 +55,9 @@ export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
   return (
     <div className="chart-card">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Managed Callsigns</h3>
+        <h3 className="text-lg font-semibold text-foreground">Hub Callsigns</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Add or remove callsigns from the filter list ({callsigns.length} active)
+          Add or remove hub station callsigns ({callsigns.length} active)
         </p>
       </div>
       
