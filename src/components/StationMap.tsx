@@ -121,7 +121,16 @@ export function StationMap({ locations, hubConnections, distances, hubCallsigns 
     return [...hubStations, ...pollingStations];
   }, [stationFilter, hubStations, pollingStations]);
 
-  // Calculate connection data for lines - only show lines where BOTH endpoints are visible
+  // Create a lookup object for displayed stations (keyed by uppercase callsign)
+  const displayedStationsLookup = useMemo(() => {
+    const lookup: Record<string, StationLocation> = {};
+    displayedStations.forEach(s => {
+      lookup[s.callsign.toUpperCase()] = s;
+    });
+    return lookup;
+  }, [displayedStations]);
+
+  // Calculate connection data for lines - only show lines where BOTH endpoints are visible on the map
   const connectionLines = useMemo(() => {
     const lines: Array<{
       from: StationLocation;
@@ -132,42 +141,38 @@ export function StationMap({ locations, hubConnections, distances, hubCallsigns 
       distance: number | null;
     }> = [];
 
-    // Create a set of displayed station callsigns for fast lookup
-    const displayedCallsigns = new Set(displayedStations.map(s => s.callsign.toUpperCase()));
-
     hubConnections.forEach(hub => {
       const station1Upper = hub.station1.toUpperCase();
       const station2Upper = hub.station2.toUpperCase();
       
-      // Only draw line if BOTH endpoints are displayed on the map
-      if (!displayedCallsigns.has(station1Upper) || !displayedCallsigns.has(station2Upper)) {
+      // Get station locations from displayed stations ONLY (ensures both endpoints have markers)
+      const loc1 = displayedStationsLookup[station1Upper];
+      const loc2 = displayedStationsLookup[station2Upper];
+      
+      // Only draw line if BOTH endpoints exist in displayed stations (which already have valid lat/long)
+      if (!loc1 || !loc2) {
         return;
       }
 
-      const loc1 = locations.get(station1Upper);
-      const loc2 = locations.get(station2Upper);
+      const avgBitrate = hub.disconnectRecords.length > 0
+        ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
+        : 0;
       
-      if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
-        const avgBitrate = hub.disconnectRecords.length > 0
-          ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
-          : 0;
-        
-        const key = [hub.station1, hub.station2].sort().join('↔');
-        const distance = distances.get(key) ?? null;
-        
-        lines.push({
-          from: loc1,
-          to: loc2,
-          avgSnr: hub.avgSN,
-          avgBitrate,
-          sessions: hub.sessionCount,
-          distance,
-        });
-      }
+      const key = [hub.station1, hub.station2].sort().join('↔');
+      const distance = distances.get(key) ?? null;
+      
+      lines.push({
+        from: loc1,
+        to: loc2,
+        avgSnr: hub.avgSN,
+        avgBitrate,
+        sessions: hub.sessionCount,
+        distance,
+      });
     });
 
     return lines;
-  }, [hubConnections, locations, distances, displayedStations]);
+  }, [hubConnections, distances, displayedStationsLookup]);
 
   // Initialize map
   useEffect(() => {
