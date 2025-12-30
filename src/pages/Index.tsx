@@ -12,7 +12,7 @@ import { CallsignManager } from '@/components/CallsignManager';
 import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/components/ChartSkeleton';
 import { LazySection } from '@/components/LazySection';
 import { toast } from '@/hooks/use-toast';
-import { StationMap } from '@/components/StationMap';
+import { LiveStationMap } from '@/components/LiveStationMap';
 
 // Direct imports - memoized at component level
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
@@ -465,7 +465,7 @@ const Index = () => {
 
         {/* Station Map */}
         <div className="mb-8">
-          <StationMap 
+          <LiveStationMap 
             locations={locations}
             hubConnections={filteredData.hubConnections}
             distances={distances}
