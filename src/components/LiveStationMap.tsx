@@ -94,7 +94,18 @@ const animationStyles = `
   }
   
   @keyframes flowingDash {
-    to { stroke-dashoffset: -30; }
+    0% { stroke-dashoffset: 30; }
+    100% { stroke-dashoffset: 0; }
+  }
+  
+  @keyframes flowingGlow {
+    0% { stroke-dashoffset: 60; opacity: 0.9; }
+    100% { stroke-dashoffset: 0; opacity: 0.9; }
+  }
+  
+  @keyframes particleFlow {
+    0% { stroke-dashoffset: 100; }
+    100% { stroke-dashoffset: 0; }
   }
   
   @keyframes fadeIn {
@@ -103,8 +114,19 @@ const animationStyles = `
   }
   
   .live-connection-line {
-    stroke-dasharray: 10 5;
-    animation: flowingDash 1s linear infinite;
+    stroke-dasharray: 8 12;
+    animation: flowingDash 0.8s linear infinite;
+  }
+  
+  .live-connection-glow {
+    stroke-dasharray: 4 26;
+    animation: flowingGlow 0.8s linear infinite;
+    filter: blur(2px);
+  }
+  
+  .live-connection-particles {
+    stroke-dasharray: 2 18;
+    animation: particleFlow 0.6s linear infinite;
   }
   
   .activity-item {
@@ -499,24 +521,43 @@ export function LiveStationMap({
       
       if (!loc1 || !loc2) return;
 
-      // Create animated SVG polyline
-      const line = L.polyline(
-        [
-          [loc1.latitude!, loc1.longitude!],
-          [loc2.latitude!, loc2.longitude!],
-        ],
-        { 
-          color: conn.snr ? getSnrColor(conn.snr) : ACTIVE_CONNECTION_COLOR,
-          weight: 4,
-          opacity: 0.9,
-          className: 'live-connection-line',
-          dashArray: '10, 5',
-        }
-      );
+      const lineColor = conn.snr ? getSnrColor(conn.snr) : ACTIVE_CONNECTION_COLOR;
+      const coords: [number, number][] = [
+        [loc1.latitude!, loc1.longitude!],
+        [loc2.latitude!, loc2.longitude!],
+      ];
+
+      // Base glow layer for visibility
+      const glowLine = L.polyline(coords, { 
+        color: lineColor,
+        weight: 8,
+        opacity: 0.3,
+        className: 'live-connection-glow',
+        dashArray: '4, 26',
+      });
+      liveConnectionsRef.current!.addLayer(glowLine);
+
+      // Main animated line showing direction
+      const mainLine = L.polyline(coords, { 
+        color: lineColor,
+        weight: 4,
+        opacity: 0.9,
+        className: 'live-connection-line',
+        dashArray: '8, 12',
+      });
+
+      // Fast-moving particles layer
+      const particleLine = L.polyline(coords, { 
+        color: '#ffffff',
+        weight: 2,
+        opacity: 0.8,
+        className: 'live-connection-particles',
+        dashArray: '2, 18',
+      });
 
       const tooltipContent = `
         <div class="p-1">
-          <div class="font-semibold">${conn.station1} ↔ ${conn.station2}</div>
+          <div class="font-semibold">${conn.station1} → ${conn.station2}</div>
           <div class="text-sm">Event: ${conn.eventType}</div>
           ${conn.snr ? `<div class="text-sm">S/N: ${conn.snr} dB</div>` : ''}
           ${conn.bitrate ? `<div class="text-sm">Bitrate: ${conn.bitrate} bps</div>` : ''}
@@ -524,8 +565,9 @@ export function LiveStationMap({
         </div>
       `;
 
-      line.bindTooltip(tooltipContent, { sticky: true });
-      liveConnectionsRef.current!.addLayer(line);
+      mainLine.bindTooltip(tooltipContent, { sticky: true });
+      liveConnectionsRef.current!.addLayer(mainLine);
+      liveConnectionsRef.current!.addLayer(particleLine);
     });
   }, [liveConnections, colorMode, liveMode, allStationsLookup]);
 
