@@ -142,11 +142,6 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
                 <span className="text-sm font-medium text-foreground truncate">
                   {entry.connection}
                 </span>
-                {entry.distance && (
-                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {entry.distance} mi
-                  </span>
-                )}
                 <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
                   entry.type === 'TX' 
                     ? 'bg-chart-primary/20 text-chart-primary' 
@@ -157,7 +152,7 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
                 </span>
               </div>
               <div className="text-xs text-muted-foreground">
-                {formatDate(entry.timestamp)} • {formatDuration(entry.sessionDuration)} • {formatBytes(entry.bytesTransferred)}
+                {formatDate(entry.timestamp)} • {formatDuration(entry.sessionDuration)} • {formatBytes(entry.bytesTransferred)}{entry.distance ? ` • ${entry.distance} mi` : ''}
               </div>
             </div>
 
