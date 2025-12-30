@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import { HubConnection, formatConnectionShort, formatBytes, formatDuration } from '@/lib/syslogParser';
 import { Trophy, ArrowUp, ArrowDown } from 'lucide-react';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { useStationLocations } from '@/hooks/useStationLocations';
 
 interface PeakBitrateLeaderboardProps {
   hubConnections: Map<string, HubConnection>;
@@ -17,13 +18,36 @@ interface LeaderboardEntry {
   timestamp: Date;
   sessionDuration: number;
   bytesTransferred: number;
+  distance?: number;
 }
 
 export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hubConnections, dateRangeKey }: PeakBitrateLeaderboardProps) {
+  const { distances, lookupCallsigns } = useStationLocations();
+
+  // Get unique callsigns from hub connections
+  const callsigns = useMemo(() => {
+    const set = new Set<string>();
+    hubConnections.forEach(hub => {
+      set.add(hub.station1);
+      set.add(hub.station2);
+    });
+    return Array.from(set);
+  }, [hubConnections]);
+
+  // Fetch locations for callsigns on mount
+  useEffect(() => {
+    if (callsigns.length > 0) {
+      lookupCallsigns(callsigns);
+    }
+  }, [callsigns.join(',')]);
+
   const allEntries = useMemo(() => {
     const entries: LeaderboardEntry[] = [];
 
     hubConnections.forEach((hub) => {
+      const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+      const distance = distances.get(distanceKey);
+
       hub.disconnectRecords.forEach((record) => {
         if (record.maxTxBps > 0) {
           entries.push({
@@ -34,6 +58,7 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
             timestamp: record.timestamp,
             sessionDuration: record.sessionSeconds,
             bytesTransferred: record.txBytes,
+            distance,
           });
         }
         if (record.maxRxBps > 0) {
@@ -45,6 +70,7 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
             timestamp: record.timestamp,
             sessionDuration: record.sessionSeconds,
             bytesTransferred: record.rxBytes,
+            distance,
           });
         }
       });
@@ -57,7 +83,7 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
     });
 
     return entries;
-  }, [hubConnections]);
+  }, [hubConnections, distances]);
 
   const { displayItems: leaderboard, isExpanded, toggle, hasMore, hiddenCount, totalCount } = useExpandableList(allEntries, { resetKey: dateRangeKey });
 
@@ -116,6 +142,11 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
                 <span className="text-sm font-medium text-foreground truncate">
                   {entry.connection}
                 </span>
+                {entry.distance && (
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {entry.distance} mi
+                  </span>
+                )}
                 <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
                   entry.type === 'TX' 
                     ? 'bg-chart-primary/20 text-chart-primary' 
