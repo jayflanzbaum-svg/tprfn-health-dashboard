@@ -185,6 +185,17 @@ export function LiveStationMap({
     return [...hubStations, ...pollingStations];
   }, [stationFilter, hubStations, pollingStations]);
 
+  // Create a lookup object for ALL stations (needed for drawing live connection lines)
+  const allStationsLookup = useMemo(() => {
+    const lookup: Record<string, StationLocation> = {};
+    locations.forEach(s => {
+      if (s.latitude && s.longitude) {
+        lookup[s.callsign.toUpperCase()] = s;
+      }
+    });
+    return lookup;
+  }, [locations]);
+
   // Create a lookup object for displayed stations
   const displayedStationsLookup = useMemo(() => {
     const lookup: Record<string, StationLocation> = {};
@@ -482,8 +493,9 @@ export function LiveStationMap({
       
       if (!station2Upper) return;
       
-      const loc1 = displayedStationsLookup[station1Upper];
-      const loc2 = displayedStationsLookup[station2Upper];
+      // Use allStationsLookup so we can draw lines to any station with a known location
+      const loc1 = allStationsLookup[station1Upper];
+      const loc2 = allStationsLookup[station2Upper];
       
       if (!loc1 || !loc2) return;
 
@@ -515,7 +527,7 @@ export function LiveStationMap({
       line.bindTooltip(tooltipContent, { sticky: true });
       liveConnectionsRef.current!.addLayer(line);
     });
-  }, [liveConnections, colorMode, liveMode, displayedStationsLookup]);
+  }, [liveConnections, colorMode, liveMode, allStationsLookup]);
 
   const handleFullscreenToggle = useCallback(() => {
     if (isFullscreen) {
