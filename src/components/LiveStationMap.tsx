@@ -234,6 +234,59 @@ export function LiveStationMap({
     return lines;
   }, [hubConnections, distances, displayedStationsLookup]);
 
+  // Live window: connections within last 5 minutes are considered "live"
+  const LIVE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+  // Fetch recent connections on mount and when liveMode changes
+  useEffect(() => {
+    if (!liveMode) return;
+
+    const fetchRecentConnections = async () => {
+      const cutoff = new Date(Date.now() - LIVE_WINDOW_MS).toISOString();
+      
+      const { data, error } = await supabase
+        .from('syslog_entries')
+        .select('*')
+        .in('event_type', ['connect', 'disconnect', 'sn_report'])
+        .gte('timestamp', cutoff)
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('Error fetching recent connections:', error);
+        return;
+      }
+
+      if (data) {
+        const connections: LiveConnection[] = data.map(entry => ({
+          id: entry.id,
+          station1: entry.callsign,
+          station2: entry.remote_callsign || '',
+          eventType: entry.event_type,
+          snr: entry.snr ?? undefined,
+          bitrate: entry.bitrate ?? undefined,
+          timestamp: new Date(entry.timestamp),
+          hub: entry.hub,
+        }));
+
+        setLiveConnections(connections.slice(0, 50));
+        setActivityFeed(connections.slice(0, 50));
+
+        // Set active stations from recent connections
+        const activeSet = new Set<string>();
+        connections.forEach(conn => {
+          activeSet.add(conn.station1.toUpperCase());
+          if (conn.station2) {
+            activeSet.add(conn.station2.toUpperCase());
+          }
+        });
+        setActiveStations(activeSet);
+      }
+    };
+
+    fetchRecentConnections();
+  }, [liveMode]);
+
   // Subscribe to real-time updates
   useEffect(() => {
     if (!liveMode) return;
@@ -264,11 +317,11 @@ export function LiveStationMap({
             hub: entry.hub,
           };
           
-          // Update live connections (keep last 30 seconds)
+          // Update live connections (keep last 5 minutes)
           setLiveConnections(prev => {
-            const cutoff = new Date(Date.now() - 30000);
+            const cutoff = new Date(Date.now() - LIVE_WINDOW_MS);
             const filtered = prev.filter(c => c.timestamp > cutoff);
-            return [liveConn, ...filtered].slice(0, 20);
+            return [liveConn, ...filtered].slice(0, 50);
           });
           
           // Update activity feed (keep last 50 entries)
@@ -281,25 +334,21 @@ export function LiveStationMap({
             if (entry.remote_callsign) {
               newSet.add(entry.remote_callsign.toUpperCase());
             }
-            // Remove after 5 seconds
-            setTimeout(() => {
-              setActiveStations(curr => {
-                const updated = new Set(curr);
-                updated.delete(entry.callsign.toUpperCase());
-                if (entry.remote_callsign) {
-                  updated.delete(entry.remote_callsign.toUpperCase());
-                }
-                return updated;
-              });
-            }, 5000);
             return newSet;
           });
         }
       )
       .subscribe();
 
+    // Periodically clean up old connections
+    const cleanupInterval = setInterval(() => {
+      const cutoff = new Date(Date.now() - LIVE_WINDOW_MS);
+      setLiveConnections(prev => prev.filter(c => c.timestamp > cutoff));
+    }, 30000); // Check every 30 seconds
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(cleanupInterval);
     };
   }, [liveMode]);
 
