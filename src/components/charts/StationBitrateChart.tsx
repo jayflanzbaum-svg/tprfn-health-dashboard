@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import { HubConnection, formatCallsign } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useStationLocations } from '@/hooks/useStationLocations';
 
 interface StationBitrateChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -10,6 +11,37 @@ interface StationBitrateChartProps {
 }
 
 export const StationBitrateChart = memo(function StationBitrateChart({ hubConnections, dateRangeKey }: StationBitrateChartProps) {
+  const { distances, lookupCallsigns } = useStationLocations();
+
+  // Get unique callsigns from hub connections
+  const callsigns = useMemo(() => {
+    const set = new Set<string>();
+    hubConnections.forEach(hub => {
+      set.add(hub.station1);
+      set.add(hub.station2);
+    });
+    return Array.from(set);
+  }, [hubConnections]);
+
+  // Fetch locations for callsigns
+  useEffect(() => {
+    if (callsigns.length > 0) {
+      lookupCallsigns(callsigns);
+    }
+  }, [callsigns.join(',')]);
+
+  // Build a map of station -> list of peers
+  const stationPeers = useMemo(() => {
+    const peers = new Map<string, Set<string>>();
+    hubConnections.forEach((hub) => {
+      if (!peers.has(hub.station1)) peers.set(hub.station1, new Set());
+      if (!peers.has(hub.station2)) peers.set(hub.station2, new Set());
+      peers.get(hub.station1)!.add(hub.station2);
+      peers.get(hub.station2)!.add(hub.station1);
+    });
+    return peers;
+  }, [hubConnections]);
+
   const stationData = useMemo(() => {
     const stationStats = new Map<string, {
       avgTxBps: number[];
@@ -44,23 +76,38 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
       });
     });
 
-    const result = Array.from(stationStats.entries()).map(([station, stats]) => ({
-      station: formatCallsign(station),
-      avgTx: stats.avgTxBps.length > 0 
-        ? Math.round(stats.avgTxBps.reduce((a, b) => a + b, 0) / stats.avgTxBps.length)
-        : 0,
-      avgRx: stats.avgRxBps.length > 0 
-        ? Math.round(stats.avgRxBps.reduce((a, b) => a + b, 0) / stats.avgRxBps.length)
-        : 0,
-      maxTx: stats.maxTxBps,
-      maxRx: stats.maxRxBps,
-      sessions: stats.sessionCount,
-    }));
+    const result = Array.from(stationStats.entries()).map(([station, stats]) => {
+      // Calculate average distance to peers
+      const peers = stationPeers.get(station) || new Set();
+      const peerDistances: number[] = [];
+      peers.forEach(peer => {
+        const key = [station, peer].sort().join('↔');
+        const dist = distances.get(key);
+        if (dist) peerDistances.push(dist);
+      });
+      const avgDistance = peerDistances.length > 0 
+        ? Math.round(peerDistances.reduce((a, b) => a + b, 0) / peerDistances.length)
+        : undefined;
+
+      return {
+        station: formatCallsign(station),
+        avgTx: stats.avgTxBps.length > 0 
+          ? Math.round(stats.avgTxBps.reduce((a, b) => a + b, 0) / stats.avgTxBps.length)
+          : 0,
+        avgRx: stats.avgRxBps.length > 0 
+          ? Math.round(stats.avgRxBps.reduce((a, b) => a + b, 0) / stats.avgRxBps.length)
+          : 0,
+        maxTx: stats.maxTxBps,
+        maxRx: stats.maxRxBps,
+        sessions: stats.sessionCount,
+        avgDistance,
+      };
+    });
 
     result.sort((a, b) => (b.avgTx + b.avgRx) - (a.avgTx + a.avgRx));
 
     return result;
-  }, [hubConnections]);
+  }, [hubConnections, stationPeers, distances]);
 
   const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10, resetKey: dateRangeKey });
 
@@ -99,7 +146,9 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
             <div key={item.station} className="group">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-mono font-medium text-foreground">{item.station}</span>
-                <span className="text-xs text-muted-foreground">{formatBps(item.avgTx + item.avgRx)} bps avg</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatBps(item.avgTx + item.avgRx)} bps avg{item.avgDistance ? ` • ${item.avgDistance} mi avg` : ''}
+                </span>
               </div>
               <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
                 <div 
