@@ -51,9 +51,58 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
       }
     });
 
-    // In aggregated mode, we don't have per-session bitrate data
+    // Aggregated mode fallback: estimate station bitrates from per-connection aggregated stats
     if (!hasRawData) {
-      return { stationData: [], isAggregated: true };
+      const stationStats = new Map<string, {
+        avgBps: number[];
+        maxBps: number;
+        sessionCount: number;
+      }>();
+
+      hubConnections.forEach((hub) => {
+        const avg = hub.avgBitrate ?? 0;
+        const max = hub.maxBitrate ?? 0;
+        if (avg <= 0 && max <= 0) return;
+
+        [hub.station1, hub.station2].forEach((station) => {
+          if (!stationStats.has(station)) {
+            stationStats.set(station, { avgBps: [], maxBps: 0, sessionCount: 0 });
+          }
+          const s = stationStats.get(station)!;
+          if (avg > 0) s.avgBps.push(avg);
+          s.maxBps = Math.max(s.maxBps, max);
+          s.sessionCount += hub.sessionCount;
+        });
+      });
+
+      const result = Array.from(stationStats.entries()).map(([station, stats]) => {
+        const peers = stationPeers.get(station) || new Set();
+        const peerDistances: number[] = [];
+        peers.forEach(peer => {
+          const key = [station, peer].sort().join('↔');
+          const dist = distances.get(key);
+          if (dist) peerDistances.push(dist);
+        });
+        const avgDistance = peerDistances.length > 0 
+          ? Math.round(peerDistances.reduce((a, b) => a + b, 0) / peerDistances.length)
+          : undefined;
+
+        const avg = stats.avgBps.length > 0 ? Math.round(stats.avgBps.reduce((a, b) => a + b, 0) / stats.avgBps.length) : 0;
+
+        return {
+          station: formatCallsign(station),
+          avgTx: avg,
+          avgRx: 0,
+          maxTx: stats.maxBps,
+          maxRx: 0,
+          sessions: stats.sessionCount,
+          avgDistance,
+        };
+      });
+
+      result.sort((a, b) => (b.avgTx + b.avgRx) - (a.avgTx + a.avgRx));
+
+      return { stationData: result, isAggregated: true };
     }
 
     const stationStats = new Map<string, {
@@ -131,31 +180,17 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     return `${value}`;
   };
 
-  // Show message for aggregated mode
-  if (isAggregated) {
-    return (
-      <div className="chart-card h-full flex flex-col">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Detailed bitrate data unavailable for large date ranges. Select a shorter period (≤60 days) to see station bitrates.
-          </p>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          Select a shorter date range to view station bitrates
-        </div>
-      </div>
-    );
-  }
+
+  const subtitle = isAggregated
+    ? 'Aggregated station bitrate estimates (no per-session detail for large date ranges)'
+    : 'Average TX and RX bitrates achieved by each station';
 
   return (
     <div className="chart-card h-full flex flex-col">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Average TX and RX bitrates achieved by each station
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
         {hasMore && (
           <ExpandCollapseButton

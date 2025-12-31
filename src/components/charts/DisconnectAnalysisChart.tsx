@@ -90,6 +90,20 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
 
   // Overall stats
   const overallStats = useMemo(() => {
+    if (isAggregated) {
+      let totalSessions = 0;
+      hubConnections.forEach((hub) => {
+        totalSessions += hub.sessionCount;
+      });
+      return {
+        normal: totalSessions,
+        timeout: 0,
+        command: 0,
+        total: totalSessions,
+        healthPercent: totalSessions > 0 ? 100 : 0,
+      };
+    }
+
     let totalNormal = 0;
     let totalTimeout = 0;
     let totalCommand = 0;
@@ -108,7 +122,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       total,
       healthPercent: total > 0 ? Math.round((totalNormal / total) * 100) : 0,
     };
-  }, [hubConnections]);
+  }, [hubConnections, isAggregated]);
 
   return (
     <div className="chart-card">

@@ -16,11 +16,17 @@ export function HubConnectionsTable({ hubConnections }: HubConnectionsTableProps
 
   const tableData = useMemo(() => {
     const data = Array.from(hubConnections.values())
-      .filter(hub => hub.snRecords.length > 0 || hub.disconnectRecords.length > 0)
+      .filter(hub => 
+        hub.snRecords.length > 0 ||
+        hub.disconnectRecords.length > 0 ||
+        hub.sessionCount > 0 ||
+        hub.avgSN > 0 ||
+        (hub.totalTxBytes + hub.totalRxBytes) > 0
+      )
       .map(hub => {
         const snValues = hub.snRecords.map(r => r.snValue);
-        const minSN = snValues.length > 0 ? Math.min(...snValues) : 0;
-        const maxSN = snValues.length > 0 ? Math.max(...snValues) : 0;
+        const minSN = snValues.length > 0 ? Math.min(...snValues) : hub.avgSN;
+        const maxSN = snValues.length > 0 ? Math.max(...snValues) : hub.avgSN;
         
         return {
           connectionId: hub.connectionId,

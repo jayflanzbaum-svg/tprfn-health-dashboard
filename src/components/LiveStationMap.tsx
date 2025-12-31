@@ -292,9 +292,9 @@ export function LiveStationMap({
       
       if (!loc1 || !loc2) return;
 
-      const avgBitrate = hub.disconnectRecords.length > 0
-        ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
-        : 0;
+       const avgBitrate = hub.disconnectRecords.length > 0
+         ? hub.disconnectRecords.reduce((sum, r) => sum + Math.max(r.maxTxBps || 0, r.maxRxBps || 0), 0) / hub.disconnectRecords.length
+         : (hub.avgBitrate ?? 0);
       
       const key = [hub.station1, hub.station2].sort().join('↔');
       const distance = distances.get(key) ?? null;

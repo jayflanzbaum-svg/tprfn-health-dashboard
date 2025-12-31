@@ -58,6 +58,9 @@ interface AggregatedData {
     totalTxBytes: number;
     totalRxBytes: number;
     snCount: number;
+    avgBitrate: number;
+    maxBitrate: number;
+    maxBitrateAt: string | null;
   }>;
   totalRecords: number;
   dateRange: {
@@ -275,25 +278,28 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         });
       }
 
-      // Create hub connections from connection stats
-      for (const stat of aggregatedData.connectionStats) {
-        stations.add(stat.station1);
-        stations.add(stat.station2);
-        
-        const connectionId = createConnectionId(stat.station1, stat.station2);
-        hubConnections.set(connectionId, {
-          station1: stat.station1,
-          station2: stat.station2,
-          connectionId,
-          snRecords: [], // Not needed for aggregated view
-          connectRecords: [],
-          disconnectRecords: [],
-          avgSN: stat.avgSN,
-          totalTxBytes: stat.totalTxBytes,
-          totalRxBytes: stat.totalRxBytes,
-          sessionCount: stat.sessionCount
-        });
-      }
+       // Create hub connections from connection stats
+       for (const stat of aggregatedData.connectionStats) {
+         stations.add(stat.station1);
+         stations.add(stat.station2);
+         
+         const connectionId = createConnectionId(stat.station1, stat.station2);
+         hubConnections.set(connectionId, {
+           station1: stat.station1,
+           station2: stat.station2,
+           connectionId,
+           snRecords: [], // Not needed for aggregated view
+           connectRecords: [],
+           disconnectRecords: [],
+           avgSN: stat.avgSN,
+           totalTxBytes: stat.totalTxBytes,
+           totalRxBytes: stat.totalRxBytes,
+           sessionCount: stat.sessionCount,
+           avgBitrate: stat.avgBitrate,
+           maxBitrate: stat.maxBitrate,
+           maxBitrateAt: stat.maxBitrateAt ? new Date(stat.maxBitrateAt) : undefined,
+         });
+       }
 
       const minDate = new Date(aggregatedData.dateRange.start);
       const maxDate = new Date(aggregatedData.dateRange.end);

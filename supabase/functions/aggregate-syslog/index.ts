@@ -30,6 +30,9 @@ interface AggregatedData {
     totalTxBytes: number;
     totalRxBytes: number;
     snCount: number;
+    avgBitrate: number;
+    maxBitrate: number;
+    maxBitrateAt: string | null;
   }>;
   // Total record counts
   totalRecords: number;
@@ -73,7 +76,7 @@ Deno.serve(async (req) => {
     while (iterations < maxIterations) {
       let batchQuery = supabase
         .from('syslog_entries')
-        .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, duration_seconds')
+        .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
         .gte('timestamp', startDate)
         .lte('timestamp', endDate)
         .order('timestamp', { ascending: true })
@@ -120,6 +123,10 @@ Deno.serve(async (req) => {
       sessionCount: number;
       totalTxBytes: number;
       totalRxBytes: number;
+      bitrateTotal: number;
+      bitrateCount: number;
+      maxBitrate: number;
+      maxBitrateAt: string | null;
     }>();
 
     let minDate = new Date();
@@ -172,7 +179,11 @@ Deno.serve(async (req) => {
             snCount: 0,
             sessionCount: 0,
             totalTxBytes: 0,
-            totalRxBytes: 0
+            totalRxBytes: 0,
+            bitrateTotal: 0,
+            bitrateCount: 0,
+            maxBitrate: 0,
+            maxBitrateAt: null,
           });
         }
         const conn = connectionMap.get(connectionId)!;
@@ -189,19 +200,33 @@ Deno.serve(async (req) => {
             snCount: 0,
             sessionCount: 0,
             totalTxBytes: 0,
-            totalRxBytes: 0
+            totalRxBytes: 0,
+            bitrateTotal: 0,
+            bitrateCount: 0,
+            maxBitrate: 0,
+            maxBitrateAt: null,
           });
         }
         connectionMap.get(connectionId)!.sessionCount++;
       }
 
-      if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
-        if (connectionMap.has(connectionId)) {
-          const conn = connectionMap.get(connectionId)!;
-          conn.totalTxBytes += entry.bytes_sent || 0;
-          conn.totalRxBytes += entry.bytes_received || 0;
-        }
-      }
+       if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
+         if (connectionMap.has(connectionId)) {
+           const conn = connectionMap.get(connectionId)!;
+           conn.totalTxBytes += entry.bytes_sent || 0;
+           conn.totalRxBytes += entry.bytes_received || 0;
+
+           const bitrate = typeof entry.bitrate === 'number' ? entry.bitrate : null;
+           if (bitrate !== null && bitrate > 0) {
+             conn.bitrateTotal += bitrate;
+             conn.bitrateCount++;
+             if (bitrate > conn.maxBitrate) {
+               conn.maxBitrate = bitrate;
+               conn.maxBitrateAt = timestamp.toISOString();
+             }
+           }
+         }
+       }
     }
 
     // Convert maps to arrays
@@ -232,15 +257,18 @@ Deno.serve(async (req) => {
 
     const connectionStats: AggregatedData['connectionStats'] = [];
     connectionMap.forEach((val) => {
-      connectionStats.push({
-        station1: val.station1,
-        station2: val.station2,
-        avgSN: val.snCount > 0 ? val.snTotal / val.snCount : 0,
-        sessionCount: val.sessionCount,
-        totalTxBytes: val.totalTxBytes,
-        totalRxBytes: val.totalRxBytes,
-        snCount: val.snCount
-      });
+       connectionStats.push({
+         station1: val.station1,
+         station2: val.station2,
+         avgSN: val.snCount > 0 ? val.snTotal / val.snCount : 0,
+         sessionCount: val.sessionCount,
+         totalTxBytes: val.totalTxBytes,
+         totalRxBytes: val.totalRxBytes,
+         snCount: val.snCount,
+         avgBitrate: val.bitrateCount > 0 ? val.bitrateTotal / val.bitrateCount : 0,
+         maxBitrate: val.maxBitrate,
+         maxBitrateAt: val.maxBitrateAt,
+       });
     });
 
     const result: AggregatedData = {
