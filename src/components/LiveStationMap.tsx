@@ -705,6 +705,9 @@ export function LiveStationMap({
       );
 
       // GridTracker-style dashed line - GREEN to match live station markers
+      // Must use SVG renderer for consistent dash appearance across zoom levels
+      if (!svgRendererRef.current) return;
+      
       const dashedLine = L.polyline(arcCoords, { 
         color: '#22c55e', // Green to match live station color
         weight: 2,
@@ -712,7 +715,7 @@ export function LiveStationMap({
         dashArray: '12, 8', // GridTracker-like
         lineCap: 'butt',
         lineJoin: 'round',
-        renderer: svgRendererRef.current ?? undefined,
+        renderer: svgRendererRef.current,
         className: 'live-connection-dash',
       });
 
