@@ -76,6 +76,10 @@ function getHeatmapColor(value: number | null, minVal: number, maxVal: number): 
 export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRange, aggregatedData }: SNHeatmapChartProps) {
   const viewMode = useMemo(() => getViewModeFromDateRange(dateRange), [dateRange]);
   const usePreAggregated = !!aggregatedData && (viewMode === 'weekMonth' || viewMode === 'dayWeek' || viewMode === 'hourDay');
+  const hasAnySNData =
+    snRecords.length > 0 ||
+    (aggregatedData?.monthlySNAggregates?.length ?? 0) > 0 ||
+    (aggregatedData?.dailySNAggregates?.length ?? 0) > 0;
 
   // Process data for hour x day-of-week heatmap
   const hourDayData = useMemo(() => {
@@ -242,27 +246,44 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
   // Process data for month x year heatmap
   const monthYearData = useMemo(() => {
     const yearMap = new Map<number, { total: number; count: number }[]>();
-    
-    snRecords.forEach(record => {
-      const year = record.timestamp.getUTCFullYear();
-      const month = record.timestamp.getUTCMonth();
-      
-      if (!yearMap.has(year)) {
-        yearMap.set(year, Array.from({ length: 12 }, () => ({ total: 0, count: 0 })));
+
+    // Prefer pre-aggregated monthly data for long ranges (raw snRecords may be paginated/limited)
+    if (aggregatedData?.monthlySNAggregates?.length) {
+      for (const agg of aggregatedData.monthlySNAggregates) {
+        const year = agg.year;
+        const monthIdx = agg.month; // 0-11 (UTC month index)
+        if (monthIdx < 0 || monthIdx > 11) continue;
+
+        if (!yearMap.has(year)) {
+          yearMap.set(year, Array.from({ length: 12 }, () => ({ total: 0, count: 0 })));
+        }
+        const yearData = yearMap.get(year)!;
+        yearData[monthIdx].total += agg.avgSN * agg.count;
+        yearData[monthIdx].count += agg.count;
       }
-      const yearData = yearMap.get(year)!;
-      yearData[month].total += record.snValue;
-      yearData[month].count++;
-    });
+    } else {
+      // Fallback to raw records
+      snRecords.forEach((record) => {
+        const year = record.timestamp.getUTCFullYear();
+        const monthIdx = record.timestamp.getUTCMonth();
+
+        if (!yearMap.has(year)) {
+          yearMap.set(year, Array.from({ length: 12 }, () => ({ total: 0, count: 0 })));
+        }
+        const yearData = yearMap.get(year)!;
+        yearData[monthIdx].total += record.snValue;
+        yearData[monthIdx].count++;
+      });
+    }
 
     const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
 
     let minVal = Infinity;
     let maxVal = -Infinity;
-    
-    const grid: { year: number; values: (number | null)[] }[] = sortedYears.map(year => {
+
+    const grid: { year: number; values: (number | null)[] }[] = sortedYears.map((year) => {
       const yearData = yearMap.get(year)!;
-      const values = yearData.map(cell => {
+      const values = yearData.map((cell) => {
         if (cell.count === 0) return null;
         const avg = cell.total / cell.count;
         minVal = Math.min(minVal, avg);
@@ -272,8 +293,12 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       return { year, values };
     });
 
-    return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
-  }, [snRecords]);
+    return {
+      grid,
+      minVal: minVal === Infinity ? 0 : minVal,
+      maxVal: maxVal === -Infinity ? 0 : maxVal,
+    };
+  }, [snRecords, aggregatedData]);
 
   const renderHourDayHeatmap = () => (
     <div className="overflow-x-auto">
@@ -551,7 +576,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       </div>
 
       <div className="flex items-center justify-center">
-        {snRecords.length === 0 ? (
+        {!hasAnySNData ? (
           <p className="text-muted-foreground text-sm">No S/N data available</p>
         ) : viewMode === 'hourDay' ? (
           renderHourDayHeatmap()
@@ -563,6 +588,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
           renderMonthYearHeatmap()
         )}
       </div>
+
     </div>
   );
 });
