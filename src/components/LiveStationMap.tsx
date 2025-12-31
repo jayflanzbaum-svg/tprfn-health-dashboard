@@ -26,16 +26,16 @@ const createCustomIcon = (color: string, isActive = false) => {
     className: 'custom-marker',
     html: `<div style="
       background-color: ${color};
-      width: ${isActive ? 21 : 18}px;
-      height: ${isActive ? 21 : 18}px;
+      width: ${isActive ? 16 : 14}px;
+      height: ${isActive ? 16 : 14}px;
       border-radius: 50%;
       border: 2px solid white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.4)${isActive ? ', 0 0 12px ' + color : ''};
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4)${isActive ? ', 0 0 10px ' + color : ''};
       ${isActive ? 'animation: pulse 1.5s ease-in-out infinite;' : ''}
     "></div>`,
-    iconSize: [isActive ? 21 : 18, isActive ? 21 : 18],
-    iconAnchor: [isActive ? 10.5 : 9, isActive ? 10.5 : 9],
-    popupAnchor: [0, isActive ? -10.5 : -9],
+    iconSize: [isActive ? 16 : 14, isActive ? 16 : 14],
+    iconAnchor: [isActive ? 8 : 7, isActive ? 8 : 7],
+    popupAnchor: [0, isActive ? -8 : -7],
   });
 };
 
