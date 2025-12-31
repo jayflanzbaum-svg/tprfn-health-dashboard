@@ -282,11 +282,13 @@ export function LiveStationMap({
   const parseLiveSyslog = useCallback((content: string): LiveConnection[] => {
     const lines = content.split('\n');
     const connections: LiveConnection[] = [];
-    const now = new Date();
-    const cutoff = new Date(now.getTime() - LIVE_WINDOW_MS);
-    const currentYear = now.getFullYear();
+    const nowMs = Date.now();
+    const cutoffMs = nowMs - LIVE_WINDOW_MS;
+    const currentYear = new Date(nowMs).getUTCFullYear();
     
-    console.log(`Parsing syslog: ${lines.length} lines, cutoff: ${cutoff.toISOString()}, now: ${now.toISOString()}`);
+    console.log(
+      `Parsing syslog: ${lines.length} lines, cutoff: ${new Date(cutoffMs).toISOString()}, now: ${new Date(nowMs).toISOString()}`
+    );
 
     // Regex patterns for parsing - use \s+ to handle variable whitespace
     const snPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w/-]+)\s+Average\s+S\/N:\s*([-\d.]+)\s*dB/;
@@ -294,31 +296,44 @@ export function LiveStationMap({
     const connectInPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w/-]+)\s+connected/i;
     const disconnectPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Disconnected/;
 
-    const parseTimestamp = (dateStr: string): Date | null => {
-      try {
-        // Parse "Dec 31 01:28:49" format - add year for proper parsing
-        const parts = dateStr.match(/(\w+)\s+(\d+)\s+(\d+):(\d+):(\d+)/);
-        if (!parts) return null;
-        
-        const [, month, day, hour, min, sec] = parts;
-        const monthMap: Record<string, number> = {
-          Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-          Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
-        };
-        
-        const monthNum = monthMap[month];
-        if (monthNum === undefined) return null;
-        
-        const parsed = new Date(currentYear, monthNum, parseInt(day), parseInt(hour), parseInt(min), parseInt(sec));
-        
-        // Handle year rollover (e.g., parsing Dec logs in Jan)
-        if (parsed > now) {
-          parsed.setFullYear(currentYear - 1);
-        }
-        return parsed;
-      } catch {
-        return null;
+    const parseTimestamp = (dateStr: string): number | null => {
+      // Parse "Dec 31 01:28:49" format (no year, assumed UTC)
+      const parts = dateStr.match(/(\w+)\s+(\d+)\s+(\d+):(\d+):(\d+)/);
+      if (!parts) return null;
+
+      const [, month, day, hour, min, sec] = parts;
+      const monthMap: Record<string, number> = {
+        Jan: 0,
+        Feb: 1,
+        Mar: 2,
+        Apr: 3,
+        May: 4,
+        Jun: 5,
+        Jul: 6,
+        Aug: 7,
+        Sep: 8,
+        Oct: 9,
+        Nov: 10,
+        Dec: 11,
+      };
+
+      const monthNum = monthMap[month];
+      if (monthNum === undefined) return null;
+
+      const dayNum = parseInt(day, 10);
+      const hourNum = parseInt(hour, 10);
+      const minNum = parseInt(min, 10);
+      const secNum = parseInt(sec, 10);
+
+      const parsedMs = Date.UTC(currentYear, monthNum, dayNum, hourNum, minNum, secNum);
+
+      // If we are in early January but parsing late December lines, parsedMs could be ~days in the future.
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      if (parsedMs - nowMs > oneDayMs) {
+        return Date.UTC(currentYear - 1, monthNum, dayNum, hourNum, minNum, secNum);
       }
+
+      return parsedMs;
     };
 
     const extractStation = (hostname: string): string => {
@@ -336,8 +351,9 @@ export function LiveStationMap({
       // Parse S/N records
       const snMatch = line.match(snPattern);
       if (snMatch) {
-        const timestamp = parseTimestamp(snMatch[1]);
-        if (!timestamp || timestamp < cutoff) continue;
+        const timestampMs = parseTimestamp(snMatch[1]);
+        if (timestampMs === null || timestampMs < cutoffMs) continue;
+        const timestamp = new Date(timestampMs);
 
         const station = normalizeCallsign(extractStation(snMatch[2]));
         const partner = normalizeCallsign(snMatch[3]);
@@ -346,7 +362,7 @@ export function LiveStationMap({
         lastPartner[station] = partner;
 
         connections.push({
-          id: `sn-${timestamp.getTime()}-${station}-${partner}`,
+          id: `sn-${timestampMs}-${station}-${partner}`,
           station1: station,
           station2: partner,
           eventType: 'sn_report',
@@ -360,8 +376,9 @@ export function LiveStationMap({
       // Parse connect (outgoing)
       const connectOutMatch = line.match(connectOutPattern);
       if (connectOutMatch) {
-        const timestamp = parseTimestamp(connectOutMatch[1]);
-        if (!timestamp || timestamp < cutoff) continue;
+        const timestampMs = parseTimestamp(connectOutMatch[1]);
+        if (timestampMs === null || timestampMs < cutoffMs) continue;
+        const timestamp = new Date(timestampMs);
 
         const station = normalizeCallsign(extractStation(connectOutMatch[2]));
         const partner = normalizeCallsign(connectOutMatch[3]);
@@ -369,7 +386,7 @@ export function LiveStationMap({
         lastPartner[station] = partner;
 
         connections.push({
-          id: `conn-${timestamp.getTime()}-${station}-${partner}`,
+          id: `conn-${timestampMs}-${station}-${partner}`,
           station1: station,
           station2: partner,
           eventType: 'connect',
@@ -382,8 +399,9 @@ export function LiveStationMap({
       // Parse connect (incoming)
       const connectInMatch = line.match(connectInPattern);
       if (connectInMatch) {
-        const timestamp = parseTimestamp(connectInMatch[1]);
-        if (!timestamp || timestamp < cutoff) continue;
+        const timestampMs = parseTimestamp(connectInMatch[1]);
+        if (timestampMs === null || timestampMs < cutoffMs) continue;
+        const timestamp = new Date(timestampMs);
 
         const station = normalizeCallsign(extractStation(connectInMatch[2]));
         const partner = normalizeCallsign(connectInMatch[3]);
@@ -391,7 +409,7 @@ export function LiveStationMap({
         lastPartner[station] = partner;
 
         connections.push({
-          id: `conn-${timestamp.getTime()}-${station}-${partner}`,
+          id: `conn-${timestampMs}-${station}-${partner}`,
           station1: station,
           station2: partner,
           eventType: 'connect',
@@ -404,22 +422,21 @@ export function LiveStationMap({
       // Parse disconnect
       const disconnectMatch = line.match(disconnectPattern);
       if (disconnectMatch) {
-        const timestamp = parseTimestamp(disconnectMatch[1]);
-        if (!timestamp || timestamp < cutoff) continue;
+        const timestampMs = parseTimestamp(disconnectMatch[1]);
+        if (timestampMs === null || timestampMs < cutoffMs) continue;
+        const timestamp = new Date(timestampMs);
 
         const station = normalizeCallsign(extractStation(disconnectMatch[2]));
         const partner = lastPartner[station] || '';
 
-        if (partner) {
-          connections.push({
-            id: `disc-${timestamp.getTime()}-${station}`,
-            station1: station,
-            station2: partner,
-            eventType: 'disconnect',
-            timestamp,
-            hub: disconnectMatch[2],
-          });
-        }
+        connections.push({
+          id: `disc-${timestampMs}-${station}`,
+          station1: station,
+          station2: partner,
+          eventType: 'disconnect',
+          timestamp,
+          hub: disconnectMatch[2],
+        });
       }
     }
 
