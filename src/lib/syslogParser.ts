@@ -39,6 +39,22 @@ export interface HubConnection {
   sessionCount: number;
 }
 
+export interface AggregatedSNData {
+  dailySNAggregates: Array<{
+    date: string;
+    hour: number;
+    avgSN: number;
+    count: number;
+  }>;
+  monthlySNAggregates: Array<{
+    year: number;
+    month: number;
+    week: number;
+    avgSN: number;
+    count: number;
+  }>;
+}
+
 export interface ParsedData {
   snRecords: SNRecord[];
   connectRecords: ConnectRecord[];
@@ -46,6 +62,7 @@ export interface ParsedData {
   hubConnections: Map<string, HubConnection>;
   stations: Set<string>;
   dateRange: { start: Date; end: Date };
+  aggregatedData?: AggregatedSNData;
 }
 
 function parseTimestamp(dateStr: string): Date {

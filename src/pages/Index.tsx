@@ -439,7 +439,7 @@ const Index = () => {
         {/* S/N Patterns Heatmap - Full Width */}
         <div className="mb-8">
           <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N Patterns" />}>
-            <SNHeatmapChart snRecords={deferredFilteredData?.snRecords ?? []} dateRange={dateRange} />
+            <SNHeatmapChart snRecords={deferredFilteredData?.snRecords ?? []} dateRange={dateRange} aggregatedData={deferredFilteredData?.aggregatedData} />
           </LazySection>
         </div>
 

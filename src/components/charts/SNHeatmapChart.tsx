@@ -1,10 +1,11 @@
 import { memo, useMemo } from 'react';
-import { SNRecord } from '@/lib/syslogParser';
+import { SNRecord, AggregatedSNData } from '@/lib/syslogParser';
 import { DateRange, DatePreset } from '@/components/DateRangeFilter';
 
 interface SNHeatmapChartProps {
   snRecords: SNRecord[];
   dateRange: DateRange;
+  aggregatedData?: AggregatedSNData;
 }
 
 type ViewMode = 'hourDay' | 'dayWeek' | 'weekMonth' | 'monthYear';
@@ -71,8 +72,9 @@ function getHeatmapColor(value: number | null, minVal: number, maxVal: number): 
   }
 }
 
-export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRange }: SNHeatmapChartProps) {
+export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRange, aggregatedData }: SNHeatmapChartProps) {
   const viewMode = useMemo(() => getViewModeFromDateRange(dateRange), [dateRange]);
+  const usePreAggregated = !!aggregatedData && (viewMode === 'weekMonth' || viewMode === 'dayWeek' || viewMode === 'hourDay');
 
   // Process data for hour x day-of-week heatmap
   const hourDayData = useMemo(() => {
@@ -143,7 +145,45 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
 
   // Process data for week x month heatmap
   const weekMonthData = useMemo(() => {
-    // Generate all months in the date range (not just months with data)
+    // Use pre-aggregated data if available (much faster for large date ranges)
+    if (usePreAggregated && aggregatedData?.monthlySNAggregates) {
+      const monthMap = new Map<string, { total: number; count: number }[]>();
+      
+      // Build from pre-aggregated monthly data
+      for (const agg of aggregatedData.monthlySNAggregates) {
+        const key = `${agg.year}-${agg.month.toString().padStart(2, '0')}`;
+        if (!monthMap.has(key)) {
+          monthMap.set(key, Array.from({ length: 5 }, () => ({ total: 0, count: 0 })));
+        }
+        const monthData = monthMap.get(key)!;
+        const weekIdx = Math.min(agg.week - 1, 4);
+        monthData[weekIdx].total += agg.avgSN * agg.count;
+        monthData[weekIdx].count += agg.count;
+      }
+      
+      const sortedMonths = Array.from(monthMap.keys()).sort();
+      const displayMonths = sortedMonths.slice(-12);
+      
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      
+      const grid = displayMonths.map(monthKey => {
+        const [year, monthNum] = monthKey.split('-');
+        const monthData = monthMap.get(monthKey)!;
+        const values = monthData.map(cell => {
+          if (cell.count === 0) return null;
+          const avg = cell.total / cell.count;
+          minVal = Math.min(minVal, avg);
+          maxVal = Math.max(maxVal, avg);
+          return avg;
+        });
+        return { month: monthKey, label: `${MONTHS[parseInt(monthNum)]} '${year.slice(-2)}`, values };
+      });
+      
+      return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
+    }
+
+    // Standard processing from raw records
     const allMonthsInRange: string[] = [];
     const startYear = dateRange.start.getUTCFullYear();
     const startMonth = dateRange.start.getUTCMonth();
@@ -158,10 +198,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       }
     }
     
-    // Group data by month and week-of-month
     const monthMap = new Map<string, { total: number; count: number }[]>();
-    
-    // Initialize all months in range with empty data
     allMonthsInRange.forEach(key => {
       monthMap.set(key, Array.from({ length: 5 }, () => ({ total: 0, count: 0 })));
     });
@@ -170,7 +207,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       const year = record.timestamp.getUTCFullYear();
       const month = record.timestamp.getUTCMonth();
       const day = record.timestamp.getUTCDate();
-      const weekOfMonth = Math.ceil(day / 7); // 1-5
+      const weekOfMonth = Math.ceil(day / 7);
       const key = `${year}-${month.toString().padStart(2, '0')}`;
       
       if (monthMap.has(key)) {
@@ -180,13 +217,12 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       }
     });
 
-    // Use all months in range (already sorted chronologically)
-    const displayMonths = allMonthsInRange.slice(-12); // Show last 12 months max
+    const displayMonths = allMonthsInRange.slice(-12);
 
     let minVal = Infinity;
     let maxVal = -Infinity;
     
-    const grid: { month: string; label: string; values: (number | null)[] }[] = displayMonths.map(monthKey => {
+    const grid = displayMonths.map(monthKey => {
       const [year, monthNum] = monthKey.split('-');
       const monthData = monthMap.get(monthKey)!;
       const values = monthData.map(cell => {
@@ -196,15 +232,11 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
         maxVal = Math.max(maxVal, avg);
         return avg;
       });
-      return { 
-        month: monthKey, 
-        label: `${MONTHS[parseInt(monthNum)]} '${year.slice(-2)}`,
-        values 
-      };
+      return { month: monthKey, label: `${MONTHS[parseInt(monthNum)]} '${year.slice(-2)}`, values };
     });
 
     return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
-  }, [snRecords, dateRange.start, dateRange.end]);
+  }, [snRecords, dateRange.start, dateRange.end, usePreAggregated, aggregatedData]);
 
   // Process data for month x year heatmap
   const monthYearData = useMemo(() => {
