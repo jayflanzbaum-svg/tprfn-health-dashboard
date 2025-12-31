@@ -59,19 +59,16 @@ Deno.serve(async (req) => {
     const callsignSet = new Set((callsigns || []).map((c: string) => c.toUpperCase().trim()));
     const callsignArray = Array.from(callsignSet);
 
-    // Build the filter - we need entries where either callsign or remote_callsign is in our list
-    let query = supabase
-      .from('syslog_entries')
-      .select('timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
-      .gte('timestamp', startDate)
-      .lte('timestamp', endDate);
-
-    // Fetch in batches using cursor-based pagination
+    // Fetch in batches using cursor-based pagination (timestamp + id)
+    // NOTE: UUIDs are not time-ordered, so we must page by (timestamp, id) to avoid skipping most rows.
     const allEntries: any[] = [];
     const pageSize = 5000;
-    let cursor: string | null = null;
     let iterations = 0;
-    const maxIterations = 200;
+    const maxIterations = 600;
+
+    const startIso = new Date(startDate).toISOString();
+    let cursorTimestamp = startIso;
+    let cursorId = '00000000-0000-0000-0000-000000000000';
 
     while (iterations < maxIterations) {
       let batchQuery = supabase
@@ -79,12 +76,28 @@ Deno.serve(async (req) => {
         .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
         .gte('timestamp', startDate)
         .lte('timestamp', endDate)
+        // If callsigns are provided, filter server-side by the hub callsign (fast + reduces payload)
+        .in('callsign', callsignArray.length > 0 ? callsignArray : ['__NO_MATCH__'])
+        .or(
+          `timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`
+        )
         .order('timestamp', { ascending: true })
         .order('id', { ascending: true })
         .limit(pageSize);
 
-      if (cursor) {
-        batchQuery = batchQuery.gt('id', cursor);
+      // If no callsigns were provided, remove the forced no-match filter by rebuilding the query.
+      if (callsignArray.length === 0) {
+        batchQuery = supabase
+          .from('syslog_entries')
+          .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
+          .gte('timestamp', startDate)
+          .lte('timestamp', endDate)
+          .or(
+            `timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`
+          )
+          .order('timestamp', { ascending: true })
+          .order('id', { ascending: true })
+          .limit(pageSize);
       }
 
       const { data: entries, error } = await batchQuery;
@@ -96,21 +109,22 @@ Deno.serve(async (req) => {
 
       if (!entries || entries.length === 0) break;
 
-      // Filter by callsigns
-      const filtered = entries.filter((e: any) => {
-        const station = e.callsign?.toUpperCase().trim() || '';
-        const partner = e.remote_callsign?.toUpperCase().trim() || '';
-        return callsignArray.length === 0 || callsignSet.has(station) || callsignSet.has(partner);
-      });
+      allEntries.push(...entries);
 
-      allEntries.push(...filtered);
-      cursor = entries[entries.length - 1].id;
+      const lastEntry = entries[entries.length - 1];
+      cursorTimestamp = lastEntry.timestamp;
+      cursorId = lastEntry.id;
       iterations++;
 
       if (entries.length < pageSize) break;
+
+      // Yield occasionally to avoid blocking the event loop
+      if (iterations % 10 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
     }
 
-    console.log(`Fetched ${allEntries.length} filtered entries in ${iterations} iterations`);
+    console.log(`Fetched ${allEntries.length} entries in ${iterations} iterations`);
 
     // Now aggregate the data on the server
     const dailySNMap = new Map<string, { total: number; count: number }>();
