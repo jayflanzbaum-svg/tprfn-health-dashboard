@@ -93,45 +93,9 @@ const animationStyles = `
     50% { transform: scale(1.2); opacity: 0.8; }
   }
   
-  @keyframes glowPulse {
-    0%, 100% { opacity: 0.5; filter: blur(2px); }
-    50% { opacity: 0.7; filter: blur(3px); }
-  }
-  
-  @keyframes flowForward {
-    0% { stroke-dashoffset: 16; }
-    100% { stroke-dashoffset: 0; }
-  }
-  
-  @keyframes flowReverse {
-    0% { stroke-dashoffset: 0; }
-    100% { stroke-dashoffset: 16; }
-  }
-  
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-  
-  .gridtracker-line-glow {
-    filter: blur(2px);
-    animation: glowPulse 2s ease-in-out infinite;
-  }
-  
-  .gridtracker-line-core {
-    stroke-linecap: round;
-  }
-  
-  .gridtracker-line-dashed-forward {
-    stroke-dasharray: 4 12;
-    animation: flowForward 0.6s linear infinite;
-    stroke-linecap: round;
-  }
-  
-  .gridtracker-line-dashed-reverse {
-    stroke-dasharray: 4 12;
-    animation: flowReverse 0.6s linear infinite;
-    stroke-linecap: round;
   }
   
   .activity-item {
@@ -700,36 +664,13 @@ export function LiveStationMap({
         30
       );
 
-      // Outer glow layer (thinner, blurred, pulsing)
-      const glowLine = L.polyline(arcCoords, { 
-        color: lineColor,
-        weight: 6, // 50% thinner (was 12)
-        opacity: 0.3,
-        className: 'gridtracker-line-glow',
-        lineCap: 'round',
-        lineJoin: 'round',
-      });
-      liveConnectionsRef.current!.addLayer(glowLine);
-
-      // Middle glow layer (thinner)
-      const midGlowLine = L.polyline(arcCoords, { 
-        color: lineColor,
-        weight: 3, // 50% thinner (was 6)
-        opacity: 0.5,
-        className: 'gridtracker-line-core',
-        lineCap: 'round',
-        lineJoin: 'round',
-      });
-      liveConnectionsRef.current!.addLayer(midGlowLine);
-
-      // Animated dashed line - direction based on initiator
-      // "Forward" = from station1 (initiator) to station2
+      // GridTracker-style dashed line - blue with long dashes
       const dashedLine = L.polyline(arcCoords, { 
-        color: '#ffffff',
-        weight: 1.5, // 50% thinner (was ~3)
+        color: '#4169E1', // Royal blue like GridTracker
+        weight: 2.5,
         opacity: 0.9,
-        className: 'gridtracker-line-dashed-forward',
-        lineCap: 'round',
+        dashArray: '12, 8', // Long dashes, medium gaps like GridTracker
+        lineCap: 'butt',
         lineJoin: 'round',
       });
 
@@ -743,7 +684,7 @@ export function LiveStationMap({
         </div>
       `;
 
-      midGlowLine.bindTooltip(tooltipContent, { sticky: true });
+      dashedLine.bindTooltip(tooltipContent, { sticky: true });
       liveConnectionsRef.current!.addLayer(dashedLine);
     });
   }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady]);
