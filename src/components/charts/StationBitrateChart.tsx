@@ -42,7 +42,20 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     return peers;
   }, [hubConnections]);
 
-  const stationData = useMemo(() => {
+  const { stationData, isAggregated } = useMemo(() => {
+    // Check if we have raw disconnect records
+    let hasRawData = false;
+    hubConnections.forEach((hub) => {
+      if (hub.disconnectRecords.length > 0) {
+        hasRawData = true;
+      }
+    });
+
+    // In aggregated mode, we don't have per-session bitrate data
+    if (!hasRawData) {
+      return { stationData: [], isAggregated: true };
+    }
+
     const stationStats = new Map<string, {
       avgTxBps: number[];
       avgRxBps: number[];
@@ -106,7 +119,7 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
 
     result.sort((a, b) => (b.avgTx + b.avgRx) - (a.avgTx + a.avgRx));
 
-    return result;
+    return { stationData: result, isAggregated: false };
   }, [hubConnections, stationPeers, distances]);
 
   const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(stationData, { defaultLimit: 10, resetKey: dateRangeKey });
@@ -117,6 +130,23 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
     return `${value}`;
   };
+
+  // Show message for aggregated mode
+  if (isAggregated) {
+    return (
+      <div className="chart-card h-full flex flex-col">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-foreground">Bitrate by Station</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Detailed bitrate data unavailable for large date ranges. Select a shorter period (≤60 days) to see station bitrates.
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          Select a shorter date range to view station bitrates
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chart-card h-full flex flex-col">

@@ -32,7 +32,8 @@ export const TXByHubChart = memo(function TXByHubChart({ hubConnections, dateRan
 
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
-      .filter(hub => hub.disconnectRecords.length > 0)
+      // In aggregated mode, disconnectRecords is empty but totalTxBytes/totalRxBytes are populated directly
+      .filter(hub => hub.disconnectRecords.length > 0 || (hub.totalTxBytes + hub.totalRxBytes) > 0)
       .map(hub => {
         const distanceKey = [hub.station1, hub.station2].sort().join('↔');
         const distance = distances.get(distanceKey);

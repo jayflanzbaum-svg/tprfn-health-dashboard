@@ -42,7 +42,25 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
     }
   }, [callsigns.join(',')]);
 
-  const { connectionData, scatterData, stats } = useMemo(() => {
+  const { connectionData, scatterData, stats, isAggregated } = useMemo(() => {
+    // Check if we have raw disconnect records
+    let hasRawData = false;
+    hubConnections.forEach((hub) => {
+      if (hub.disconnectRecords.length > 0) {
+        hasRawData = true;
+      }
+    });
+
+    // In aggregated mode, we don't have per-session bitrate data
+    if (!hasRawData) {
+      return {
+        connectionData: [],
+        scatterData: [],
+        stats: { peakBitrate: 0, avgTx: 0, avgRx: 0, totalSessions: 0 },
+        isAggregated: true,
+      };
+    }
+
     const connectionStats: {
       name: string;
       avgTxBps: number;
@@ -142,6 +160,7 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
         avgRx: overallAvgRx,
         totalSessions,
       },
+      isAggregated: false,
     };
   }, [hubConnections, distances]);
 
@@ -151,6 +170,23 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
     return `${value}`;
   };
+
+  // Show message for aggregated mode
+  if (isAggregated) {
+    return (
+      <div className="chart-card">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Bitrate Analysis</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Detailed bitrate data unavailable for large date ranges. Select a shorter period (≤60 days) to see per-session bitrates.
+          </p>
+        </div>
+        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+          Select a shorter date range to view bitrate analysis
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chart-card">
