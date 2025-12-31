@@ -62,6 +62,35 @@ const Index = () => {
       return timestamp >= dateRange.start && timestamp <= dateRange.end;
     };
 
+    const isAggregatedMode = !!data.aggregatedData;
+
+    // Aggregated mode: keep server-built hubConnections (do NOT rebuild from empty per-event arrays)
+    if (isAggregatedMode) {
+      const snRecords = data.snRecords.filter(r => isInDateRange(r.timestamp));
+
+      // Optional station filter: filter connection map only
+      let hubConnections = data.hubConnections;
+      if (selectedStation) {
+        const next = new Map<string, HubConnection>();
+        hubConnections.forEach((hub, key) => {
+          if (hub.station1 === selectedStation || hub.station2 === selectedStation) {
+            next.set(key, hub);
+          }
+        });
+        hubConnections = next;
+      }
+
+      return {
+        ...data,
+        snRecords,
+        connectRecords: [],
+        disconnectRecords: [],
+        hubConnections,
+      };
+    }
+
+    // Raw mode: rebuild hub connections from filtered events
+
     // Filter S/N records by date and station
     let snRecords = data.snRecords.filter(r => isInDateRange(r.timestamp));
     if (selectedStation) {
@@ -82,12 +111,12 @@ const Index = () => {
 
     // Rebuild hub connections from filtered records
     const hubConnections = new Map<string, HubConnection>();
-    
+
     // Process filtered S/N records
     snRecords.forEach(record => {
       const sorted = [record.station, record.partner].sort();
       const connectionId = `${sorted[0]}↔${sorted[1]}`;
-      
+
       if (!hubConnections.has(connectionId)) {
         hubConnections.set(connectionId, {
           station1: sorted[0],
@@ -99,7 +128,7 @@ const Index = () => {
           avgSN: 0,
           totalTxBytes: 0,
           totalRxBytes: 0,
-          sessionCount: 0
+          sessionCount: 0,
         });
       }
       hubConnections.get(connectionId)!.snRecords.push(record);
@@ -109,7 +138,7 @@ const Index = () => {
     connectRecords.forEach(record => {
       const sorted = [record.station, record.partner].sort();
       const connectionId = `${sorted[0]}↔${sorted[1]}`;
-      
+
       if (!hubConnections.has(connectionId)) {
         hubConnections.set(connectionId, {
           station1: sorted[0],
@@ -121,7 +150,7 @@ const Index = () => {
           avgSN: 0,
           totalTxBytes: 0,
           totalRxBytes: 0,
-          sessionCount: 0
+          sessionCount: 0,
         });
       }
       const hub = hubConnections.get(connectionId)!;
@@ -133,7 +162,7 @@ const Index = () => {
     disconnectRecords.forEach(record => {
       const sorted = [record.station, record.partner].sort();
       const connectionId = `${sorted[0]}↔${sorted[1]}`;
-      
+
       if (hubConnections.has(connectionId)) {
         const hub = hubConnections.get(connectionId)!;
         hub.disconnectRecords.push(record);
@@ -292,7 +321,8 @@ const Index = () => {
   const hasAnyEvents =
     filteredData.snRecords.length > 0 ||
     filteredData.connectRecords.length > 0 ||
-    filteredData.disconnectRecords.length > 0;
+    filteredData.disconnectRecords.length > 0 ||
+    filteredData.hubConnections.size > 0;
 
   // Station dropdown should only show callsigns from the managed callsigns list
   const stationsList = Array.from(data.stations).filter(s => 
