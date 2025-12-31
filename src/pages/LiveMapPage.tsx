@@ -59,6 +59,7 @@ const LiveMapPage = () => {
           distances={distances}
           hubCallsigns={allowedCallsigns}
           isFullscreen={true}
+          lookupCallsigns={lookupCallsigns}
         />
       </div>
     </div>
