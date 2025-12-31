@@ -105,18 +105,24 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
 
   // Process data for week x day-of-week heatmap (weeks as rows, days as columns)
   const dayWeekData = useMemo(() => {
-    // Group by week-of-month (1-4) and day-of-week
-    const weekDayGrid: { total: number; count: number }[][] = Array.from({ length: 4 }, () =>
+    // Calculate weeks relative to the start of the date range
+    const rangeStart = dateRange.start.getTime();
+    const msPerDay = 1000 * 60 * 60 * 24;
+    
+    // Group by week-of-range (0-4) and day-of-week
+    const weekDayGrid: { total: number; count: number }[][] = Array.from({ length: 5 }, () =>
       Array.from({ length: 7 }, () => ({ total: 0, count: 0 }))
     );
     
     snRecords.forEach(record => {
-      const dayOfMonth = record.timestamp.getUTCDate();
-      const weekOfMonth = Math.min(Math.ceil(dayOfMonth / 7), 4) - 1; // 0-3 index
+      const daysFromStart = Math.floor((record.timestamp.getTime() - rangeStart) / msPerDay);
+      const weekOfRange = Math.min(Math.floor(daysFromStart / 7), 4); // 0-4 index (cap at week 5)
       const dayOfWeek = record.timestamp.getUTCDay(); // 0=Sun, 1=Mon, etc.
       
-      weekDayGrid[weekOfMonth][dayOfWeek].total += record.snValue;
-      weekDayGrid[weekOfMonth][dayOfWeek].count++;
+      if (weekOfRange >= 0) {
+        weekDayGrid[weekOfRange][dayOfWeek].total += record.snValue;
+        weekDayGrid[weekOfRange][dayOfWeek].count++;
+      }
     });
 
     let minVal = Infinity;
@@ -133,7 +139,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
     );
 
     return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
-  }, [snRecords]);
+  }, [snRecords, dateRange.start]);
 
   // Process data for week x month heatmap
   const weekMonthData = useMemo(() => {
@@ -302,7 +308,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
           </div>
 
           {/* Heatmap rows by week (Week 1-4) */}
-          {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((weekLabel, weekIdx) => (
+          {['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'].map((weekLabel, weekIdx) => (
             <div key={weekIdx} className="flex items-center">
               <div className="w-16 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
                 {weekLabel}
