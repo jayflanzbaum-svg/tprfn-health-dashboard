@@ -7,9 +7,10 @@ interface InactiveHubsAlertProps {
   connectRecords: ConnectRecord[];
   snRecords: SNRecord[];
   allowedCallsigns: string[];
+  showDemo?: boolean;
 }
 
-export function InactiveHubsAlert({ connectRecords, snRecords, allowedCallsigns }: InactiveHubsAlertProps) {
+export function InactiveHubsAlert({ connectRecords, snRecords, allowedCallsigns, showDemo = false }: InactiveHubsAlertProps) {
   const inactiveStations = useMemo(() => {
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -75,7 +76,16 @@ export function InactiveHubsAlert({ connectRecords, snRecords, allowedCallsigns 
     return inactive;
   }, [connectRecords, snRecords, allowedCallsigns]);
 
-  if (inactiveStations.length === 0) {
+  // Demo data for preview
+  const demoStations = [
+    { callsign: 'N0CALL', lastSeen: new Date(Date.now() - 36 * 60 * 60 * 1000) },
+    { callsign: 'W1TEST', lastSeen: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+    { callsign: 'K2DEMO', lastSeen: null },
+  ];
+
+  const displayStations = showDemo ? demoStations : inactiveStations;
+
+  if (displayStations.length === 0) {
     return null;
   }
 
@@ -97,14 +107,15 @@ export function InactiveHubsAlert({ connectRecords, snRecords, allowedCallsigns 
     <Alert variant="destructive" className="mb-6 border-destructive/50 bg-destructive/10">
       <AlertTriangle className="h-4 w-4" />
       <AlertTitle className="font-semibold">
-        Inactive Hub Stations ({inactiveStations.length})
+        {showDemo && <span className="text-xs font-normal opacity-70 mr-2">(DEMO PREVIEW)</span>}
+        Inactive Hub Stations ({displayStations.length})
       </AlertTitle>
       <AlertDescription className="mt-2">
         <p className="text-sm text-muted-foreground mb-2">
           The following stations have not connected to another hub in the last 24 hours:
         </p>
         <div className="flex flex-wrap gap-2">
-          {inactiveStations.map(({ callsign, lastSeen }) => (
+          {displayStations.map(({ callsign, lastSeen }) => (
             <span
               key={callsign}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-destructive/20 text-destructive-foreground text-sm font-mono"
