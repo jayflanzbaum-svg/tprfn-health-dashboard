@@ -352,6 +352,7 @@ const Index = () => {
           connectRecords={data.connectRecords}
           snRecords={data.snRecords}
           allowedCallsigns={allowedCallsigns}
+          showDemo={true}
         />
 
         {/* Comparison Label */}
