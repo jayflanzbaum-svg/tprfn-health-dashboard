@@ -103,43 +103,34 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
     return { avgGrid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
   }, [snRecords]);
 
-  // Process data for day-of-week x week heatmap
+  // Process data for week x day-of-week heatmap (weeks as rows, days as columns)
   const dayWeekData = useMemo(() => {
-    // Find the range of weeks in the data
-    const weekMap = new Map<string, { total: number; count: number }[]>();
+    // Group by week-of-month (1-4) and day-of-week
+    const weekDayGrid: { total: number; count: number }[][] = Array.from({ length: 4 }, () =>
+      Array.from({ length: 7 }, () => ({ total: 0, count: 0 }))
+    );
     
     snRecords.forEach(record => {
-      const year = record.timestamp.getUTCFullYear();
-      const week = getWeekNumber(record.timestamp);
-      const day = record.timestamp.getUTCDay();
-      const key = `${year}-W${week.toString().padStart(2, '0')}`;
+      const dayOfMonth = record.timestamp.getUTCDate();
+      const weekOfMonth = Math.min(Math.ceil(dayOfMonth / 7), 4) - 1; // 0-3 index
+      const dayOfWeek = record.timestamp.getUTCDay(); // 0=Sun, 1=Mon, etc.
       
-      if (!weekMap.has(key)) {
-        weekMap.set(key, Array.from({ length: 7 }, () => ({ total: 0, count: 0 })));
-      }
-      const weekData = weekMap.get(key)!;
-      weekData[day].total += record.snValue;
-      weekData[day].count++;
+      weekDayGrid[weekOfMonth][dayOfWeek].total += record.snValue;
+      weekDayGrid[weekOfMonth][dayOfWeek].count++;
     });
-
-    // Sort weeks and take only those in the date range (typically 1-2 weeks)
-    const sortedWeeks = Array.from(weekMap.keys()).sort();
-    const displayWeeks = sortedWeeks.slice(-7); // Show max 7 weeks for compact display
 
     let minVal = Infinity;
     let maxVal = -Infinity;
     
-    const grid: { week: string; values: (number | null)[] }[] = displayWeeks.map(weekKey => {
-      const weekData = weekMap.get(weekKey)!;
-      const values = weekData.map(cell => {
+    const grid: (number | null)[][] = weekDayGrid.map(week =>
+      week.map(cell => {
         if (cell.count === 0) return null;
         const avg = cell.total / cell.count;
         minVal = Math.min(minVal, avg);
         maxVal = Math.max(maxVal, avg);
         return avg;
-      });
-      return { week: weekKey, values };
-    });
+      })
+    );
 
     return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
   }, [snRecords]);
@@ -290,68 +281,72 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
     </div>
   );
 
-  const renderDayWeekHeatmap = () => (
-    <div className="overflow-x-auto">
-      <div className="min-w-[600px]">
-        {/* Header row with weeks */}
-        <div className="flex">
-          <div className="w-12 shrink-0" />
-          {dayWeekData.grid.map((item, idx) => (
-            <div
-              key={idx}
-              className="flex-1 text-center text-[9px] text-muted-foreground font-medium pb-1"
-              style={{ minWidth: '24px' }}
-            >
-              {item.week.split('-W')[1]}
-            </div>
-          ))}
-        </div>
-
-        {/* Heatmap rows by day */}
-        {DAYS.map((day, dayIdx) => (
-          <div key={day} className="flex items-center">
-            <div className="w-12 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
-              {day}
-            </div>
-            {dayWeekData.grid.map((weekItem, weekIdx) => {
-              const value = weekItem.values[dayIdx];
-              const bgColor = getHeatmapColor(value, dayWeekData.minVal, dayWeekData.maxVal);
-              return (
-                <div
-                  key={weekIdx}
-                  className="flex-1 aspect-square m-[1px] rounded-sm cursor-default transition-transform hover:scale-110 hover:z-10 relative group"
-                  style={{ backgroundColor: bgColor, minWidth: '24px' }}
-                  title={value !== null ? `${day}, Week ${weekItem.week}: ${value.toFixed(1)} dB` : `${day}, Week ${weekItem.week}: No data`}
-                >
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
-                    {value !== null ? `${value.toFixed(1)} dB` : 'No data'}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        {/* Legend */}
-        <div className="flex items-center justify-center mt-4 gap-2">
-          <span className="text-xs text-muted-foreground">Poor</span>
-          <div className="flex h-3 w-32 rounded overflow-hidden">
-            {Array.from({ length: 20 }, (_, i) => (
+  const renderDayWeekHeatmap = () => {
+    const DAYS_REORDERED = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const DAY_INDEX_MAP = [1, 2, 3, 4, 5, 6, 0]; // Maps display order to JS day index (Mon=1, Sun=0)
+    
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[400px]">
+          {/* Header row with days Mon-Sun */}
+          <div className="flex">
+            <div className="w-16 shrink-0" />
+            {DAYS_REORDERED.map(day => (
               <div
-                key={i}
-                className="flex-1"
-                style={{ backgroundColor: getHeatmapColor(dayWeekData.minVal + (i / 19) * (dayWeekData.maxVal - dayWeekData.minVal), dayWeekData.minVal, dayWeekData.maxVal) }}
-              />
+                key={day}
+                className="flex-1 text-center text-[10px] text-muted-foreground font-medium pb-1"
+              >
+                {day}
+              </div>
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">Excellent</span>
-          <span className="text-xs text-muted-foreground ml-2">
-            ({dayWeekData.minVal.toFixed(1)} to {dayWeekData.maxVal.toFixed(1)} dB)
-          </span>
+
+          {/* Heatmap rows by week (Week 1-4) */}
+          {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((weekLabel, weekIdx) => (
+            <div key={weekIdx} className="flex items-center">
+              <div className="w-16 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
+                {weekLabel}
+              </div>
+              {DAY_INDEX_MAP.map((dayIdx, displayIdx) => {
+                const value = dayWeekData.grid[weekIdx]?.[dayIdx] ?? null;
+                const bgColor = getHeatmapColor(value, dayWeekData.minVal, dayWeekData.maxVal);
+                return (
+                  <div
+                    key={displayIdx}
+                    className="flex-1 h-8 m-[1px] rounded-sm cursor-default transition-transform hover:scale-105 hover:z-10 relative group"
+                    style={{ backgroundColor: bgColor }}
+                    title={value !== null ? `${weekLabel}, ${DAYS_REORDERED[displayIdx]}: ${value.toFixed(1)} dB` : `${weekLabel}, ${DAYS_REORDERED[displayIdx]}: No data`}
+                  >
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+                      {value !== null ? `${value.toFixed(1)} dB` : 'No data'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          {/* Legend */}
+          <div className="flex items-center justify-center mt-4 gap-2">
+            <span className="text-xs text-muted-foreground">Poor</span>
+            <div className="flex h-3 w-32 rounded overflow-hidden">
+              {Array.from({ length: 20 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex-1"
+                  style={{ backgroundColor: getHeatmapColor(dayWeekData.minVal + (i / 19) * (dayWeekData.maxVal - dayWeekData.minVal), dayWeekData.minVal, dayWeekData.maxVal) }}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">Excellent</span>
+            <span className="text-xs text-muted-foreground ml-2">
+              ({dayWeekData.minVal.toFixed(1)} to {dayWeekData.maxVal.toFixed(1)} dB)
+            </span>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderWeekMonthHeatmap = () => (
     <div className="overflow-x-auto">
