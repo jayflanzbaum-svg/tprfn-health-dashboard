@@ -143,8 +143,28 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
 
   // Process data for week x month heatmap
   const weekMonthData = useMemo(() => {
-    // Group by month and week-of-month
+    // Generate all months in the date range (not just months with data)
+    const allMonthsInRange: string[] = [];
+    const startYear = dateRange.start.getUTCFullYear();
+    const startMonth = dateRange.start.getUTCMonth();
+    const endYear = dateRange.end.getUTCFullYear();
+    const endMonth = dateRange.end.getUTCMonth();
+    
+    for (let y = startYear; y <= endYear; y++) {
+      const mStart = y === startYear ? startMonth : 0;
+      const mEnd = y === endYear ? endMonth : 11;
+      for (let m = mStart; m <= mEnd; m++) {
+        allMonthsInRange.push(`${y}-${m.toString().padStart(2, '0')}`);
+      }
+    }
+    
+    // Group data by month and week-of-month
     const monthMap = new Map<string, { total: number; count: number }[]>();
+    
+    // Initialize all months in range with empty data
+    allMonthsInRange.forEach(key => {
+      monthMap.set(key, Array.from({ length: 5 }, () => ({ total: 0, count: 0 })));
+    });
     
     snRecords.forEach(record => {
       const year = record.timestamp.getUTCFullYear();
@@ -153,17 +173,15 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
       const weekOfMonth = Math.ceil(day / 7); // 1-5
       const key = `${year}-${month.toString().padStart(2, '0')}`;
       
-      if (!monthMap.has(key)) {
-        monthMap.set(key, Array.from({ length: 5 }, () => ({ total: 0, count: 0 })));
+      if (monthMap.has(key)) {
+        const monthData = monthMap.get(key)!;
+        monthData[weekOfMonth - 1].total += record.snValue;
+        monthData[weekOfMonth - 1].count++;
       }
-      const monthData = monthMap.get(key)!;
-      monthData[weekOfMonth - 1].total += record.snValue;
-      monthData[weekOfMonth - 1].count++;
     });
 
-    // Sort months and take the most recent ones
-    const sortedMonths = Array.from(monthMap.keys()).sort();
-    const displayMonths = sortedMonths.slice(-12); // Show last 12 months max
+    // Use all months in range (already sorted chronologically)
+    const displayMonths = allMonthsInRange.slice(-12); // Show last 12 months max
 
     let minVal = Infinity;
     let maxVal = -Infinity;
@@ -186,7 +204,7 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRang
     });
 
     return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
-  }, [snRecords]);
+  }, [snRecords, dateRange.start, dateRange.end]);
 
   // Process data for month x year heatmap
   const monthYearData = useMemo(() => {
