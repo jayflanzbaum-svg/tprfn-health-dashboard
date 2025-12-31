@@ -27,12 +27,19 @@ import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboa
 
 const Index = () => {
   const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
-  const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns);
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
+  const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
+
+  const fetchDays = useMemo(() => {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const days = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / msPerDay) + 1;
+    return Math.max(1, days);
+  }, [dateRange]);
+
+  const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns, fetchDays);
   const { locations, distances, lookupCallsigns } = useStationLocations();
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
-  const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
   const logTableRef = useRef<HTMLDivElement>(null);
 
   // Auto-fetch locations for all stations when data loads

@@ -12,6 +12,7 @@ import {
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_DAYS = 7; // Fetch only 7 days by default for performance
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 // Only fetch the columns we actually need
 const SELECTED_COLUMNS = 'id,timestamp,hub,callsign,remote_callsign,event_type,snr,bytes_sent,bytes_received,bitrate,duration_seconds,raw_message';
@@ -39,7 +40,7 @@ function createConnectionId(station1: string, station2: string): string {
   return `${sorted[0]}↔${sorted[1]}`;
 }
 
-export function useDatabaseData(allowedCallsigns: string[]) {
+export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = DEFAULT_DAYS) {
   const [rawData, setRawData] = useState<DatabaseEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,25 +111,30 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       }
 
       const maxTimestamp = new Date(rangeData[0].timestamp);
-      const startDate = new Date(maxTimestamp);
-      startDate.setDate(startDate.getDate() - DEFAULT_DAYS);
+      const safeFetchDays = Math.max(1, Math.floor(fetchDays));
+      const startDate = new Date(maxTimestamp.getTime() - (safeFetchDays - 1) * MS_PER_DAY);
 
-      console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${startDate.toISOString()}`);
+      console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${startDate.toISOString()} (last ${safeFetchDays} days)`);
 
       const allEntries: DatabaseEntry[] = [];
-      let lastTimestamp = startDate.toISOString();
       const pageSize = 1000;
-      const maxIterations = 50; // Safety limit
-      let iterations = 0;
+      const maxPages = 250; // Safety limit
+      const startIso = startDate.toISOString();
+      const endIso = maxTimestamp.toISOString();
 
-      // Keyset pagination: faster than offset for large tables
-      while (iterations < maxIterations) {
+      // Offset pagination (stable, doesn't drop rows when multiple entries share the same timestamp)
+      for (let page = 0; page < maxPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
         const { data: entries, error: queryError } = await supabase
           .from('syslog_entries')
           .select(SELECTED_COLUMNS)
-          .gt('timestamp', lastTimestamp)
+          .gte('timestamp', startIso)
+          .lte('timestamp', endIso)
           .order('timestamp', { ascending: true })
-          .limit(pageSize);
+          .order('id', { ascending: true })
+          .range(from, to);
 
         if (queryError) {
           throw new Error(queryError.message);
@@ -137,8 +143,6 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         if (!entries || entries.length === 0) break;
 
         allEntries.push(...entries);
-        lastTimestamp = entries[entries.length - 1].timestamp;
-        iterations++;
 
         if (entries.length < pageSize) break;
 
@@ -146,7 +150,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
 
-      console.log(`Fetched ${allEntries.length} entries from database (last ${DEFAULT_DAYS} days)`);
+      console.log(`Fetched ${allEntries.length} entries from database (last ${Math.max(1, Math.floor(fetchDays))} days)`);
       setRawData(allEntries);
       setLastUpdated(new Date());
       setError(null);
@@ -157,7 +161,7 @@ export function useDatabaseData(allowedCallsigns: string[]) {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [fetchLiveData]);
+  }, [fetchLiveData, fetchDays]);
 
   // Initial fetch and set up polling
   useEffect(() => {
