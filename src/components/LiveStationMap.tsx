@@ -155,13 +155,19 @@ export function LiveStationMap({
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
+  const [mapReady, setMapReady] = useState(false);
+  const stylesInjectedRef = useRef(false);
 
-  // Inject animation styles
+  // Inject animation styles only once
   useEffect(() => {
+    if (stylesInjectedRef.current) return;
+    stylesInjectedRef.current = true;
     const styleEl = document.createElement('style');
-    styleEl.textContent = animationStyles;
-    document.head.appendChild(styleEl);
-    return () => { document.head.removeChild(styleEl); };
+    styleEl.id = 'live-station-map-styles';
+    if (!document.getElementById('live-station-map-styles')) {
+      styleEl.textContent = animationStyles;
+      document.head.appendChild(styleEl);
+    }
   }, []);
 
   // Normalize hub callsigns for comparison
@@ -385,34 +391,44 @@ export function LiveStationMap({
     };
   }, [liveMode]);
 
-  // Initialize map
+  // Initialize map with delay to prevent blocking
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    mapRef.current = L.map(mapContainer.current, {
-      center: [39.8283, -98.5795],
-      zoom: 4,
-      zoomControl: true,
-    });
+    // Defer map initialization to not block render
+    const initTimer = setTimeout(() => {
+      if (!mapContainer.current) return;
+      
+      mapRef.current = L.map(mapContainer.current, {
+        center: [39.8283, -98.5795],
+        zoom: 4,
+        zoomControl: true,
+        preferCanvas: true, // Better performance for many elements
+      });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(mapRef.current);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(mapRef.current);
 
-    markersRef.current = L.layerGroup().addTo(mapRef.current);
-    connectionsRef.current = L.layerGroup().addTo(mapRef.current);
-    liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
+      markersRef.current = L.layerGroup().addTo(mapRef.current);
+      connectionsRef.current = L.layerGroup().addTo(mapRef.current);
+      liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
+      
+      setMapReady(true);
+    }, 100);
 
     return () => {
+      clearTimeout(initTimer);
       mapRef.current?.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
   }, []);
 
   // Update markers when stations change
   useEffect(() => {
-    if (!mapRef.current || !markersRef.current) return;
+    if (!mapReady || !mapRef.current || !markersRef.current) return;
 
     markersRef.current.clearLayers();
 
@@ -447,11 +463,11 @@ export function LiveStationMap({
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [displayedStations, normalizedHubCallsigns, activeStations]);
+  }, [displayedStations, normalizedHubCallsigns, activeStations, mapReady]);
 
   // Update static connection lines
   useEffect(() => {
-    if (!mapRef.current || !connectionsRef.current) return;
+    if (!mapReady || !mapRef.current || !connectionsRef.current) return;
 
     connectionsRef.current.clearLayers();
 
@@ -499,11 +515,11 @@ export function LiveStationMap({
       line.bindTooltip(tooltipContent, { sticky: true });
       connectionsRef.current!.addLayer(line);
     });
-  }, [connectionLines, showConnections, colorMode]);
+  }, [connectionLines, showConnections, colorMode, mapReady]);
 
   // Update live connection animations
   useEffect(() => {
-    if (!mapRef.current || !liveConnectionsRef.current) return;
+    if (!mapReady || !mapRef.current || !liveConnectionsRef.current) return;
 
     liveConnectionsRef.current.clearLayers();
 
@@ -569,7 +585,7 @@ export function LiveStationMap({
       liveConnectionsRef.current!.addLayer(mainLine);
       liveConnectionsRef.current!.addLayer(particleLine);
     });
-  }, [liveConnections, colorMode, liveMode, allStationsLookup]);
+  }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady]);
 
   const handleFullscreenToggle = useCallback(() => {
     if (isFullscreen) {
@@ -779,9 +795,18 @@ export function LiveStationMap({
           {/* Map */}
           <div 
             ref={mapContainer} 
-            className={`${mapHeight} ${isFullscreen ? 'flex-1' : 'w-full lg:flex-1'}`}
+            className={`${mapHeight} ${isFullscreen ? 'flex-1' : 'w-full lg:flex-1'} relative`}
             style={{ background: 'hsl(var(--muted))' }}
-          />
+          >
+            {!mapReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="text-center">
+                  <Map className="h-8 w-8 mx-auto mb-2 animate-pulse text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading map...</p>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Activity Feed */}
           {liveMode && (
