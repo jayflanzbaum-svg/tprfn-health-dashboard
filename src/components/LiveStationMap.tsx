@@ -86,25 +86,20 @@ const getSessionColor = (sessions: number): string => {
   return '#ef4444';
 };
 
-// CSS for animated flowing particles
+// CSS for GridTracker-style connection lines
 const animationStyles = `
   @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.8; }
   }
   
-  @keyframes flowingDash {
-    0% { stroke-dashoffset: 30; }
-    100% { stroke-dashoffset: 0; }
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.6; filter: blur(3px); }
+    50% { opacity: 0.9; filter: blur(5px); }
   }
   
-  @keyframes flowingGlow {
-    0% { stroke-dashoffset: 60; opacity: 0.9; }
-    100% { stroke-dashoffset: 0; opacity: 0.9; }
-  }
-  
-  @keyframes particleFlow {
-    0% { stroke-dashoffset: 100; }
+  @keyframes flowingDots {
+    0% { stroke-dashoffset: 20; }
     100% { stroke-dashoffset: 0; }
   }
   
@@ -113,26 +108,70 @@ const animationStyles = `
     to { opacity: 1; transform: translateY(0); }
   }
   
-  .live-connection-line {
-    stroke-dasharray: 8 12;
-    animation: flowingDash 0.8s linear infinite;
+  .gridtracker-line-glow {
+    filter: blur(4px);
+    animation: glowPulse 2s ease-in-out infinite;
   }
   
-  .live-connection-glow {
-    stroke-dasharray: 4 26;
-    animation: flowingGlow 0.8s linear infinite;
-    filter: blur(2px);
+  .gridtracker-line-core {
+    stroke-linecap: round;
   }
   
-  .live-connection-particles {
-    stroke-dasharray: 2 18;
-    animation: particleFlow 0.6s linear infinite;
+  .gridtracker-line-dots {
+    stroke-dasharray: 3 8;
+    animation: flowingDots 0.5s linear infinite;
+    stroke-linecap: round;
   }
   
   .activity-item {
     animation: fadeIn 0.3s ease-out;
   }
 `;
+
+// Calculate great circle arc points between two coordinates
+const getGreatCirclePoints = (
+  lat1: number, lon1: number, 
+  lat2: number, lon2: number, 
+  numPoints: number = 50
+): [number, number][] => {
+  const toRad = (deg: number) => deg * Math.PI / 180;
+  const toDeg = (rad: number) => rad * 180 / Math.PI;
+  
+  const φ1 = toRad(lat1);
+  const λ1 = toRad(lon1);
+  const φ2 = toRad(lat2);
+  const λ2 = toRad(lon2);
+  
+  const points: [number, number][] = [];
+  
+  for (let i = 0; i <= numPoints; i++) {
+    const f = i / numPoints;
+    
+    const d = Math.acos(
+      Math.sin(φ1) * Math.sin(φ2) + 
+      Math.cos(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1)
+    );
+    
+    if (d === 0) {
+      points.push([lat1, lon1]);
+      continue;
+    }
+    
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+    
+    const φ = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const λ = Math.atan2(y, x);
+    
+    points.push([toDeg(φ), toDeg(λ)]);
+  }
+  
+  return points;
+};
 
 export function LiveStationMap({ 
   locations, 
@@ -641,42 +680,60 @@ export function LiveStationMap({
       if (!loc1 || !loc2) return;
 
       const lineColor = conn.snr ? getSnrColor(conn.snr) : ACTIVE_CONNECTION_COLOR;
-      const coords: [number, number][] = [
-        [loc1.latitude!, loc1.longitude!],
-        [loc2.latitude!, loc2.longitude!],
-      ];
+      
+      // Calculate great circle arc for curved path like GridTracker
+      const arcCoords = getGreatCirclePoints(
+        loc1.latitude!, loc1.longitude!,
+        loc2.latitude!, loc2.longitude!,
+        30
+      );
 
-      // Base glow layer for visibility
-      const glowLine = L.polyline(coords, { 
+      // Outer glow layer (wide, blurred, pulsing)
+      const glowLine = L.polyline(arcCoords, { 
         color: lineColor,
-        weight: 8,
-        opacity: 0.3,
-        className: 'live-connection-glow',
-        dashArray: '4, 26',
+        weight: 12,
+        opacity: 0.4,
+        className: 'gridtracker-line-glow',
+        lineCap: 'round',
+        lineJoin: 'round',
       });
       liveConnectionsRef.current!.addLayer(glowLine);
 
-      // Main animated line showing direction
-      const mainLine = L.polyline(coords, { 
+      // Middle glow layer (medium width)
+      const midGlowLine = L.polyline(arcCoords, { 
         color: lineColor,
-        weight: 4,
-        opacity: 0.9,
-        className: 'live-connection-line',
-        dashArray: '8, 12',
+        weight: 6,
+        opacity: 0.6,
+        className: 'gridtracker-line-core',
+        lineCap: 'round',
+        lineJoin: 'round',
       });
+      liveConnectionsRef.current!.addLayer(midGlowLine);
 
-      // Fast-moving particles layer
-      const particleLine = L.polyline(coords, { 
+      // Core line (solid, bright)
+      const coreLine = L.polyline(arcCoords, { 
         color: '#ffffff',
         weight: 2,
+        opacity: 0.9,
+        className: 'gridtracker-line-core',
+        lineCap: 'round',
+        lineJoin: 'round',
+      });
+      liveConnectionsRef.current!.addLayer(coreLine);
+
+      // Animated flowing dots overlay
+      const dotsLine = L.polyline(arcCoords, { 
+        color: '#ffffff',
+        weight: 3,
         opacity: 0.8,
-        className: 'live-connection-particles',
-        dashArray: '2, 18',
+        className: 'gridtracker-line-dots',
+        lineCap: 'round',
+        lineJoin: 'round',
       });
 
       const tooltipContent = `
         <div class="p-1">
-          <div class="font-semibold">${conn.station1} → ${conn.station2}</div>
+          <div class="font-semibold">${conn.station1} ↔ ${conn.station2}</div>
           <div class="text-sm">Event: ${conn.eventType}</div>
           ${conn.snr ? `<div class="text-sm">S/N: ${conn.snr} dB</div>` : ''}
           ${conn.bitrate ? `<div class="text-sm">Bitrate: ${conn.bitrate} bps</div>` : ''}
@@ -684,9 +741,8 @@ export function LiveStationMap({
         </div>
       `;
 
-      mainLine.bindTooltip(tooltipContent, { sticky: true });
-      liveConnectionsRef.current!.addLayer(mainLine);
-      liveConnectionsRef.current!.addLayer(particleLine);
+      midGlowLine.bindTooltip(tooltipContent, { sticky: true });
+      liveConnectionsRef.current!.addLayer(dotsLine);
     });
   }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady]);
 
