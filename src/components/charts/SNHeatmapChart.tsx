@@ -1,9 +1,10 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { SNRecord } from '@/lib/syslogParser';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DateRange, DatePreset } from '@/components/DateRangeFilter';
 
 interface SNHeatmapChartProps {
   snRecords: SNRecord[];
+  dateRange: DateRange;
 }
 
 type ViewMode = 'hourDay' | 'dayWeek' | 'weekMonth' | 'monthYear';
@@ -19,6 +20,38 @@ function getWeekNumber(date: Date): number {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// Determine view mode based on date range preset and duration
+function getViewModeFromDateRange(dateRange: DateRange): ViewMode {
+  const { preset, start, end } = dateRange;
+  const durationMs = end.getTime() - start.getTime();
+  const durationDays = durationMs / (1000 * 60 * 60 * 24);
+  
+  // Preset-based logic
+  if (preset === 'today' || preset === 'yesterday') {
+    return 'hourDay';
+  }
+  if (preset === 'lastWeek' || preset === 'last7days') {
+    return 'dayWeek';
+  }
+  if (preset === 'lastMonth' || preset === 'last30days') {
+    return 'weekMonth';
+  }
+  if (preset === 'lastQuarter' || preset === 'lastYear' || preset === 'all') {
+    return 'monthYear';
+  }
+  
+  // For custom ranges, use duration
+  if (durationDays <= 1) {
+    return 'hourDay';
+  } else if (durationDays <= 7) {
+    return 'dayWeek';
+  } else if (durationDays <= 31) {
+    return 'weekMonth';
+  } else {
+    return 'monthYear';
+  }
 }
 
 // Color scale for S/N values (typically range from -20 to +10 dB)
@@ -41,8 +74,8 @@ function getHeatmapColor(value: number | null, minVal: number, maxVal: number): 
   }
 }
 
-export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeatmapChartProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('hourDay');
+export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords, dateRange }: SNHeatmapChartProps) {
+  const viewMode = useMemo(() => getViewModeFromDateRange(dateRange), [dateRange]);
 
   // Process data for hour x day-of-week heatmap
   const hourDayData = useMemo(() => {
@@ -92,9 +125,9 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
       weekData[day].count++;
     });
 
-    // Sort weeks and take the most recent ones (limit to fit display)
+    // Sort weeks and take only those in the date range (typically 1-2 weeks)
     const sortedWeeks = Array.from(weekMap.keys()).sort();
-    const displayWeeks = sortedWeeks.slice(-20); // Show last 20 weeks max
+    const displayWeeks = sortedWeeks.slice(-7); // Show max 7 weeks for compact display
 
     let minVal = Infinity;
     let maxVal = -Infinity;
@@ -463,22 +496,12 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
 
   return (
     <div className="chart-card">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">S/N Ratio Patterns</h3>
-          <p className="text-sm text-muted-foreground mt-1">{getDescription()}</p>
-        </div>
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="hourDay" className="text-[10px] sm:text-xs px-1 sm:px-2">Hour×Day</TabsTrigger>
-            <TabsTrigger value="dayWeek" className="text-[10px] sm:text-xs px-1 sm:px-2">Day×Week</TabsTrigger>
-            <TabsTrigger value="weekMonth" className="text-[10px] sm:text-xs px-1 sm:px-2">Week×Month</TabsTrigger>
-            <TabsTrigger value="monthYear" className="text-[10px] sm:text-xs px-1 sm:px-2">Month×Year</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-foreground">S/N Ratio Patterns</h3>
+        <p className="text-sm text-muted-foreground mt-1">{getDescription()}</p>
       </div>
 
-      <div className="h-[300px] flex items-center justify-center">
+      <div className="flex items-center justify-center">
         {snRecords.length === 0 ? (
           <p className="text-muted-foreground text-sm">No S/N data available</p>
         ) : viewMode === 'hourDay' ? (
