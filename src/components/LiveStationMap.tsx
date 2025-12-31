@@ -172,7 +172,20 @@ export function LiveStationMap({
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(4);
   const stylesInjectedRef = useRef(false);
+
+  // Calculate dash array based on zoom level for consistent appearance
+  const getDashArray = useCallback((zoom: number) => {
+    // Base dash pattern at zoom 4, scale inversely with zoom
+    const baseZoom = 4;
+    const baseDash = 8;
+    const baseGap = 5;
+    const scale = Math.pow(2, baseZoom - zoom) * 1.5;
+    const dash = Math.max(4, Math.min(20, baseDash * scale));
+    const gap = Math.max(3, Math.min(12, baseGap * scale));
+    return `${dash}, ${gap}`;
+  }, []);
 
   // Inject animation styles only once
   useEffect(() => {
@@ -562,6 +575,14 @@ export function LiveStationMap({
       connectionsRef.current = L.layerGroup().addTo(mapRef.current);
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
       
+      // Track zoom level changes
+      mapRef.current.on('zoomend', () => {
+        if (mapRef.current) {
+          setZoomLevel(mapRef.current.getZoom());
+        }
+      });
+      
+      setZoomLevel(mapRef.current.getZoom());
       setMapReady(true);
     }, 100);
 
@@ -695,11 +716,12 @@ export function LiveStationMap({
       );
 
       // GridTracker-style dashed line - GREEN to match live station markers
+      // Dash pattern scales with zoom for consistent visual appearance
       const dashedLine = L.polyline(arcCoords, { 
         color: '#22c55e', // Green to match live station color
-        weight: 2.5,
+        weight: 2,
         opacity: 0.9,
-        dashArray: '12, 8', // Long dashes, medium gaps like GridTracker
+        dashArray: getDashArray(zoomLevel),
         lineCap: 'butt',
         lineJoin: 'round',
       });
@@ -717,7 +739,7 @@ export function LiveStationMap({
       dashedLine.bindTooltip(tooltipContent, { sticky: true });
       liveConnectionsRef.current!.addLayer(dashedLine);
     });
-  }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady]);
+  }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady, zoomLevel, getDashArray]);
 
   const handleFullscreenToggle = useCallback(() => {
     if (isFullscreen) {
