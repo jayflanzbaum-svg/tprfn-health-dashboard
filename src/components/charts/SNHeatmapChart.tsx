@@ -28,29 +28,26 @@ function getViewModeFromDateRange(dateRange: DateRange): ViewMode {
   const durationMs = end.getTime() - start.getTime();
   const durationDays = durationMs / (1000 * 60 * 60 * 24);
   
-  // Preset-based logic
-  if (preset === 'today' || preset === 'yesterday') {
+  // Preset-based logic - hoursXday for short periods
+  if (preset === 'today' || preset === 'yesterday' || preset === 'lastWeek' || preset === 'last7days') {
     return 'hourDay';
   }
-  if (preset === 'lastWeek' || preset === 'last7days') {
+  // daysXweek for month-range periods
+  if (preset === 'lastMonth' || preset === 'last30days') {
     return 'dayWeek';
   }
-  if (preset === 'lastMonth' || preset === 'last30days') {
-    return 'weekMonth';
-  }
+  // weekXmonth for quarter/year periods
   if (preset === 'lastQuarter' || preset === 'lastYear' || preset === 'all') {
-    return 'monthYear';
+    return 'weekMonth';
   }
   
   // For custom ranges, use duration
-  if (durationDays <= 1) {
+  if (durationDays <= 7) {
     return 'hourDay';
-  } else if (durationDays <= 7) {
-    return 'dayWeek';
   } else if (durationDays <= 31) {
-    return 'weekMonth';
+    return 'dayWeek';
   } else {
-    return 'monthYear';
+    return 'weekMonth';
   }
 }
 
