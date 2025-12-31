@@ -13,6 +13,7 @@ import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/componen
 import { LazySection } from '@/components/LazySection';
 import { toast } from '@/hooks/use-toast';
 import { LiveStationMap } from '@/components/LiveStationMap';
+import { InactiveHubsAlert } from '@/components/InactiveHubsAlert';
 
 // Direct imports - memoized at component level
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
@@ -344,6 +345,13 @@ const Index = () => {
           dataDateRange={data.dateRange}
           onRefresh={refetch}
           isRefreshing={isRefreshing}
+        />
+
+        {/* Inactive Hubs Alert */}
+        <InactiveHubsAlert
+          connectRecords={data.connectRecords}
+          snRecords={data.snRecords}
+          allowedCallsigns={allowedCallsigns}
         />
 
         {/* Comparison Label */}
