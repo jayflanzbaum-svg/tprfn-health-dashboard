@@ -348,11 +348,7 @@ const Index = () => {
         />
 
         {/* Inactive Hubs Alert */}
-        <InactiveHubsAlert
-          connectRecords={data.connectRecords}
-          snRecords={data.snRecords}
-          allowedCallsigns={allowedCallsigns}
-        />
+        <InactiveHubsAlert allowedCallsigns={allowedCallsigns} />
 
         {/* Comparison Label */}
         {changes && (
