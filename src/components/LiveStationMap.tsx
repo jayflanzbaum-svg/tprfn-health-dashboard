@@ -49,6 +49,7 @@ interface LiveStationMapProps {
   distances: Map<string, number>;
   hubCallsigns: string[];
   isFullscreen?: boolean;
+  lookupCallsigns?: (callsigns: string[]) => void;
 }
 
 interface LiveConnection {
@@ -153,7 +154,8 @@ export function LiveStationMap({
   hubConnections, 
   distances, 
   hubCallsigns,
-  isFullscreen = false 
+  isFullscreen = false,
+  lookupCallsigns 
 }: LiveStationMapProps) {
   const navigate = useNavigate();
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -487,11 +489,22 @@ export function LiveStationMap({
           }
         });
         setActiveStations(activeSet);
+
+        // Trigger lookup for any callsigns not already in locations
+        if (lookupCallsigns) {
+          const missingCallsigns = Array.from(activeSet).filter(
+            callsign => !locations.has(callsign)
+          );
+          if (missingCallsigns.length > 0) {
+            console.log(`Looking up ${missingCallsigns.length} new callsigns:`, missingCallsigns);
+            lookupCallsigns(missingCallsigns);
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching live syslog:', err);
     }
-  }, [parseLiveSyslog]);
+  }, [parseLiveSyslog, lookupCallsigns, locations]);
 
   // Fetch live data on mount and periodically
   useEffect(() => {
@@ -664,9 +677,9 @@ export function LiveStationMap({
         30
       );
 
-      // GridTracker-style dashed line - blue with long dashes
+      // GridTracker-style dashed line - GREEN to match live station markers
       const dashedLine = L.polyline(arcCoords, { 
-        color: '#4169E1', // Royal blue like GridTracker
+        color: '#22c55e', // Green to match live station color
         weight: 2.5,
         opacity: 0.9,
         dashArray: '12, 8', // Long dashes, medium gaps like GridTracker

@@ -470,6 +470,7 @@ const Index = () => {
             hubConnections={filteredData.hubConnections}
             distances={distances}
             hubCallsigns={allowedCallsigns}
+            lookupCallsigns={lookupCallsigns}
           />
         </div>
 
