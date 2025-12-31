@@ -221,13 +221,30 @@ export function LiveStationMap({
     return { hubStations: hub, pollingStations: polling };
   }, [locations, normalizedHubCallsigns, allConnectedCallsigns]);
 
+  // Get callsigns of stations that have active live connections
+  const liveConnectedCallsigns = useMemo(() => {
+    const callsigns = new Set<string>();
+    liveConnections.forEach(conn => {
+      callsigns.add(conn.station1.toUpperCase());
+      if (conn.station2) {
+        callsigns.add(conn.station2.toUpperCase());
+      }
+    });
+    return callsigns;
+  }, [liveConnections]);
+
   // Get stations to display based on filter
+  // When HUB ONLY filter is active, still show polling stations that are connected to a hub
   const displayedStations = useMemo(() => {
     if (stationFilter === 'hub') {
-      return hubStations;
+      // Show all hubs, plus any polling stations that are actively connected
+      const connectedPolling = pollingStations.filter(station => 
+        liveConnectedCallsigns.has(station.callsign.toUpperCase())
+      );
+      return [...hubStations, ...connectedPolling];
     }
     return [...hubStations, ...pollingStations];
-  }, [stationFilter, hubStations, pollingStations]);
+  }, [stationFilter, hubStations, pollingStations, liveConnectedCallsigns]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
   const allStationsLookup = useMemo(() => {
