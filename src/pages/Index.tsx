@@ -230,26 +230,66 @@ const Index = () => {
   const stats = useMemo(() => {
     if (!filteredData) return null;
 
-    const avgSN = filteredData.snRecords.length > 0
-      ? filteredData.snRecords.reduce((sum, r) => sum + r.snValue, 0) / filteredData.snRecords.length
-      : 0;
+    const isAggregatedMode = !!filteredData.aggregatedData;
 
-    const totalTx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
-    const totalRx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+    let avgSNNum = 0;
+    let totalSessions = 0;
+    let totalTx = 0;
+    let totalRx = 0;
+    let snReadings = 0;
 
-    const excellentCount = filteredData.snRecords.filter(r => getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good').length;
-    const successRate = filteredData.snRecords.length > 0 
+    if (isAggregatedMode) {
+      // Use weighted averages from aggregated connection stats.
+      let snWeightedSum = 0;
+      let snWeight = 0;
+
+      filteredData.hubConnections.forEach((hub) => {
+        const c = hub.snCount ?? 0;
+        if (c > 0) {
+          snWeightedSum += hub.avgSN * c;
+          snWeight += c;
+          snReadings += c;
+        }
+
+        totalSessions += hub.sessionCount ?? 0;
+        totalTx += hub.totalTxBytes ?? 0;
+        totalRx += hub.totalRxBytes ?? 0;
+      });
+
+      avgSNNum = snWeight > 0
+        ? snWeightedSum / snWeight
+        : (filteredData.snRecords.length > 0
+            ? filteredData.snRecords.reduce((sum, r) => sum + r.snValue, 0) / filteredData.snRecords.length
+            : 0);
+
+      // Fallback when no snCount is provided (should be rare)
+      if (snReadings === 0) snReadings = filteredData.snRecords.length;
+    } else {
+      avgSNNum = filteredData.snRecords.length > 0
+        ? filteredData.snRecords.reduce((sum, r) => sum + r.snValue, 0) / filteredData.snRecords.length
+        : 0;
+
+      totalSessions = filteredData.connectRecords.length;
+      totalTx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
+      totalRx = filteredData.disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+      snReadings = filteredData.snRecords.length;
+    }
+
+    const excellentCount = filteredData.snRecords.filter(r =>
+      getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good'
+    ).length;
+    const successRate = filteredData.snRecords.length > 0
       ? ((excellentCount / filteredData.snRecords.length) * 100).toFixed(1)
       : '0';
 
     return {
-      avgSN: avgSN.toFixed(1),
-      totalSessions: filteredData.connectRecords.length,
+      avgSN: avgSNNum.toFixed(1),
+      totalSessions,
       totalTx: formatBytes(totalTx),
       totalRx: formatBytes(totalRx),
       totalData: formatBytes(totalTx + totalRx),
       successRate,
-      snReadings: filteredData.snRecords.length,
+      snReadings,
     };
   }, [filteredData]);
 
