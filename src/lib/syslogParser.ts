@@ -38,6 +38,7 @@ export interface HubConnection {
   totalRxBytes: number;
   sessionCount: number;
   // Optional aggregated stats (used for large date ranges)
+  snCount?: number;
   avgBitrate?: number;
   maxBitrate?: number;
   maxBitrateAt?: Date;

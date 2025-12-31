@@ -295,6 +295,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
            totalTxBytes: stat.totalTxBytes,
            totalRxBytes: stat.totalRxBytes,
            sessionCount: stat.sessionCount,
+           snCount: stat.snCount,
            avgBitrate: stat.avgBitrate,
            maxBitrate: stat.maxBitrate,
            maxBitrateAt: stat.maxBitrateAt ? new Date(stat.maxBitrateAt) : undefined,

@@ -129,6 +129,10 @@ Deno.serve(async (req) => {
       maxBitrateAt: string | null;
     }>();
 
+    // Helps attribute disconnect records that don't include remote_callsign
+    const lastPartnerMap = new Map<string, { partner: string; timestamp: Date }>();
+    const MAX_PARTNER_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
     let minDate = new Date();
     let maxDate = new Date(0);
 
@@ -148,7 +152,7 @@ Deno.serve(async (req) => {
         const dateStr = timestamp.toISOString().split('T')[0];
         const hour = timestamp.getUTCHours();
         const dailyKey = `${dateStr}-${hour}`;
-        
+
         if (!dailySNMap.has(dailyKey)) {
           dailySNMap.set(dailyKey, { total: 0, count: 0 });
         }
@@ -169,6 +173,10 @@ Deno.serve(async (req) => {
         const monthly = monthlySNMap.get(monthlyKey)!;
         monthly.total += entry.snr;
         monthly.count++;
+
+        // Remember partner for this station (helps later for disconnect records)
+        lastPartnerMap.set(station, { partner, timestamp });
+        lastPartnerMap.set(partner, { partner: station, timestamp });
 
         // Connection stats
         if (!connectionMap.has(connectionId)) {
@@ -192,6 +200,8 @@ Deno.serve(async (req) => {
       }
 
       if (entry.event_type === 'connect_in' || entry.event_type === 'connect_out') {
+        if (!partner) continue;
+
         if (!connectionMap.has(connectionId)) {
           connectionMap.set(connectionId, {
             station1: station < partner ? station : partner,
@@ -208,22 +218,53 @@ Deno.serve(async (req) => {
           });
         }
         connectionMap.get(connectionId)!.sessionCount++;
+
+        // Remember partner for this station (helps later for disconnect records)
+        lastPartnerMap.set(station, { partner, timestamp });
+        lastPartnerMap.set(partner, { partner: station, timestamp });
       }
 
        if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
-         if (connectionMap.has(connectionId)) {
-           const conn = connectionMap.get(connectionId)!;
-           conn.totalTxBytes += entry.bytes_sent || 0;
-           conn.totalRxBytes += entry.bytes_received || 0;
+         // Disconnect rows often don't have remote_callsign; infer it from the latest known partner
+         let resolvedPartner = partner;
+         if (!resolvedPartner) {
+           const last = lastPartnerMap.get(station);
+           if (last && timestamp.getTime() - last.timestamp.getTime() <= MAX_PARTNER_WINDOW_MS) {
+             resolvedPartner = last.partner;
+           }
+         }
+         if (!resolvedPartner) continue;
 
-           const bitrate = typeof entry.bitrate === 'number' ? entry.bitrate : null;
-           if (bitrate !== null && bitrate > 0) {
-             conn.bitrateTotal += bitrate;
-             conn.bitrateCount++;
-             if (bitrate > conn.maxBitrate) {
-               conn.maxBitrate = bitrate;
-               conn.maxBitrateAt = timestamp.toISOString();
-             }
+         const resolvedConnectionId = [station, resolvedPartner].filter(Boolean).sort().join('↔');
+         if (!resolvedConnectionId.includes('↔')) continue;
+
+         if (!connectionMap.has(resolvedConnectionId)) {
+           connectionMap.set(resolvedConnectionId, {
+             station1: station < resolvedPartner ? station : resolvedPartner,
+             station2: station < resolvedPartner ? resolvedPartner : station,
+             snTotal: 0,
+             snCount: 0,
+             sessionCount: 0,
+             totalTxBytes: 0,
+             totalRxBytes: 0,
+             bitrateTotal: 0,
+             bitrateCount: 0,
+             maxBitrate: 0,
+             maxBitrateAt: null,
+           });
+         }
+
+         const conn = connectionMap.get(resolvedConnectionId)!;
+         conn.totalTxBytes += entry.bytes_sent || 0;
+         conn.totalRxBytes += entry.bytes_received || 0;
+
+         const bitrate = typeof entry.bitrate === 'number' ? entry.bitrate : null;
+         if (bitrate !== null && bitrate > 0) {
+           conn.bitrateTotal += bitrate;
+           conn.bitrateCount++;
+           if (bitrate > conn.maxBitrate) {
+             conn.maxBitrate = bitrate;
+             conn.maxBitrateAt = timestamp.toISOString();
            }
          }
        }

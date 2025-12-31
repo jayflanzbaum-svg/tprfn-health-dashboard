@@ -31,8 +31,8 @@ export const SNByHubChart = memo(function SNByHubChart({ hubConnections, dateRan
 
   const allData = useMemo(() => {
     return Array.from(hubConnections.values())
-      // In aggregated mode, snRecords is empty but avgSN is populated directly
-      .filter(hub => hub.snRecords.length > 0 || hub.avgSN > 0)
+      // In aggregated mode, snRecords is empty but avgSN is still meaningful (can be negative)
+      .filter(hub => hub.snRecords.length > 0 || (hub.snCount ?? 0) > 0 || hub.sessionCount > 0)
       .map(hub => {
         const distanceKey = [hub.station1, hub.station2].sort().join('↔');
         const distance = distances.get(distanceKey);
