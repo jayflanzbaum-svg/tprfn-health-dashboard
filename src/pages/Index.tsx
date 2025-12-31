@@ -17,7 +17,7 @@ import { LiveStationMap } from '@/components/LiveStationMap';
 // Direct imports - memoized at component level
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
 import { TXByHubChart } from '@/components/charts/TXByHubChart';
-import { SNTimelineChart } from '@/components/charts/SNTimelineChart';
+import { SNHeatmapChart } from '@/components/charts/SNHeatmapChart';
 import { SignalQualityPieChart } from '@/components/charts/SignalQualityPieChart';
 import { ConnectionSuccessChart } from '@/components/charts/ConnectionSuccessChart';
 import { DisconnectAnalysisChart } from '@/components/charts/DisconnectAnalysisChart';
@@ -429,10 +429,10 @@ const Index = () => {
           </LazySection>
         </div>
 
-        {/* S/N Timeline - Full Width */}
+        {/* S/N Patterns Heatmap - Full Width */}
         <div className="mb-8">
-          <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N Timeline" />}>
-            <SNTimelineChart snRecords={deferredFilteredData?.snRecords ?? []} dateRange={dateRange} />
+          <LazySection fallback={<ChartSkeleton height="h-[300px]" title="S/N Patterns" />}>
+            <SNHeatmapChart snRecords={deferredFilteredData?.snRecords ?? []} />
           </LazySection>
         </div>
 
