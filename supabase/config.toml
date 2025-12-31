@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.lookup-callsign]
 verify_jwt = false
+
+[functions.aggregate-syslog]
+verify_jwt = false

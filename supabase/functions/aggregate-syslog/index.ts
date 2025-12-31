@@ -1,0 +1,270 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface AggregatedData {
+  // Daily aggregates for S/N heatmaps
+  dailySNAggregates: Array<{
+    date: string;
+    hour: number;
+    avgSN: number;
+    count: number;
+  }>;
+  // Monthly aggregates
+  monthlySNAggregates: Array<{
+    year: number;
+    month: number;
+    week: number;
+    avgSN: number;
+    count: number;
+  }>;
+  // Connection stats by station pair
+  connectionStats: Array<{
+    station1: string;
+    station2: string;
+    avgSN: number;
+    sessionCount: number;
+    totalTxBytes: number;
+    totalRxBytes: number;
+    snCount: number;
+  }>;
+  // Total record counts
+  totalRecords: number;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { startDate, endDate, callsigns } = await req.json();
+    
+    console.log(`Aggregating data from ${startDate} to ${endDate} for ${callsigns?.length || 0} callsigns`);
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const callsignSet = new Set((callsigns || []).map((c: string) => c.toUpperCase().trim()));
+    const callsignArray = Array.from(callsignSet);
+
+    // Build the filter - we need entries where either callsign or remote_callsign is in our list
+    let query = supabase
+      .from('syslog_entries')
+      .select('timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
+      .gte('timestamp', startDate)
+      .lte('timestamp', endDate);
+
+    // Fetch in batches using cursor-based pagination
+    const allEntries: any[] = [];
+    const pageSize = 5000;
+    let cursor: string | null = null;
+    let iterations = 0;
+    const maxIterations = 200;
+
+    while (iterations < maxIterations) {
+      let batchQuery = supabase
+        .from('syslog_entries')
+        .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, duration_seconds')
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate)
+        .order('timestamp', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(pageSize);
+
+      if (cursor) {
+        batchQuery = batchQuery.gt('id', cursor);
+      }
+
+      const { data: entries, error } = await batchQuery;
+
+      if (error) {
+        console.error('Query error:', error);
+        throw new Error(error.message);
+      }
+
+      if (!entries || entries.length === 0) break;
+
+      // Filter by callsigns
+      const filtered = entries.filter((e: any) => {
+        const station = e.callsign?.toUpperCase().trim() || '';
+        const partner = e.remote_callsign?.toUpperCase().trim() || '';
+        return callsignArray.length === 0 || callsignSet.has(station) || callsignSet.has(partner);
+      });
+
+      allEntries.push(...filtered);
+      cursor = entries[entries.length - 1].id;
+      iterations++;
+
+      if (entries.length < pageSize) break;
+    }
+
+    console.log(`Fetched ${allEntries.length} filtered entries in ${iterations} iterations`);
+
+    // Now aggregate the data on the server
+    const dailySNMap = new Map<string, { total: number; count: number }>();
+    const monthlySNMap = new Map<string, { total: number; count: number }>();
+    const connectionMap = new Map<string, {
+      station1: string;
+      station2: string;
+      snTotal: number;
+      snCount: number;
+      sessionCount: number;
+      totalTxBytes: number;
+      totalRxBytes: number;
+    }>();
+
+    let minDate = new Date();
+    let maxDate = new Date(0);
+
+    for (const entry of allEntries) {
+      const timestamp = new Date(entry.timestamp);
+      const station = entry.callsign?.toUpperCase().trim() || '';
+      const partner = entry.remote_callsign?.toUpperCase().trim() || '';
+
+      if (timestamp < minDate) minDate = timestamp;
+      if (timestamp > maxDate) maxDate = timestamp;
+
+      // Create connection ID (sorted)
+      const connectionId = [station, partner].filter(Boolean).sort().join('↔');
+
+      if (entry.event_type === 'sn_report' && entry.snr !== null && partner) {
+        // Daily aggregate (date + hour)
+        const dateStr = timestamp.toISOString().split('T')[0];
+        const hour = timestamp.getUTCHours();
+        const dailyKey = `${dateStr}-${hour}`;
+        
+        if (!dailySNMap.has(dailyKey)) {
+          dailySNMap.set(dailyKey, { total: 0, count: 0 });
+        }
+        const daily = dailySNMap.get(dailyKey)!;
+        daily.total += entry.snr;
+        daily.count++;
+
+        // Monthly aggregate (year + month + week)
+        const year = timestamp.getUTCFullYear();
+        const month = timestamp.getUTCMonth();
+        const day = timestamp.getUTCDate();
+        const week = Math.ceil(day / 7);
+        const monthlyKey = `${year}-${month}-${week}`;
+
+        if (!monthlySNMap.has(monthlyKey)) {
+          monthlySNMap.set(monthlyKey, { total: 0, count: 0 });
+        }
+        const monthly = monthlySNMap.get(monthlyKey)!;
+        monthly.total += entry.snr;
+        monthly.count++;
+
+        // Connection stats
+        if (!connectionMap.has(connectionId)) {
+          connectionMap.set(connectionId, {
+            station1: station < partner ? station : partner,
+            station2: station < partner ? partner : station,
+            snTotal: 0,
+            snCount: 0,
+            sessionCount: 0,
+            totalTxBytes: 0,
+            totalRxBytes: 0
+          });
+        }
+        const conn = connectionMap.get(connectionId)!;
+        conn.snTotal += entry.snr;
+        conn.snCount++;
+      }
+
+      if (entry.event_type === 'connect_in' || entry.event_type === 'connect_out') {
+        if (!connectionMap.has(connectionId)) {
+          connectionMap.set(connectionId, {
+            station1: station < partner ? station : partner,
+            station2: station < partner ? partner : station,
+            snTotal: 0,
+            snCount: 0,
+            sessionCount: 0,
+            totalTxBytes: 0,
+            totalRxBytes: 0
+          });
+        }
+        connectionMap.get(connectionId)!.sessionCount++;
+      }
+
+      if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
+        if (connectionMap.has(connectionId)) {
+          const conn = connectionMap.get(connectionId)!;
+          conn.totalTxBytes += entry.bytes_sent || 0;
+          conn.totalRxBytes += entry.bytes_received || 0;
+        }
+      }
+    }
+
+    // Convert maps to arrays
+    const dailySNAggregates: AggregatedData['dailySNAggregates'] = [];
+    dailySNMap.forEach((val, key) => {
+      const [date, hourStr] = key.split('-').length === 4 
+        ? [key.substring(0, 10), key.substring(11)]
+        : [key.substring(0, 10), key.split('-').pop()!];
+      dailySNAggregates.push({
+        date: key.substring(0, 10),
+        hour: parseInt(key.split('-').pop()!, 10),
+        avgSN: val.total / val.count,
+        count: val.count
+      });
+    });
+
+    const monthlySNAggregates: AggregatedData['monthlySNAggregates'] = [];
+    monthlySNMap.forEach((val, key) => {
+      const parts = key.split('-');
+      monthlySNAggregates.push({
+        year: parseInt(parts[0], 10),
+        month: parseInt(parts[1], 10),
+        week: parseInt(parts[2], 10),
+        avgSN: val.total / val.count,
+        count: val.count
+      });
+    });
+
+    const connectionStats: AggregatedData['connectionStats'] = [];
+    connectionMap.forEach((val) => {
+      connectionStats.push({
+        station1: val.station1,
+        station2: val.station2,
+        avgSN: val.snCount > 0 ? val.snTotal / val.snCount : 0,
+        sessionCount: val.sessionCount,
+        totalTxBytes: val.totalTxBytes,
+        totalRxBytes: val.totalRxBytes,
+        snCount: val.snCount
+      });
+    });
+
+    const result: AggregatedData = {
+      dailySNAggregates,
+      monthlySNAggregates,
+      connectionStats,
+      totalRecords: allEntries.length,
+      dateRange: {
+        start: minDate.toISOString(),
+        end: maxDate.toISOString()
+      }
+    };
+
+    console.log(`Returning ${dailySNAggregates.length} daily aggregates, ${monthlySNAggregates.length} monthly aggregates, ${connectionStats.length} connections`);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error in aggregate-syslog:', message);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

@@ -11,8 +11,9 @@ import {
 } from '@/lib/syslogParser';
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const DEFAULT_DAYS = 7; // Fetch only 7 days by default for performance
+const DEFAULT_DAYS = 7;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const AGGREGATION_THRESHOLD_DAYS = 60; // Use server aggregation for ranges > 60 days
 
 // Only fetch the columns we actually need
 const SELECTED_COLUMNS = 'id,timestamp,hub,callsign,remote_callsign,event_type,snr,bytes_sent,bytes_received,bitrate,duration_seconds,raw_message';
@@ -35,6 +36,36 @@ interface DatabaseEntry {
   raw_message?: string | null;
 }
 
+interface AggregatedData {
+  dailySNAggregates: Array<{
+    date: string;
+    hour: number;
+    avgSN: number;
+    count: number;
+  }>;
+  monthlySNAggregates: Array<{
+    year: number;
+    month: number;
+    week: number;
+    avgSN: number;
+    count: number;
+  }>;
+  connectionStats: Array<{
+    station1: string;
+    station2: string;
+    avgSN: number;
+    sessionCount: number;
+    totalTxBytes: number;
+    totalRxBytes: number;
+    snCount: number;
+  }>;
+  totalRecords: number;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
 function createConnectionId(station1: string, station2: string): string {
   const sorted = [station1, station2].sort();
   return `${sorted[0]}↔${sorted[1]}`;
@@ -42,10 +73,12 @@ function createConnectionId(station1: string, station2: string): string {
 
 export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = DEFAULT_DAYS) {
   const [rawData, setRawData] = useState<DatabaseEntry[]>([]);
+  const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [useAggregation, setUseAggregation] = useState(false);
 
   const allowedSet = useMemo(() => 
     new Set(allowedCallsigns.map(c => c.toUpperCase().trim())), 
@@ -60,7 +93,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         body: { 
           url: LIVE_SYSLOG_URL, 
           year: new Date().getFullYear(),
-          chunkSize: 5000000 // 5MB - reasonable for live data
+          chunkSize: 5000000
         }
       });
       
@@ -77,6 +110,71 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
     }
   }, []);
 
+  // Fetch aggregated data from server for large date ranges
+  const fetchAggregatedData = useCallback(async (startDate: Date, endDate: Date) => {
+    console.log(`Using server-side aggregation for ${fetchDays} days`);
+    
+    const { data, error } = await supabase.functions.invoke('aggregate-syslog', {
+      body: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        callsigns: allowedCallsigns
+      }
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`Received aggregated data: ${data.totalRecords} records, ${data.dailySNAggregates?.length} daily, ${data.connectionStats?.length} connections`);
+    return data as AggregatedData;
+  }, [allowedCallsigns, fetchDays]);
+
+  // Fetch raw data using pagination for smaller date ranges
+  const fetchRawData = useCallback(async (startDate: Date, endDate: Date) => {
+    const allEntries: DatabaseEntry[] = [];
+    const pageSize = 1000;
+    const maxIterations = 300;
+    const startIso = startDate.toISOString();
+    const endIso = endDate.toISOString();
+
+    let cursorTimestamp = startIso;
+    let cursorId = '00000000-0000-0000-0000-000000000000';
+    let iterations = 0;
+
+    while (iterations < maxIterations) {
+      const { data: entries, error: queryError } = await supabase
+        .from('syslog_entries')
+        .select(SELECTED_COLUMNS)
+        .lte('timestamp', endIso)
+        .or(`timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`)
+        .order('timestamp', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(pageSize);
+
+      if (queryError) {
+        throw new Error(queryError.message);
+      }
+
+      if (!entries || entries.length === 0) break;
+
+      allEntries.push(...entries);
+      
+      const lastEntry = entries[entries.length - 1];
+      cursorTimestamp = lastEntry.timestamp;
+      cursorId = lastEntry.id;
+      iterations++;
+
+      if (entries.length < pageSize) break;
+
+      if (iterations % 10 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    return allEntries;
+  }, []);
+
   const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) {
@@ -85,13 +183,11 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         setLoading(true);
       }
       
-      // First, try to fetch fresh data from the live URL
       console.log('Refreshing from live syslog URL...');
       await fetchLiveData();
       
       console.log('Fetching syslog data from database...');
 
-      // First, get the max timestamp in the database so we fetch relative to actual data
       const { data: rangeData, error: rangeError } = await supabase
         .from('syslog_entries')
         .select('timestamp')
@@ -105,6 +201,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       if (!rangeData || rangeData.length === 0) {
         console.log('No entries found in database');
         setRawData([]);
+        setAggregatedData(null);
         setLastUpdated(new Date());
         setError(null);
         return;
@@ -116,53 +213,20 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
 
       console.log(`Database max timestamp: ${maxTimestamp.toISOString()}, fetching from ${startDate.toISOString()} (last ${safeFetchDays} days)`);
 
-      const allEntries: DatabaseEntry[] = [];
-      const pageSize = 1000;
-      const maxIterations = 600; // Safety limit for very large date ranges
-      const startIso = startDate.toISOString();
-      const endIso = maxTimestamp.toISOString();
-
-      // Keyset pagination with composite cursor (timestamp, id) - much faster than offset for large datasets
-      let cursorTimestamp = startIso;
-      let cursorId = '00000000-0000-0000-0000-000000000000'; // Start before any real UUID
-      let iterations = 0;
-
-      while (iterations < maxIterations) {
-        // Use composite keyset: (timestamp, id) > (cursorTimestamp, cursorId)
-        // This is done by: timestamp > cursorTimestamp OR (timestamp = cursorTimestamp AND id > cursorId)
-        const { data: entries, error: queryError } = await supabase
-          .from('syslog_entries')
-          .select(SELECTED_COLUMNS)
-          .lte('timestamp', endIso)
-          .or(`timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`)
-          .order('timestamp', { ascending: true })
-          .order('id', { ascending: true })
-          .limit(pageSize);
-
-        if (queryError) {
-          throw new Error(queryError.message);
-        }
-
-        if (!entries || entries.length === 0) break;
-
-        allEntries.push(...entries);
-        
-        // Update cursor to last entry
-        const lastEntry = entries[entries.length - 1];
-        cursorTimestamp = lastEntry.timestamp;
-        cursorId = lastEntry.id;
-        iterations++;
-
-        if (entries.length < pageSize) break;
-
-        // Yield to the browser every 10 pages to keep UI responsive
-        if (iterations % 10 === 0) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        }
+      // Use server-side aggregation for large date ranges
+      if (safeFetchDays > AGGREGATION_THRESHOLD_DAYS) {
+        setUseAggregation(true);
+        const aggData = await fetchAggregatedData(startDate, maxTimestamp);
+        setAggregatedData(aggData);
+        setRawData([]);
+      } else {
+        setUseAggregation(false);
+        const allEntries = await fetchRawData(startDate, maxTimestamp);
+        console.log(`Fetched ${allEntries.length} entries from database (last ${safeFetchDays} days)`);
+        setRawData(allEntries);
+        setAggregatedData(null);
       }
 
-      console.log(`Fetched ${allEntries.length} entries from database (last ${Math.max(1, Math.floor(fetchDays))} days)`);
-      setRawData(allEntries);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
@@ -172,7 +236,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [fetchLiveData, fetchDays]);
+  }, [fetchLiveData, fetchDays, fetchAggregatedData, fetchRawData]);
 
   // Initial fetch and set up polling
   useEffect(() => {
@@ -188,6 +252,68 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
 
   // Transform database entries to ParsedData format
   const data = useMemo((): ParsedData | null => {
+    // Handle aggregated data mode (for large date ranges)
+    if (useAggregation && aggregatedData) {
+      console.log('Processing aggregated data for visualization');
+      
+      const snRecords: SNRecord[] = [];
+      const connectRecords: ConnectRecord[] = [];
+      const disconnectRecords: DisconnectRecord[] = [];
+      const stations = new Set<string>();
+      const hubConnections = new Map<string, HubConnection>();
+
+      // Create synthetic S/N records from daily aggregates for heatmaps
+      for (const agg of aggregatedData.dailySNAggregates) {
+        const timestamp = new Date(`${agg.date}T${agg.hour.toString().padStart(2, '0')}:00:00Z`);
+        // Create one synthetic record per aggregate to preserve the averages
+        snRecords.push({
+          timestamp,
+          station: 'AGGREGATE',
+          partner: 'DATA',
+          snValue: agg.avgSN,
+          direction: 'outgoing'
+        });
+      }
+
+      // Create hub connections from connection stats
+      for (const stat of aggregatedData.connectionStats) {
+        stations.add(stat.station1);
+        stations.add(stat.station2);
+        
+        const connectionId = createConnectionId(stat.station1, stat.station2);
+        hubConnections.set(connectionId, {
+          station1: stat.station1,
+          station2: stat.station2,
+          connectionId,
+          snRecords: [], // Not needed for aggregated view
+          connectRecords: [],
+          disconnectRecords: [],
+          avgSN: stat.avgSN,
+          totalTxBytes: stat.totalTxBytes,
+          totalRxBytes: stat.totalRxBytes,
+          sessionCount: stat.sessionCount
+        });
+      }
+
+      const minDate = new Date(aggregatedData.dateRange.start);
+      const maxDate = new Date(aggregatedData.dateRange.end);
+
+      return {
+        snRecords,
+        connectRecords,
+        disconnectRecords,
+        hubConnections,
+        stations,
+        dateRange: { start: minDate, end: maxDate },
+        // Add aggregation-specific data for charts
+        aggregatedData: {
+          dailySNAggregates: aggregatedData.dailySNAggregates,
+          monthlySNAggregates: aggregatedData.monthlySNAggregates
+        }
+      };
+    }
+
+    // Standard raw data processing
     if (rawData.length === 0) return null;
 
     const snRecords: SNRecord[] = [];
@@ -199,7 +325,6 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
     let minDate = new Date();
     let maxDate = new Date(0);
 
-    // Track the last partner for each station for disconnect events
     const lastPartnerMap = new Map<string, { partner: string; timestamp: Date }>();
 
     for (const entry of rawData) {
@@ -207,7 +332,6 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       const station = normalizeCallsign(entry.callsign);
       const partner = entry.remote_callsign ? normalizeCallsign(entry.remote_callsign) : '';
 
-      // Filter by allowed callsigns
       if (!allowedSet.has(station) && !(partner && allowedSet.has(partner))) {
         continue;
       }
@@ -228,10 +352,8 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         };
         snRecords.push(record);
 
-        // Track for disconnect matching
         lastPartnerMap.set(station, { partner, timestamp });
 
-        // Add to hub connection
         const connectionId = createConnectionId(station, partner);
         if (!hubConnections.has(connectionId)) {
           hubConnections.set(connectionId, {
@@ -258,14 +380,12 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
           timestamp,
           station,
           partner,
-          varaVersion: 'v4.x' // Version not stored in DB
+          varaVersion: 'v4.x'
         };
         connectRecords.push(record);
 
-        // Track for disconnect matching
         lastPartnerMap.set(station, { partner, timestamp });
 
-        // Add to hub connection
         const connectionId = createConnectionId(station, partner);
         if (!hubConnections.has(connectionId)) {
           hubConnections.set(connectionId, {
@@ -287,7 +407,6 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       }
 
       if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
-        // Find the partner from recent activity
         const lastPartner = lastPartnerMap.get(station);
         const disconnectPartner = partner || lastPartner?.partner || '';
 
@@ -313,7 +432,6 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         };
         disconnectRecords.push(record);
 
-        // Add to hub connection
         const connectionId = createConnectionId(station, disconnectPartner);
         if (hubConnections.has(connectionId)) {
           const hub = hubConnections.get(connectionId)!;
@@ -324,7 +442,6 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       }
     }
 
-    // Calculate average S/N for each hub connection
     hubConnections.forEach((hub) => {
       if (hub.snRecords.length > 0) {
         hub.avgSN = hub.snRecords.reduce((sum, r) => sum + r.snValue, 0) / hub.snRecords.length;
@@ -339,7 +456,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       stations,
       dateRange: { start: minDate, end: maxDate }
     };
-  }, [rawData, allowedSet]);
+  }, [rawData, allowedSet, useAggregation, aggregatedData]);
 
   const refetch = useCallback(() => fetchData(true), [fetchData]);
 
