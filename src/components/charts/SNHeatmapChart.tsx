@@ -6,11 +6,20 @@ interface SNHeatmapChartProps {
   snRecords: SNRecord[];
 }
 
-type ViewMode = 'hourDay' | 'monthly';
+type ViewMode = 'hourDay' | 'dayWeek' | 'weekMonth' | 'monthYear';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+// Get ISO week number
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
 
 // Color scale for S/N values (typically range from -20 to +10 dB)
 function getHeatmapColor(value: number | null, minVal: number, maxVal: number): string {
@@ -64,36 +73,129 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
     return { avgGrid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
   }, [snRecords]);
 
-  // Process data for monthly trends
-  const monthlyData = useMemo(() => {
-    const monthStats: { total: number; count: number; min: number; max: number }[] = 
-      Array.from({ length: 12 }, () => ({ total: 0, count: 0, min: Infinity, max: -Infinity }));
-
+  // Process data for day-of-week x week heatmap
+  const dayWeekData = useMemo(() => {
+    // Find the range of weeks in the data
+    const weekMap = new Map<string, { total: number; count: number }[]>();
+    
     snRecords.forEach(record => {
-      const month = record.timestamp.getUTCMonth();
-      monthStats[month].total += record.snValue;
-      monthStats[month].count++;
-      monthStats[month].min = Math.min(monthStats[month].min, record.snValue);
-      monthStats[month].max = Math.max(monthStats[month].max, record.snValue);
+      const year = record.timestamp.getUTCFullYear();
+      const week = getWeekNumber(record.timestamp);
+      const day = record.timestamp.getUTCDay();
+      const key = `${year}-W${week.toString().padStart(2, '0')}`;
+      
+      if (!weekMap.has(key)) {
+        weekMap.set(key, Array.from({ length: 7 }, () => ({ total: 0, count: 0 })));
+      }
+      const weekData = weekMap.get(key)!;
+      weekData[day].total += record.snValue;
+      weekData[day].count++;
     });
 
-    return monthStats.map((stat, idx) => ({
-      month: MONTHS[idx],
-      avg: stat.count > 0 ? stat.total / stat.count : null,
-      min: stat.min === Infinity ? null : stat.min,
-      max: stat.max === -Infinity ? null : stat.max,
-      count: stat.count,
-    }));
+    // Sort weeks and take the most recent ones (limit to fit display)
+    const sortedWeeks = Array.from(weekMap.keys()).sort();
+    const displayWeeks = sortedWeeks.slice(-20); // Show last 20 weeks max
+
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    
+    const grid: { week: string; values: (number | null)[] }[] = displayWeeks.map(weekKey => {
+      const weekData = weekMap.get(weekKey)!;
+      const values = weekData.map(cell => {
+        if (cell.count === 0) return null;
+        const avg = cell.total / cell.count;
+        minVal = Math.min(minVal, avg);
+        maxVal = Math.max(maxVal, avg);
+        return avg;
+      });
+      return { week: weekKey, values };
+    });
+
+    return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
   }, [snRecords]);
 
-  // Find global min/max for monthly chart
-  const monthlyMinMax = useMemo(() => {
-    const values = monthlyData.filter(d => d.avg !== null).flatMap(d => [d.min!, d.max!]);
-    return {
-      min: values.length > 0 ? Math.min(...values) : -10,
-      max: values.length > 0 ? Math.max(...values) : 0,
-    };
-  }, [monthlyData]);
+  // Process data for week x month heatmap
+  const weekMonthData = useMemo(() => {
+    // Group by month and week-of-month
+    const monthMap = new Map<string, { total: number; count: number }[]>();
+    
+    snRecords.forEach(record => {
+      const year = record.timestamp.getUTCFullYear();
+      const month = record.timestamp.getUTCMonth();
+      const day = record.timestamp.getUTCDate();
+      const weekOfMonth = Math.ceil(day / 7); // 1-5
+      const key = `${year}-${month.toString().padStart(2, '0')}`;
+      
+      if (!monthMap.has(key)) {
+        monthMap.set(key, Array.from({ length: 5 }, () => ({ total: 0, count: 0 })));
+      }
+      const monthData = monthMap.get(key)!;
+      monthData[weekOfMonth - 1].total += record.snValue;
+      monthData[weekOfMonth - 1].count++;
+    });
+
+    // Sort months and take the most recent ones
+    const sortedMonths = Array.from(monthMap.keys()).sort();
+    const displayMonths = sortedMonths.slice(-12); // Show last 12 months max
+
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    
+    const grid: { month: string; label: string; values: (number | null)[] }[] = displayMonths.map(monthKey => {
+      const [year, monthNum] = monthKey.split('-');
+      const monthData = monthMap.get(monthKey)!;
+      const values = monthData.map(cell => {
+        if (cell.count === 0) return null;
+        const avg = cell.total / cell.count;
+        minVal = Math.min(minVal, avg);
+        maxVal = Math.max(maxVal, avg);
+        return avg;
+      });
+      return { 
+        month: monthKey, 
+        label: `${MONTHS[parseInt(monthNum)]} '${year.slice(-2)}`,
+        values 
+      };
+    });
+
+    return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
+  }, [snRecords]);
+
+  // Process data for month x year heatmap
+  const monthYearData = useMemo(() => {
+    const yearMap = new Map<number, { total: number; count: number }[]>();
+    
+    snRecords.forEach(record => {
+      const year = record.timestamp.getUTCFullYear();
+      const month = record.timestamp.getUTCMonth();
+      
+      if (!yearMap.has(year)) {
+        yearMap.set(year, Array.from({ length: 12 }, () => ({ total: 0, count: 0 })));
+      }
+      const yearData = yearMap.get(year)!;
+      yearData[month].total += record.snValue;
+      yearData[month].count++;
+    });
+
+    const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
+
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    
+    const grid: { year: number; values: (number | null)[] }[] = sortedYears.map(year => {
+      const yearData = yearMap.get(year)!;
+      const values = yearData.map(cell => {
+        if (cell.count === 0) return null;
+        const avg = cell.total / cell.count;
+        minVal = Math.min(minVal, avg);
+        maxVal = Math.max(maxVal, avg);
+        return avg;
+      });
+      return { year, values };
+    });
+
+    return { grid, minVal: minVal === Infinity ? 0 : minVal, maxVal: maxVal === -Infinity ? 0 : maxVal };
+  }, [snRecords]);
 
   const renderHourDayHeatmap = () => (
     <div className="overflow-x-auto">
@@ -158,107 +260,205 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
     </div>
   );
 
-  const renderMonthlyChart = () => {
-    const chartHeight = 200;
-    const barWidth = 40;
-    const gap = 8;
-    const range = monthlyMinMax.max - monthlyMinMax.min || 1;
-    
-    const getY = (val: number) => {
-      return chartHeight - ((val - monthlyMinMax.min) / range) * chartHeight;
-    };
+  const renderDayWeekHeatmap = () => (
+    <div className="overflow-x-auto">
+      <div className="min-w-[600px]">
+        {/* Header row with weeks */}
+        <div className="flex">
+          <div className="w-12 shrink-0" />
+          {dayWeekData.grid.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex-1 text-center text-[9px] text-muted-foreground font-medium pb-1"
+              style={{ minWidth: '24px' }}
+            >
+              {item.week.split('-W')[1]}
+            </div>
+          ))}
+        </div>
 
-    return (
-      <div className="overflow-x-auto">
-        <div className="min-w-[600px]">
-          <svg width="100%" height={chartHeight + 60} viewBox={`0 0 ${12 * (barWidth + gap) + 40} ${chartHeight + 60}`}>
-            {/* Y-axis labels */}
-            {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-              const val = monthlyMinMax.min + pct * range;
-              const y = getY(val);
+        {/* Heatmap rows by day */}
+        {DAYS.map((day, dayIdx) => (
+          <div key={day} className="flex items-center">
+            <div className="w-12 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
+              {day}
+            </div>
+            {dayWeekData.grid.map((weekItem, weekIdx) => {
+              const value = weekItem.values[dayIdx];
+              const bgColor = getHeatmapColor(value, dayWeekData.minVal, dayWeekData.maxVal);
               return (
-                <g key={pct}>
-                  <line x1="35" x2={12 * (barWidth + gap) + 35} y1={y} y2={y} stroke="hsl(var(--border))" strokeDasharray="2,2" />
-                  <text x="30" y={y + 4} textAnchor="end" className="fill-muted-foreground text-[10px]">
-                    {val.toFixed(0)}
-                  </text>
-                </g>
+                <div
+                  key={weekIdx}
+                  className="flex-1 aspect-square m-[1px] rounded-sm cursor-default transition-transform hover:scale-110 hover:z-10 relative group"
+                  style={{ backgroundColor: bgColor, minWidth: '24px' }}
+                  title={value !== null ? `${day}, Week ${weekItem.week}: ${value.toFixed(1)} dB` : `${day}, Week ${weekItem.week}: No data`}
+                >
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+                    {value !== null ? `${value.toFixed(1)} dB` : 'No data'}
+                  </div>
+                </div>
               );
             })}
-
-            {/* Bars */}
-            {monthlyData.map((d, idx) => {
-              const x = 40 + idx * (barWidth + gap);
-              if (d.avg === null) {
-                return (
-                  <g key={idx}>
-                    <rect x={x} y={chartHeight / 2 - 2} width={barWidth} height={4} fill="hsl(var(--muted))" rx={2} />
-                    <text x={x + barWidth / 2} y={chartHeight + 20} textAnchor="middle" className="fill-muted-foreground text-[11px]">
-                      {d.month}
-                    </text>
-                  </g>
-                );
-              }
-
-              const avgY = getY(d.avg);
-              const minY = getY(d.min!);
-              const maxY = getY(d.max!);
-              const barColor = getHeatmapColor(d.avg, monthlyMinMax.min, monthlyMinMax.max);
-
-              return (
-                <g key={idx} className="group cursor-default">
-                  {/* Min-max range line */}
-                  <line x1={x + barWidth / 2} x2={x + barWidth / 2} y1={minY} y2={maxY} stroke="hsl(var(--muted-foreground))" strokeWidth={2} />
-                  <line x1={x + barWidth / 4} x2={x + (3 * barWidth) / 4} y1={minY} y2={minY} stroke="hsl(var(--muted-foreground))" strokeWidth={2} />
-                  <line x1={x + barWidth / 4} x2={x + (3 * barWidth) / 4} y1={maxY} y2={maxY} stroke="hsl(var(--muted-foreground))" strokeWidth={2} />
-
-                  {/* Average bar */}
-                  <rect
-                    x={x}
-                    y={avgY - 8}
-                    width={barWidth}
-                    height={16}
-                    fill={barColor}
-                    rx={4}
-                    className="transition-all group-hover:opacity-80"
-                  />
-
-                  {/* Value label */}
-                  <text x={x + barWidth / 2} y={avgY + 4} textAnchor="middle" className="fill-white text-[10px] font-medium pointer-events-none">
-                    {d.avg.toFixed(1)}
-                  </text>
-
-                  {/* Month label */}
-                  <text x={x + barWidth / 2} y={chartHeight + 20} textAnchor="middle" className="fill-muted-foreground text-[11px]">
-                    {d.month}
-                  </text>
-
-                  {/* Count label */}
-                  <text x={x + barWidth / 2} y={chartHeight + 35} textAnchor="middle" className="fill-muted-foreground/60 text-[9px]">
-                    n={d.count}
-                  </text>
-
-                  {/* Hover tooltip */}
-                  <title>{`${d.month}: Avg ${d.avg.toFixed(1)} dB (Min: ${d.min?.toFixed(1)}, Max: ${d.max?.toFixed(1)}, n=${d.count})`}</title>
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Legend */}
-          <div className="flex items-center justify-center mt-2 gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: getHeatmapColor(monthlyMinMax.max, monthlyMinMax.min, monthlyMinMax.max) }} />
-              <span>Average S/N</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-0.5 bg-muted-foreground" />
-              <span>Min/Max range</span>
-            </div>
           </div>
+        ))}
+
+        {/* Legend */}
+        <div className="flex items-center justify-center mt-4 gap-2">
+          <span className="text-xs text-muted-foreground">Poor</span>
+          <div className="flex h-3 w-32 rounded overflow-hidden">
+            {Array.from({ length: 20 }, (_, i) => (
+              <div
+                key={i}
+                className="flex-1"
+                style={{ backgroundColor: getHeatmapColor(dayWeekData.minVal + (i / 19) * (dayWeekData.maxVal - dayWeekData.minVal), dayWeekData.minVal, dayWeekData.maxVal) }}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">Excellent</span>
+          <span className="text-xs text-muted-foreground ml-2">
+            ({dayWeekData.minVal.toFixed(1)} to {dayWeekData.maxVal.toFixed(1)} dB)
+          </span>
         </div>
       </div>
-    );
+    </div>
+  );
+
+  const renderWeekMonthHeatmap = () => (
+    <div className="overflow-x-auto">
+      <div className="min-w-[500px]">
+        {/* Header row with months */}
+        <div className="flex">
+          <div className="w-16 shrink-0" />
+          {weekMonthData.grid.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex-1 text-center text-[9px] text-muted-foreground font-medium pb-1"
+              style={{ minWidth: '40px' }}
+            >
+              {item.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Heatmap rows by week of month */}
+        {['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'].map((weekLabel, weekIdx) => (
+          <div key={weekIdx} className="flex items-center">
+            <div className="w-16 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
+              {weekLabel}
+            </div>
+            {weekMonthData.grid.map((monthItem, monthIdx) => {
+              const value = monthItem.values[weekIdx];
+              const bgColor = getHeatmapColor(value, weekMonthData.minVal, weekMonthData.maxVal);
+              return (
+                <div
+                  key={monthIdx}
+                  className="flex-1 h-8 m-[1px] rounded-sm cursor-default transition-transform hover:scale-105 hover:z-10 relative group"
+                  style={{ backgroundColor: bgColor, minWidth: '40px' }}
+                  title={value !== null ? `${weekLabel}, ${monthItem.label}: ${value.toFixed(1)} dB` : `${weekLabel}, ${monthItem.label}: No data`}
+                >
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+                    {value !== null ? `${value.toFixed(1)} dB` : 'No data'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div className="flex items-center justify-center mt-4 gap-2">
+          <span className="text-xs text-muted-foreground">Poor</span>
+          <div className="flex h-3 w-32 rounded overflow-hidden">
+            {Array.from({ length: 20 }, (_, i) => (
+              <div
+                key={i}
+                className="flex-1"
+                style={{ backgroundColor: getHeatmapColor(weekMonthData.minVal + (i / 19) * (weekMonthData.maxVal - weekMonthData.minVal), weekMonthData.minVal, weekMonthData.maxVal) }}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">Excellent</span>
+          <span className="text-xs text-muted-foreground ml-2">
+            ({weekMonthData.minVal.toFixed(1)} to {weekMonthData.maxVal.toFixed(1)} dB)
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMonthYearHeatmap = () => (
+    <div className="overflow-x-auto">
+      <div className="min-w-[600px]">
+        {/* Header row with months */}
+        <div className="flex">
+          <div className="w-16 shrink-0" />
+          {MONTHS.map(month => (
+            <div
+              key={month}
+              className="flex-1 text-center text-[10px] text-muted-foreground font-medium pb-1"
+            >
+              {month}
+            </div>
+          ))}
+        </div>
+
+        {/* Heatmap rows by year */}
+        {monthYearData.grid.map(({ year, values }) => (
+          <div key={year} className="flex items-center">
+            <div className="w-16 shrink-0 text-xs text-muted-foreground font-medium pr-2 text-right">
+              {year}
+            </div>
+            {MONTHS.map((month, monthIdx) => {
+              const value = values[monthIdx];
+              const bgColor = getHeatmapColor(value, monthYearData.minVal, monthYearData.maxVal);
+              return (
+                <div
+                  key={monthIdx}
+                  className="flex-1 h-10 m-[1px] rounded-sm cursor-default transition-transform hover:scale-105 hover:z-10 relative group"
+                  style={{ backgroundColor: bgColor }}
+                  title={value !== null ? `${month} ${year}: ${value.toFixed(1)} dB` : `${month} ${year}: No data`}
+                >
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+                    {value !== null ? `${value.toFixed(1)} dB` : 'No data'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div className="flex items-center justify-center mt-4 gap-2">
+          <span className="text-xs text-muted-foreground">Poor</span>
+          <div className="flex h-3 w-32 rounded overflow-hidden">
+            {Array.from({ length: 20 }, (_, i) => (
+              <div
+                key={i}
+                className="flex-1"
+                style={{ backgroundColor: getHeatmapColor(monthYearData.minVal + (i / 19) * (monthYearData.maxVal - monthYearData.minVal), monthYearData.minVal, monthYearData.maxVal) }}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">Excellent</span>
+          <span className="text-xs text-muted-foreground ml-2">
+            ({monthYearData.minVal.toFixed(1)} to {monthYearData.maxVal.toFixed(1)} dB)
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const getDescription = () => {
+    switch (viewMode) {
+      case 'hourDay':
+        return 'Average S/N by hour of day and day of week (UTC)';
+      case 'dayWeek':
+        return 'Average S/N by day of week across calendar weeks';
+      case 'weekMonth':
+        return 'Average S/N by week of month across months';
+      case 'monthYear':
+        return 'Average S/N by month across years';
+    }
   };
 
   return (
@@ -266,16 +466,14 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">S/N Ratio Patterns</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {viewMode === 'hourDay'
-              ? 'Average signal quality by hour of day and day of week (UTC)'
-              : 'Monthly signal quality trends with min/max range'}
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{getDescription()}</p>
         </div>
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="hourDay" className="text-xs">Hour × Day</TabsTrigger>
-            <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="hourDay" className="text-[10px] sm:text-xs px-1 sm:px-2">Hour×Day</TabsTrigger>
+            <TabsTrigger value="dayWeek" className="text-[10px] sm:text-xs px-1 sm:px-2">Day×Week</TabsTrigger>
+            <TabsTrigger value="weekMonth" className="text-[10px] sm:text-xs px-1 sm:px-2">Week×Month</TabsTrigger>
+            <TabsTrigger value="monthYear" className="text-[10px] sm:text-xs px-1 sm:px-2">Month×Year</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -285,8 +483,12 @@ export const SNHeatmapChart = memo(function SNHeatmapChart({ snRecords }: SNHeat
           <p className="text-muted-foreground text-sm">No S/N data available</p>
         ) : viewMode === 'hourDay' ? (
           renderHourDayHeatmap()
+        ) : viewMode === 'dayWeek' ? (
+          renderDayWeekHeatmap()
+        ) : viewMode === 'weekMonth' ? (
+          renderWeekMonthHeatmap()
         ) : (
-          renderMonthlyChart()
+          renderMonthYearHeatmap()
         )}
       </div>
     </div>
