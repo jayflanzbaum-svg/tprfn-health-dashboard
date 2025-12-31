@@ -285,20 +285,40 @@ export function LiveStationMap({
     const now = new Date();
     const cutoff = new Date(now.getTime() - LIVE_WINDOW_MS);
     const currentYear = now.getFullYear();
+    
+    console.log(`Parsing syslog: ${lines.length} lines, cutoff: ${cutoff.toISOString()}, now: ${now.toISOString()}`);
 
-    // Regex patterns for parsing
-    const snPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+Average\s+S\/N:\s+([-\d.]+)\s*dB/;
-    const connectOutPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Connected\s+to\s+([\w-]+)/;
-    const connectInPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+connected/;
+    // Regex patterns for parsing - use \s+ to handle variable whitespace
+    const snPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w/-]+)\s+Average\s+S\/N:\s*([-\d.]+)\s*dB/;
+    const connectOutPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Connected\s+to\s+([\w/-]+)/;
+    const connectInPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w/-]+)\s+connected/i;
     const disconnectPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Disconnected/;
 
-    const parseTimestamp = (dateStr: string): Date => {
-      const parsed = new Date(`${dateStr} ${currentYear}`);
-      // Handle year rollover (e.g., parsing Dec logs in Jan)
-      if (parsed > now) {
-        parsed.setFullYear(currentYear - 1);
+    const parseTimestamp = (dateStr: string): Date | null => {
+      try {
+        // Parse "Dec 31 01:28:49" format - add year for proper parsing
+        const parts = dateStr.match(/(\w+)\s+(\d+)\s+(\d+):(\d+):(\d+)/);
+        if (!parts) return null;
+        
+        const [, month, day, hour, min, sec] = parts;
+        const monthMap: Record<string, number> = {
+          Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+          Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+        };
+        
+        const monthNum = monthMap[month];
+        if (monthNum === undefined) return null;
+        
+        const parsed = new Date(currentYear, monthNum, parseInt(day), parseInt(hour), parseInt(min), parseInt(sec));
+        
+        // Handle year rollover (e.g., parsing Dec logs in Jan)
+        if (parsed > now) {
+          parsed.setFullYear(currentYear - 1);
+        }
+        return parsed;
+      } catch {
+        return null;
       }
-      return parsed;
     };
 
     const extractStation = (hostname: string): string => {
@@ -317,7 +337,7 @@ export function LiveStationMap({
       const snMatch = line.match(snPattern);
       if (snMatch) {
         const timestamp = parseTimestamp(snMatch[1]);
-        if (timestamp < cutoff) continue;
+        if (!timestamp || timestamp < cutoff) continue;
 
         const station = normalizeCallsign(extractStation(snMatch[2]));
         const partner = normalizeCallsign(snMatch[3]);
@@ -341,7 +361,7 @@ export function LiveStationMap({
       const connectOutMatch = line.match(connectOutPattern);
       if (connectOutMatch) {
         const timestamp = parseTimestamp(connectOutMatch[1]);
-        if (timestamp < cutoff) continue;
+        if (!timestamp || timestamp < cutoff) continue;
 
         const station = normalizeCallsign(extractStation(connectOutMatch[2]));
         const partner = normalizeCallsign(connectOutMatch[3]);
@@ -363,7 +383,7 @@ export function LiveStationMap({
       const connectInMatch = line.match(connectInPattern);
       if (connectInMatch) {
         const timestamp = parseTimestamp(connectInMatch[1]);
-        if (timestamp < cutoff) continue;
+        if (!timestamp || timestamp < cutoff) continue;
 
         const station = normalizeCallsign(extractStation(connectInMatch[2]));
         const partner = normalizeCallsign(connectInMatch[3]);
@@ -385,7 +405,7 @@ export function LiveStationMap({
       const disconnectMatch = line.match(disconnectPattern);
       if (disconnectMatch) {
         const timestamp = parseTimestamp(disconnectMatch[1]);
-        if (timestamp < cutoff) continue;
+        if (!timestamp || timestamp < cutoff) continue;
 
         const station = normalizeCallsign(extractStation(disconnectMatch[2]));
         const partner = lastPartner[station] || '';
@@ -403,9 +423,11 @@ export function LiveStationMap({
       }
     }
 
+    console.log(`Parsed ${connections.length} connections after filtering by time`);
+    
     // Sort by timestamp descending (most recent first)
     return connections.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, []);
+  }, [LIVE_WINDOW_MS]);
 
   // Fetch live data directly from syslog URL
   const fetchLiveSyslog = useCallback(async () => {
