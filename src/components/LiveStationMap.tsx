@@ -168,7 +168,7 @@ export function LiveStationMap({
   const markersRef = useRef<L.LayerGroup | null>(null);
   const connectionsRef = useRef<L.LayerGroup | null>(null);
   const liveConnectionsRef = useRef<L.LayerGroup | null>(null);
-  const svgRendererRef = useRef<L.SVG | null>(null);
+  const liveLineRendererRef = useRef<L.Canvas | null>(null);
   
   const [showConnections, setShowConnections] = useState(true);
   const [colorMode, setColorMode] = useState<ConnectionColorMode>('live');
@@ -568,9 +568,10 @@ export function LiveStationMap({
       connectionsRef.current = L.layerGroup().addTo(mapRef.current);
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
 
-      // Render live dashed lines in SVG so dash pattern stays consistent across zoom transforms
-      svgRendererRef.current = L.svg({ padding: 0.5 });
-      svgRendererRef.current.addTo(mapRef.current);
+      // Use Canvas renderer for live lines so dash lengths stay consistent in screen pixels
+      // across zoom levels (SVG is scaled via transforms, which scales dash patterns).
+      liveLineRendererRef.current = L.canvas({ padding: 0.5 });
+      liveLineRendererRef.current.addTo(mapRef.current);
 
       setMapReady(true);
     }, 100);
@@ -705,18 +706,17 @@ export function LiveStationMap({
       );
 
       // GridTracker-style dashed line - GREEN to match live station markers
-      // Must use SVG renderer for consistent dash appearance across zoom levels
-      if (!svgRendererRef.current) return;
+      // Must use Canvas renderer so dash pattern stays consistent across zoom levels
+      if (!liveLineRendererRef.current) return;
       
       const dashedLine = L.polyline(arcCoords, { 
         color: '#22c55e', // Green to match live station color
         weight: 2,
         opacity: 0.9,
-        dashArray: '12, 8', // GridTracker-like
+        dashArray: '6, 6',
         lineCap: 'butt',
         lineJoin: 'round',
-        renderer: svgRendererRef.current,
-        className: 'live-connection-dash',
+        renderer: liveLineRendererRef.current,
       });
 
       const tooltipContent = `
