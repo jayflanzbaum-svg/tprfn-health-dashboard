@@ -60,9 +60,10 @@ Deno.serve(async (req) => {
     const callsignArray = Array.from(callsignSet);
 
     // Fetch in batches using cursor-based pagination (timestamp + id)
-    // NOTE: UUIDs are not time-ordered, so we must page by (timestamp, id) to avoid skipping most rows.
+    // NOTE: PostgREST enforces a max of 1000 rows per request, so keep pageSize at 1000.
+    // UUIDs are not time-ordered, so we must page by (timestamp, id) to avoid skipping rows.
     const allEntries: any[] = [];
-    const pageSize = 5000;
+    const pageSize = 1000;
     let iterations = 0;
     const maxIterations = 600;
 
