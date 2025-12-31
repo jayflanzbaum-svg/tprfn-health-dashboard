@@ -273,42 +273,156 @@ export function LiveStationMap({
     return lines;
   }, [hubConnections, distances, displayedStationsLookup]);
 
-  // Live window: connections within last 5 minutes are considered "live"
-  const LIVE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+  // Live window: connections within last 15 minutes are considered "live"
+  const LIVE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+  const LIVE_SYSLOG_URL = 'https://tprfn.k1ajd.net/VARAHF.txt';
+  const LIVE_REFRESH_INTERVAL_MS = 30 * 1000; // Refresh every 30 seconds
 
-  // Fetch recent connections on mount and when liveMode changes
-  useEffect(() => {
-    if (!liveMode) return;
+  // Parse syslog text to extract recent connections
+  const parseLiveSyslog = useCallback((content: string): LiveConnection[] => {
+    const lines = content.split('\n');
+    const connections: LiveConnection[] = [];
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - LIVE_WINDOW_MS);
+    const currentYear = now.getFullYear();
 
-    const fetchRecentConnections = async () => {
-      const cutoff = new Date(Date.now() - LIVE_WINDOW_MS).toISOString();
+    // Regex patterns for parsing
+    const snPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+Average\s+S\/N:\s+([-\d.]+)\s*dB/;
+    const connectOutPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Connected\s+to\s+([\w-]+)/;
+    const connectInPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+([\w-]+)\s+connected/;
+    const disconnectPattern = /^(\w+\s+\d+\s+\d+:\d+:\d+)\s+(H-[\w-]+)\s+VARAHF\s+Disconnected/;
+
+    const parseTimestamp = (dateStr: string): Date => {
+      const parsed = new Date(`${dateStr} ${currentYear}`);
+      // Handle year rollover (e.g., parsing Dec logs in Jan)
+      if (parsed > now) {
+        parsed.setFullYear(currentYear - 1);
+      }
+      return parsed;
+    };
+
+    const extractStation = (hostname: string): string => {
+      return hostname.startsWith('H-') ? hostname.substring(2) : hostname;
+    };
+
+    const normalizeCallsign = (callsign: string): string => {
+      return callsign.replace(/-\d+$/, '').toUpperCase();
+    };
+
+    // Track last partner for disconnect matching
+    const lastPartner: Record<string, string> = {};
+
+    for (const line of lines) {
+      // Parse S/N records
+      const snMatch = line.match(snPattern);
+      if (snMatch) {
+        const timestamp = parseTimestamp(snMatch[1]);
+        if (timestamp < cutoff) continue;
+
+        const station = normalizeCallsign(extractStation(snMatch[2]));
+        const partner = normalizeCallsign(snMatch[3]);
+        const snr = parseFloat(snMatch[4]);
+
+        lastPartner[station] = partner;
+
+        connections.push({
+          id: `sn-${timestamp.getTime()}-${station}-${partner}`,
+          station1: station,
+          station2: partner,
+          eventType: 'sn_report',
+          snr,
+          timestamp,
+          hub: snMatch[2],
+        });
+        continue;
+      }
+
+      // Parse connect (outgoing)
+      const connectOutMatch = line.match(connectOutPattern);
+      if (connectOutMatch) {
+        const timestamp = parseTimestamp(connectOutMatch[1]);
+        if (timestamp < cutoff) continue;
+
+        const station = normalizeCallsign(extractStation(connectOutMatch[2]));
+        const partner = normalizeCallsign(connectOutMatch[3]);
+
+        lastPartner[station] = partner;
+
+        connections.push({
+          id: `conn-${timestamp.getTime()}-${station}-${partner}`,
+          station1: station,
+          station2: partner,
+          eventType: 'connect',
+          timestamp,
+          hub: connectOutMatch[2],
+        });
+        continue;
+      }
+
+      // Parse connect (incoming)
+      const connectInMatch = line.match(connectInPattern);
+      if (connectInMatch) {
+        const timestamp = parseTimestamp(connectInMatch[1]);
+        if (timestamp < cutoff) continue;
+
+        const station = normalizeCallsign(extractStation(connectInMatch[2]));
+        const partner = normalizeCallsign(connectInMatch[3]);
+
+        lastPartner[station] = partner;
+
+        connections.push({
+          id: `conn-${timestamp.getTime()}-${station}-${partner}`,
+          station1: station,
+          station2: partner,
+          eventType: 'connect',
+          timestamp,
+          hub: connectInMatch[2],
+        });
+        continue;
+      }
+
+      // Parse disconnect
+      const disconnectMatch = line.match(disconnectPattern);
+      if (disconnectMatch) {
+        const timestamp = parseTimestamp(disconnectMatch[1]);
+        if (timestamp < cutoff) continue;
+
+        const station = normalizeCallsign(extractStation(disconnectMatch[2]));
+        const partner = lastPartner[station] || '';
+
+        if (partner) {
+          connections.push({
+            id: `disc-${timestamp.getTime()}-${station}`,
+            station1: station,
+            station2: partner,
+            eventType: 'disconnect',
+            timestamp,
+            hub: disconnectMatch[2],
+          });
+        }
+      }
+    }
+
+    // Sort by timestamp descending (most recent first)
+    return connections.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, []);
+
+  // Fetch live data directly from syslog URL
+  const fetchLiveSyslog = useCallback(async () => {
+    try {
+      console.log('Fetching live syslog data for map...');
+      const { data, error } = await supabase.functions.invoke('fetch-syslog');
       
-      const { data, error } = await supabase
-        .from('syslog_entries')
-        .select('*')
-        .in('event_type', ['connect', 'disconnect', 'sn_report'])
-        .gte('timestamp', cutoff)
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
       if (error) {
-        console.error('Error fetching recent connections:', error);
+        console.error('Error fetching live syslog:', error);
         return;
       }
 
-      if (data) {
-        const connections: LiveConnection[] = data.map(entry => ({
-          id: entry.id,
-          station1: entry.callsign,
-          station2: entry.remote_callsign || '',
-          eventType: entry.event_type,
-          snr: entry.snr ?? undefined,
-          bitrate: entry.bitrate ?? undefined,
-          timestamp: new Date(entry.timestamp),
-          hub: entry.hub,
-        }));
-
-        setLiveConnections(connections.slice(0, 50));
+      if (data?.content) {
+        const connections = parseLiveSyslog(data.content);
+        console.log(`Parsed ${connections.length} live connections from syslog`);
+        
+        setLiveConnections(connections.slice(0, 100));
         setActivityFeed(connections.slice(0, 50));
 
         // Set active stations from recent connections
@@ -321,75 +435,25 @@ export function LiveStationMap({
         });
         setActiveStations(activeSet);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching live syslog:', err);
+    }
+  }, [parseLiveSyslog]);
 
-    fetchRecentConnections();
-  }, [liveMode]);
-
-  // Subscribe to real-time updates
+  // Fetch live data on mount and periodically
   useEffect(() => {
     if (!liveMode) return;
 
-    const channel = supabase
-      .channel('live-connections')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'syslog_entries'
-        },
-        (payload) => {
-          const entry = payload.new as any;
-          
-          // Only process connect/disconnect events
-          if (!['connect', 'disconnect', 'sn_report'].includes(entry.event_type)) return;
-          
-          const liveConn: LiveConnection = {
-            id: entry.id,
-            station1: entry.callsign,
-            station2: entry.remote_callsign || '',
-            eventType: entry.event_type,
-            snr: entry.snr,
-            bitrate: entry.bitrate,
-            timestamp: new Date(entry.timestamp),
-            hub: entry.hub,
-          };
-          
-          // Update live connections (keep last 5 minutes)
-          setLiveConnections(prev => {
-            const cutoff = new Date(Date.now() - LIVE_WINDOW_MS);
-            const filtered = prev.filter(c => c.timestamp > cutoff);
-            return [liveConn, ...filtered].slice(0, 50);
-          });
-          
-          // Update activity feed (keep last 50 entries)
-          setActivityFeed(prev => [liveConn, ...prev].slice(0, 50));
-          
-          // Update active stations
-          setActiveStations(prev => {
-            const newSet = new Set(prev);
-            newSet.add(entry.callsign.toUpperCase());
-            if (entry.remote_callsign) {
-              newSet.add(entry.remote_callsign.toUpperCase());
-            }
-            return newSet;
-          });
-        }
-      )
-      .subscribe();
+    // Initial fetch
+    fetchLiveSyslog();
 
-    // Periodically clean up old connections
-    const cleanupInterval = setInterval(() => {
-      const cutoff = new Date(Date.now() - LIVE_WINDOW_MS);
-      setLiveConnections(prev => prev.filter(c => c.timestamp > cutoff));
-    }, 30000); // Check every 30 seconds
+    // Set up polling interval
+    const pollInterval = setInterval(fetchLiveSyslog, LIVE_REFRESH_INTERVAL_MS);
 
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(cleanupInterval);
+      clearInterval(pollInterval);
     };
-  }, [liveMode]);
+  }, [liveMode, fetchLiveSyslog]);
 
   // Initialize map with delay to prevent blocking
   useEffect(() => {
