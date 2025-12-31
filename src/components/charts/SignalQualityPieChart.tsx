@@ -30,7 +30,14 @@ const QUALITY_RANGES = {
 };
 
 export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRecords }: SignalQualityPieChartProps) {
-  const chartData = useMemo(() => {
+  const { chartData, isAggregated } = useMemo(() => {
+    // Check if we're in aggregated mode (synthetic records with station="AGGREGATE")
+    const realRecords = snRecords.filter(r => r.station !== 'AGGREGATE');
+    const isAggregated = realRecords.length === 0 && snRecords.length > 0;
+
+    // Use real records if available, otherwise use the synthetic ones
+    const recordsToUse = realRecords.length > 0 ? realRecords : snRecords;
+
     const qualityCounts: Record<string, number> = {
       excellent: 0,
       good: 0,
@@ -39,27 +46,35 @@ export const SignalQualityPieChart = memo(function SignalQualityPieChart({ snRec
       bad: 0,
     };
 
-    snRecords.forEach(record => {
+    recordsToUse.forEach(record => {
       const quality = getSignalQuality(record.snValue);
       qualityCounts[quality]++;
     });
 
-    return Object.entries(qualityCounts)
-      .filter(([, count]) => count > 0)
-      .map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value,
-        color: QUALITY_COLORS[name as keyof typeof QUALITY_COLORS],
-      }));
+    return {
+      chartData: Object.entries(qualityCounts)
+        .filter(([, count]) => count > 0)
+        .map(([name, value]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value,
+          color: QUALITY_COLORS[name as keyof typeof QUALITY_COLORS],
+        })),
+      isAggregated,
+    };
   }, [snRecords]);
 
-  const totalRecords = snRecords.length;
+  const totalRecords = snRecords.filter(r => r.station !== 'AGGREGATE').length || snRecords.length;
 
   return (
     <div className="chart-card h-full">
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-foreground">Signal Quality Distribution</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">S/N readings by quality level</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {isAggregated 
+            ? `Aggregated S/N data (${snRecords.length} hourly averages)`
+            : 'S/N readings by quality level'
+          }
+        </p>
       </div>
       <div className="h-[200px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">

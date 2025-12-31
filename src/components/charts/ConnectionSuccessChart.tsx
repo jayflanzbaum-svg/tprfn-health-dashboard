@@ -23,7 +23,41 @@ const STATUS_COLORS = {
 const MAX_SESSION_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export const ConnectionSuccessChart = memo(function ConnectionSuccessChart({ hubConnections }: ConnectionSuccessChartProps) {
-  const { pieData, stats } = useMemo(() => {
+  const { pieData, stats, isAggregated } = useMemo(() => {
+    // Check if we're in aggregated mode (no raw records but have session counts)
+    let hasRawData = false;
+    hubConnections.forEach((hub) => {
+      if (hub.connectRecords.length > 0 || hub.disconnectRecords.length > 0) {
+        hasRawData = true;
+      }
+    });
+
+    // In aggregated mode, we can only show total sessions
+    if (!hasRawData) {
+      let totalSessions = 0;
+      hubConnections.forEach((hub) => {
+        totalSessions += hub.sessionCount;
+      });
+
+      const pieData = totalSessions > 0 
+        ? [{ name: 'Sessions', value: totalSessions, color: STATUS_COLORS.success }]
+        : [];
+
+      return {
+        pieData,
+        stats: {
+          success: totalSessions,
+          connectionFailed: 0,
+          signalLost: 0,
+          noDisconnect: 0,
+          total: totalSessions,
+          avgSuccessSN: '0.0',
+          avgFailedSN: '0.0',
+        },
+        isAggregated: true,
+      };
+    }
+
     let totalConnectEvents = 0;
 
     let success = 0;
@@ -114,6 +148,7 @@ export const ConnectionSuccessChart = memo(function ConnectionSuccessChart({ hub
         avgSuccessSN: avgSuccessSN.toFixed(1),
         avgFailedSN: avgFailedSN.toFixed(1),
       },
+      isAggregated: false,
     };
   }, [hubConnections]);
 
@@ -122,7 +157,10 @@ export const ConnectionSuccessChart = memo(function ConnectionSuccessChart({ hub
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-foreground">Session Outcomes</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {stats.total} connect events • Avg S/N: Success {stats.avgSuccessSN} dB / Failed {stats.avgFailedSN} dB
+          {isAggregated 
+            ? `${stats.total} total sessions (detailed breakdown unavailable for large date ranges)`
+            : `${stats.total} connect events • Avg S/N: Success ${stats.avgSuccessSN} dB / Failed ${stats.avgFailedSN} dB`
+          }
         </p>
       </div>
       

@@ -26,7 +26,15 @@ const DISCONNECT_COLORS = {
 };
 
 export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections, dateRangeKey }: DisconnectAnalysisChartProps) {
-  const chartData = useMemo(() => {
+  const { chartData, isAggregated } = useMemo(() => {
+    // Check if we have raw disconnect records or just aggregated data
+    let hasRawData = false;
+    hubConnections.forEach((hub) => {
+      if (hub.disconnectRecords.length > 0) {
+        hasRawData = true;
+      }
+    });
+
     const data: {
       name: string;
       connectionId: string;
@@ -38,29 +46,44 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     }[] = [];
 
     hubConnections.forEach((hub) => {
-      const normal = hub.disconnectRecords.filter(r => r.disconnectType === 'normal').length;
-      const timeout = hub.disconnectRecords.filter(r => r.disconnectType === 'timeout').length;
-      const command = hub.disconnectRecords.filter(r => r.disconnectType === 'command').length;
-      const total = hub.disconnectRecords.length;
+      if (hasRawData) {
+        // Raw data mode - use actual disconnect records
+        const normal = hub.disconnectRecords.filter(r => r.disconnectType === 'normal').length;
+        const timeout = hub.disconnectRecords.filter(r => r.disconnectType === 'timeout').length;
+        const command = hub.disconnectRecords.filter(r => r.disconnectType === 'command').length;
+        const total = hub.disconnectRecords.length;
 
-      if (total > 0) {
-        // Health score: % of normal disconnects (higher is better)
-        const healthScore = total > 0 ? Math.round((normal / total) * 100) : 0;
-        
-        data.push({
-          name: formatConnectionShort(hub.connectionId),
-          connectionId: hub.connectionId,
-          normal,
-          timeout,
-          command,
-          total,
-          healthScore,
-        });
+        if (total > 0) {
+          const healthScore = total > 0 ? Math.round((normal / total) * 100) : 0;
+          
+          data.push({
+            name: formatConnectionShort(hub.connectionId),
+            connectionId: hub.connectionId,
+            normal,
+            timeout,
+            command,
+            total,
+            healthScore,
+          });
+        }
+      } else {
+        // Aggregated mode - we only have session count, show as "sessions"
+        if (hub.sessionCount > 0) {
+          data.push({
+            name: formatConnectionShort(hub.connectionId),
+            connectionId: hub.connectionId,
+            normal: hub.sessionCount, // Assume all as normal in aggregated mode
+            timeout: 0,
+            command: 0,
+            total: hub.sessionCount,
+            healthScore: 100,
+          });
+        }
       }
     });
 
     // Sort by total disconnects descending
-    return data.sort((a, b) => b.total - a.total);
+    return { chartData: data.sort((a, b) => b.total - a.total), isAggregated: !hasRawData };
   }, [hubConnections]);
 
   const { displayItems, isExpanded, hasMore, hiddenCount, totalCount, toggle } = useExpandableList(chartData, { defaultLimit: 10, resetKey: dateRangeKey });
@@ -92,8 +115,15 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Disconnect Analysis by Connection</h3>
-            <p className="text-sm text-muted-foreground mt-1">RF connection health indicator - breakdown by disconnect reason</p>
+            <h3 className="text-lg font-semibold text-foreground">
+              {isAggregated ? 'Sessions by Connection' : 'Disconnect Analysis by Connection'}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isAggregated 
+                ? 'Session counts per hub pair (detailed breakdown unavailable for large date ranges)'
+                : 'RF connection health indicator - breakdown by disconnect reason'
+              }
+            </p>
           </div>
           <div className="flex items-center gap-4">
             {hasMore && (
