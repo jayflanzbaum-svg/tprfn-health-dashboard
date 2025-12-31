@@ -50,9 +50,35 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
       }
     });
 
-    // In aggregated mode, we don't have per-session bitrate data
+    // Aggregated mode fallback: rank connections by peak bitrate within the range
     if (!hasRawData) {
-      return { allEntries: [], isAggregated: true };
+      const entries: LeaderboardEntry[] = [];
+
+      hubConnections.forEach((hub) => {
+        const max = hub.maxBitrate ?? 0;
+        if (max <= 0) return;
+
+        const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+        const distance = distances.get(distanceKey);
+
+        entries.push({
+          rank: 0,
+          connection: formatConnectionShort(hub.connectionId),
+          maxBitrate: max,
+          type: 'TX',
+          timestamp: hub.maxBitrateAt ?? new Date(),
+          sessionDuration: 0,
+          bytesTransferred: (hub.totalTxBytes ?? 0) + (hub.totalRxBytes ?? 0),
+          distance,
+        });
+      });
+
+      entries.sort((a, b) => b.maxBitrate - a.maxBitrate);
+      entries.forEach((entry, idx) => {
+        entry.rank = idx + 1;
+      });
+
+      return { allEntries: entries, isAggregated: true };
     }
 
     const entries: LeaderboardEntry[] = [];
@@ -115,27 +141,6 @@ export const PeakBitrateLeaderboard = memo(function PeakBitrateLeaderboard({ hub
     if (rank === 3) return 'bg-orange-600/20 text-orange-400 border-orange-500/30';
     return 'bg-muted/50 text-muted-foreground border-border';
   };
-
-  // Show message for aggregated mode
-  if (isAggregated) {
-    return (
-      <div className="chart-card h-full flex flex-col">
-        <div className="mb-4 flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-amber-400" />
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">Peak Bitrate Leaderboard</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Leaderboard unavailable for large date ranges. Select a shorter period (≤60 days).
-            </p>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          Select a shorter date range to view leaderboard
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="chart-card h-full flex flex-col">
       <div className="mb-4 flex items-start justify-between">

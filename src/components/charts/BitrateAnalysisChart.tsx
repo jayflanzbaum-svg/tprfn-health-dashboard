@@ -51,12 +51,56 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
       }
     });
 
-    // In aggregated mode, we don't have per-session bitrate data
+    // Aggregated mode fallback: use per-connection bitrate stats when raw disconnects aren't available
     if (!hasRawData) {
+      const connectionStats: {
+        name: string;
+        avgTxBps: number;
+        avgRxBps: number;
+        maxTxBps: number;
+        maxRxBps: number;
+        sessionCount: number;
+        distance?: number;
+        avgSN: number;
+      }[] = [];
+
+      let totalSessions = 0;
+      let peakBitrate = 0;
+
+      hubConnections.forEach((hub) => {
+        const avg = hub.avgBitrate ?? 0;
+        const max = hub.maxBitrate ?? 0;
+        if (avg <= 0 && max <= 0) return;
+
+        const distanceKey = [hub.station1, hub.station2].sort().join('↔');
+        const distance = distances.get(distanceKey);
+
+        connectionStats.push({
+          name: formatConnectionShort(hub.connectionId),
+          avgTxBps: Math.round(avg),
+          avgRxBps: Math.round(avg),
+          maxTxBps: max,
+          maxRxBps: max,
+          sessionCount: hub.sessionCount,
+          distance,
+          avgSN: hub.avgSN,
+        });
+
+        totalSessions += hub.sessionCount;
+        peakBitrate = Math.max(peakBitrate, max);
+      });
+
+      connectionStats.sort((a, b) => (b.avgTxBps + b.avgRxBps) - (a.avgTxBps + a.avgRxBps));
+
+      const allAvgs = connectionStats.flatMap(c => [c.avgTxBps, c.avgRxBps]).filter(v => v > 0);
+      const overallAvg = allAvgs.length > 0 ? Math.round(allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length) : 0;
+
       return {
-        connectionData: [],
-        scatterData: [],
-        stats: { peakBitrate: 0, avgTx: 0, avgRx: 0, totalSessions: 0 },
+        connectionData: connectionStats,
+        scatterData: connectionStats
+          .filter(c => c.maxTxBps > 0)
+          .map(c => ({ sn: parseFloat(c.avgSN.toFixed(1)), bitrate: c.maxTxBps, connection: c.name })),
+        stats: { peakBitrate, avgTx: overallAvg, avgRx: overallAvg, totalSessions },
         isAggregated: true,
       };
     }
@@ -171,30 +215,15 @@ export const BitrateAnalysisChart = memo(function BitrateAnalysisChart({ hubConn
     return `${value}`;
   };
 
-  // Show message for aggregated mode
-  if (isAggregated) {
-    return (
-      <div className="chart-card">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-foreground">Bitrate Analysis</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Detailed bitrate data unavailable for large date ranges. Select a shorter period (≤60 days) to see per-session bitrates.
-          </p>
-        </div>
-        <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-          Select a shorter date range to view bitrate analysis
-        </div>
-      </div>
-    );
-  }
+  const subtitle = isAggregated
+    ? `Aggregated bitrate estimates • Peak: ${formatBps(stats.peakBitrate)} bps • Avg: ${formatBps(stats.avgTx)} bps • Sessions: ${stats.totalSessions}`
+    : `Peak: ${formatBps(stats.peakBitrate)} bps • Avg TX: ${formatBps(stats.avgTx)} bps • Avg RX: ${formatBps(stats.avgRx)} bps`;
 
   return (
     <div className="chart-card">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-foreground">Bitrate Analysis</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Peak: {formatBps(stats.peakBitrate)} bps • Avg TX: {formatBps(stats.avgTx)} bps • Avg RX: {formatBps(stats.avgRx)} bps
-        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

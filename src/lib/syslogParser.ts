@@ -37,6 +37,10 @@ export interface HubConnection {
   totalTxBytes: number;
   totalRxBytes: number;
   sessionCount: number;
+  // Optional aggregated stats (used for large date ranges)
+  avgBitrate?: number;
+  maxBitrate?: number;
+  maxBitrateAt?: Date;
 }
 
 export interface AggregatedSNData {
