@@ -94,13 +94,18 @@ const animationStyles = `
   }
   
   @keyframes glowPulse {
-    0%, 100% { opacity: 0.6; filter: blur(3px); }
-    50% { opacity: 0.9; filter: blur(5px); }
+    0%, 100% { opacity: 0.5; filter: blur(2px); }
+    50% { opacity: 0.7; filter: blur(3px); }
   }
   
-  @keyframes flowingDots {
-    0% { stroke-dashoffset: 20; }
+  @keyframes flowForward {
+    0% { stroke-dashoffset: 16; }
     100% { stroke-dashoffset: 0; }
+  }
+  
+  @keyframes flowReverse {
+    0% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: 16; }
   }
   
   @keyframes fadeIn {
@@ -109,7 +114,7 @@ const animationStyles = `
   }
   
   .gridtracker-line-glow {
-    filter: blur(4px);
+    filter: blur(2px);
     animation: glowPulse 2s ease-in-out infinite;
   }
   
@@ -117,9 +122,15 @@ const animationStyles = `
     stroke-linecap: round;
   }
   
-  .gridtracker-line-dots {
-    stroke-dasharray: 3 8;
-    animation: flowingDots 0.5s linear infinite;
+  .gridtracker-line-dashed-forward {
+    stroke-dasharray: 4 12;
+    animation: flowForward 0.6s linear infinite;
+    stroke-linecap: round;
+  }
+  
+  .gridtracker-line-dashed-reverse {
+    stroke-dasharray: 4 12;
+    animation: flowReverse 0.6s linear infinite;
     stroke-linecap: round;
   }
   
@@ -682,58 +693,49 @@ export function LiveStationMap({
       const lineColor = conn.snr ? getSnrColor(conn.snr) : ACTIVE_CONNECTION_COLOR;
       
       // Calculate great circle arc for curved path like GridTracker
+      // station1 is the initiator (hub), station2 is the connected station
       const arcCoords = getGreatCirclePoints(
         loc1.latitude!, loc1.longitude!,
         loc2.latitude!, loc2.longitude!,
         30
       );
 
-      // Outer glow layer (wide, blurred, pulsing)
+      // Outer glow layer (thinner, blurred, pulsing)
       const glowLine = L.polyline(arcCoords, { 
         color: lineColor,
-        weight: 12,
-        opacity: 0.4,
+        weight: 6, // 50% thinner (was 12)
+        opacity: 0.3,
         className: 'gridtracker-line-glow',
         lineCap: 'round',
         lineJoin: 'round',
       });
       liveConnectionsRef.current!.addLayer(glowLine);
 
-      // Middle glow layer (medium width)
+      // Middle glow layer (thinner)
       const midGlowLine = L.polyline(arcCoords, { 
         color: lineColor,
-        weight: 6,
-        opacity: 0.6,
+        weight: 3, // 50% thinner (was 6)
+        opacity: 0.5,
         className: 'gridtracker-line-core',
         lineCap: 'round',
         lineJoin: 'round',
       });
       liveConnectionsRef.current!.addLayer(midGlowLine);
 
-      // Core line (solid, bright)
-      const coreLine = L.polyline(arcCoords, { 
+      // Animated dashed line - direction based on initiator
+      // "Forward" = from station1 (initiator) to station2
+      const dashedLine = L.polyline(arcCoords, { 
         color: '#ffffff',
-        weight: 2,
+        weight: 1.5, // 50% thinner (was ~3)
         opacity: 0.9,
-        className: 'gridtracker-line-core',
-        lineCap: 'round',
-        lineJoin: 'round',
-      });
-      liveConnectionsRef.current!.addLayer(coreLine);
-
-      // Animated flowing dots overlay
-      const dotsLine = L.polyline(arcCoords, { 
-        color: '#ffffff',
-        weight: 3,
-        opacity: 0.8,
-        className: 'gridtracker-line-dots',
+        className: 'gridtracker-line-dashed-forward',
         lineCap: 'round',
         lineJoin: 'round',
       });
 
       const tooltipContent = `
         <div class="p-1">
-          <div class="font-semibold">${conn.station1} ↔ ${conn.station2}</div>
+          <div class="font-semibold">${conn.station1} → ${conn.station2}</div>
           <div class="text-sm">Event: ${conn.eventType}</div>
           ${conn.snr ? `<div class="text-sm">S/N: ${conn.snr} dB</div>` : ''}
           ${conn.bitrate ? `<div class="text-sm">Bitrate: ${conn.bitrate} bps</div>` : ''}
@@ -742,7 +744,7 @@ export function LiveStationMap({
       `;
 
       midGlowLine.bindTooltip(tooltipContent, { sticky: true });
-      liveConnectionsRef.current!.addLayer(dotsLine);
+      liveConnectionsRef.current!.addLayer(dashedLine);
     });
   }, [liveConnections, colorMode, liveMode, allStationsLookup, mapReady]);
 
