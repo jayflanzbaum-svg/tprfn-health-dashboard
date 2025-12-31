@@ -118,23 +118,26 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
 
       const allEntries: DatabaseEntry[] = [];
       const pageSize = 1000;
-      const maxPages = 250; // Safety limit
+      const maxIterations = 600; // Safety limit for very large date ranges
       const startIso = startDate.toISOString();
       const endIso = maxTimestamp.toISOString();
 
-      // Offset pagination (stable, doesn't drop rows when multiple entries share the same timestamp)
-      for (let page = 0; page < maxPages; page++) {
-        const from = page * pageSize;
-        const to = from + pageSize - 1;
+      // Keyset pagination with composite cursor (timestamp, id) - much faster than offset for large datasets
+      let cursorTimestamp = startIso;
+      let cursorId = '00000000-0000-0000-0000-000000000000'; // Start before any real UUID
+      let iterations = 0;
 
+      while (iterations < maxIterations) {
+        // Use composite keyset: (timestamp, id) > (cursorTimestamp, cursorId)
+        // This is done by: timestamp > cursorTimestamp OR (timestamp = cursorTimestamp AND id > cursorId)
         const { data: entries, error: queryError } = await supabase
           .from('syslog_entries')
           .select(SELECTED_COLUMNS)
-          .gte('timestamp', startIso)
           .lte('timestamp', endIso)
+          .or(`timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`)
           .order('timestamp', { ascending: true })
           .order('id', { ascending: true })
-          .range(from, to);
+          .limit(pageSize);
 
         if (queryError) {
           throw new Error(queryError.message);
@@ -143,11 +146,19 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         if (!entries || entries.length === 0) break;
 
         allEntries.push(...entries);
+        
+        // Update cursor to last entry
+        const lastEntry = entries[entries.length - 1];
+        cursorTimestamp = lastEntry.timestamp;
+        cursorId = lastEntry.id;
+        iterations++;
 
         if (entries.length < pageSize) break;
 
-        // Yield to the browser between pages
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        // Yield to the browser every 10 pages to keep UI responsive
+        if (iterations % 10 === 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
       }
 
       console.log(`Fetched ${allEntries.length} entries from database (last ${Math.max(1, Math.floor(fetchDays))} days)`);
