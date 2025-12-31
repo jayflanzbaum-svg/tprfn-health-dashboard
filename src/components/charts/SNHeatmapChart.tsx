@@ -33,13 +33,13 @@ function getViewModeFromDateRange(dateRange: DateRange): ViewMode {
   if (preset === 'today' || preset === 'yesterday' || preset === 'lastWeek' || preset === 'last7days') {
     return 'hourDay';
   }
-  // daysXweek for month-range periods
+  // daysXweek for month-range periods (up to ~31 days)
   if (preset === 'lastMonth' || preset === 'last30days') {
     return 'dayWeek';
   }
-  // weekXmonth for quarter/year periods
+  // monthYear for quarter/year/all periods (longer than a month - no week breakdown)
   if (preset === 'lastQuarter' || preset === 'lastYear' || preset === 'all') {
-    return 'weekMonth';
+    return 'monthYear';
   }
   
   // For custom ranges, use duration
@@ -48,7 +48,8 @@ function getViewModeFromDateRange(dateRange: DateRange): ViewMode {
   } else if (durationDays <= 31) {
     return 'dayWeek';
   } else {
-    return 'weekMonth';
+    // More than a month → month over month view (no weeks)
+    return 'monthYear';
   }
 }
 
