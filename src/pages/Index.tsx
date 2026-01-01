@@ -34,7 +34,8 @@ const Index = () => {
   const fetchDays = useMemo(() => {
     const msPerDay = 1000 * 60 * 60 * 24;
     const days = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / msPerDay) + 1;
-    return Math.max(1, days);
+    // Always fetch at least 2 days to allow comparison with previous period (e.g., today vs yesterday)
+    return Math.max(2, days);
   }, [dateRange]);
 
   const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns, fetchDays);
