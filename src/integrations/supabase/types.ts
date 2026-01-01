@@ -127,7 +127,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      syslog_kpis: {
+        Args: {
+          allowed_callsigns: string[]
+          end_ts: string
+          selected_station?: string
+          start_ts: string
+        }
+        Returns: {
+          avg_sn: number
+          sessions: number
+          sn_readings: number
+          success_rate: number
+          total_data: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

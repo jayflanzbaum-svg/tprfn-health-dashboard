@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
+import { useKpiStats } from '@/hooks/useKpiStats';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
@@ -43,6 +44,9 @@ const Index = () => {
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const logTableRef = useRef<HTMLDivElement>(null);
+  
+  // Accurate KPI stats from database function
+  const { kpiComparison, loading: kpiLoading } = useKpiStats(dateRange, allowedCallsigns, selectedStation);
 
   // Auto-fetch locations for all stations when data loads
   useEffect(() => {
@@ -487,7 +491,7 @@ const Index = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatsCard
               title="Average S/N Ratio"
-              value={`${stats?.avgSN} dB`}
+              value={kpiComparison ? `${kpiComparison.current.avgSn.toFixed(1)} dB` : `${stats?.avgSN} dB`}
               subtitle={selectedStation ? `For ${selectedStation}` : "Across all connections"}
               icon="signal"
               delay={0}
@@ -495,11 +499,15 @@ const Index = () => {
               isActive={logFilter === 'sn'}
               onJumpToLogs={() => handleJumpToLogs('sn')}
               accentColor="teal"
-              trend={changes ? { value: Math.round(changes.avgSN * 10) / 10, label: changes.label } : undefined}
+              trend={kpiComparison?.label ? { 
+                value: kpiComparison.changes.avgSn, 
+                label: kpiComparison.label,
+                previousValue: `${kpiComparison.previous.avgSn.toFixed(1)} dB`
+              } : undefined}
             />
             <StatsCard
               title="Connect Events"
-              value={stats?.totalSessions || 0}
+              value={kpiComparison ? kpiComparison.current.sessions : (stats?.totalSessions || 0)}
               subtitle="VARAHF Connected events (session starts)"
               icon="activity"
               delay={100}
@@ -507,11 +515,15 @@ const Index = () => {
               isActive={logFilter === 'sessions'}
               onJumpToLogs={() => handleJumpToLogs('sessions')}
               accentColor="blue"
-              trend={changes ? { value: Math.round(changes.sessions * 10) / 10, label: changes.label } : undefined}
+              trend={kpiComparison?.label ? { 
+                value: kpiComparison.changes.sessions, 
+                label: kpiComparison.label,
+                previousValue: kpiComparison.previous.sessions
+              } : undefined}
             />
             <StatsCard
               title="Total Data Transfer"
-              value={stats?.totalData || '0 B'}
+              value={kpiComparison ? formatBytes(kpiComparison.current.totalData) : (stats?.totalData || '0 B')}
               subtitle={`TX: ${stats?.totalTx} / RX: ${stats?.totalRx} (per-station view)`}
               icon="wifi"
               delay={200}
@@ -519,18 +531,27 @@ const Index = () => {
               isActive={logFilter === 'data'}
               onJumpToLogs={() => handleJumpToLogs('data')}
               accentColor="purple"
+              trend={kpiComparison?.label ? { 
+                value: kpiComparison.changes.totalData, 
+                label: kpiComparison.label,
+                previousValue: formatBytes(kpiComparison.previous.totalData)
+              } : undefined}
             />
             <StatsCard
               title="S/N Readings"
-              value={stats?.snReadings || 0}
-              subtitle={`${stats?.successRate}% good/excellent`}
+              value={kpiComparison ? kpiComparison.current.snReadings : (stats?.snReadings || 0)}
+              subtitle={`${kpiComparison ? kpiComparison.current.successRate.toFixed(1) : stats?.successRate}% good/excellent`}
               icon="radio"
               delay={300}
               onClick={() => handleFilterClick('readings')}
               isActive={logFilter === 'readings'}
               onJumpToLogs={() => handleJumpToLogs('readings')}
               accentColor="orange"
-              trend={changes ? { value: Math.round(changes.snReadings * 10) / 10, label: changes.label } : undefined}
+              trend={kpiComparison?.label ? { 
+                value: kpiComparison.changes.snReadings, 
+                label: kpiComparison.label,
+                previousValue: kpiComparison.previous.snReadings
+              } : undefined}
             />
           </div>
         </div>
