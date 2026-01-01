@@ -315,15 +315,28 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 }
 
 export function getComparisonPeriod(current: DateRange): { start: Date; end: Date; label: string } {
+  const now = new Date();
+  
+  // For "today" preset, compare against the same time window yesterday
+  // e.g., if it's 2pm today, compare 12am-2pm today vs 12am-2pm yesterday
+  if (current.preset === 'today') {
+    const yesterdayStart = new Date(current.start);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    
+    // Use current time as the end point for yesterday (same time of day)
+    const yesterdayEnd = new Date(yesterdayStart);
+    yesterdayEnd.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    
+    return { start: yesterdayStart, end: yesterdayEnd, label: 'vs same time yesterday' };
+  }
+  
+  // For other presets, use the standard previous period comparison
   const duration = current.end.getTime() - current.start.getTime();
   const previousEnd = new Date(current.start.getTime() - 1);
   const previousStart = new Date(previousEnd.getTime() - duration);
 
   let label = 'vs previous period';
   switch (current.preset) {
-    case 'today':
-      label = 'vs yesterday';
-      break;
     case 'yesterday':
       label = 'vs day before';
       break;
