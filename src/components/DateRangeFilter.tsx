@@ -315,21 +315,26 @@ export function DateRangeFilter({ value, onChange, dataDateRange }: DateRangeFil
 }
 
 export function getComparisonPeriod(current: DateRange): { start: Date; end: Date; label: string } {
-  const now = new Date();
-  
-  // For "today" preset, compare against the same time window yesterday
-  // e.g., if it's 2pm today, compare 12am-2pm today vs 12am-2pm yesterday
+  // NOTE: The database timestamps are stored in UTC (Zulu). Our presets are UTC-anchored,
+  // so the comparison period must be computed using absolute timestamps (ms), not local
+  // calendar setters like setHours()/setDate() that can shift the day unexpectedly.
+
+  // For "today" preset, compare against the same elapsed time window yesterday.
+  // Example: if it is 19:54Z, compare 00:00Z–19:54Z today vs 00:00Z–19:54Z yesterday.
   if (current.preset === 'today') {
-    const yesterdayStart = new Date(current.start);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    
-    // Use current time as the end point for yesterday (same time of day)
-    const yesterdayEnd = new Date(yesterdayStart);
-    yesterdayEnd.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-    
-    return { start: yesterdayStart, end: yesterdayEnd, label: 'vs same time yesterday' };
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const now = new Date();
+
+    // Current range is usually end-of-day; clamp to "now" so we're always comparing "so far".
+    const currentEnd = now.getTime() < current.end.getTime() ? now : current.end;
+    const elapsedMs = Math.max(0, currentEnd.getTime() - current.start.getTime());
+
+    const previousStart = new Date(current.start.getTime() - MS_PER_DAY);
+    const previousEnd = new Date(previousStart.getTime() + elapsedMs);
+
+    return { start: previousStart, end: previousEnd, label: 'vs same time yesterday' };
   }
-  
+
   // For other presets, use the standard previous period comparison
   const duration = current.end.getTime() - current.start.getTime();
   const previousEnd = new Date(current.start.getTime() - 1);
