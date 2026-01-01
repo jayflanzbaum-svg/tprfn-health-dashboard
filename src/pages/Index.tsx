@@ -200,16 +200,57 @@ const Index = () => {
       return timestamp >= comparison.start && timestamp <= comparison.end;
     };
 
+    const isAggregatedMode = !!data.aggregatedData;
+
+    // In aggregated mode, we don't have individual connectRecords - they're empty.
+    // We need to use the hubConnections data which has sessionCount, but those are
+    // already filtered to the current period. For comparison, we need to query
+    // the raw snRecords (which do exist) to approximate comparison stats.
+    
     const snRecords = data.snRecords.filter(r => isInPeriod(r.timestamp));
-    const connectRecords = data.connectRecords.filter(r => isInPeriod(r.timestamp));
-    const disconnectRecords = data.disconnectRecords.filter(r => isInPeriod(r.timestamp));
-
-    const avgSN = snRecords.length > 0
-      ? snRecords.reduce((sum, r) => sum + r.snValue, 0) / snRecords.length
-      : 0;
-
-    const totalTx = disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
-    const totalRx = disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+    
+    let totalSessions = 0;
+    let avgSN = 0;
+    let totalData = 0;
+    
+    if (isAggregatedMode) {
+      // In aggregated mode, we can't get exact session counts for the comparison period
+      // because hubConnections are pre-aggregated for the entire fetch window.
+      // Best approximation: use snRecords as a proxy for activity level.
+      // The snRecords ARE available per-timestamp, so we can filter them accurately.
+      
+      avgSN = snRecords.length > 0
+        ? snRecords.reduce((sum, r) => sum + r.snValue, 0) / snRecords.length
+        : 0;
+      
+      // For sessions in aggregated mode, we estimate based on unique station pairs
+      // seen in the comparison period's snRecords
+      const stationPairs = new Set<string>();
+      snRecords.forEach(r => {
+        const sorted = [r.station, r.partner].sort();
+        stationPairs.add(`${sorted[0]}↔${sorted[1]}`);
+      });
+      // This is an approximation - we count unique connection pairs as "sessions"
+      // This won't be perfect but is better than 0
+      totalSessions = stationPairs.size > 0 ? Math.max(stationPairs.size, Math.floor(snRecords.length / 10)) : 0;
+      
+      // Data transfer isn't available for comparison in aggregated mode
+      totalData = 0;
+    } else {
+      // Raw mode: use actual connect/disconnect records
+      const connectRecords = data.connectRecords.filter(r => isInPeriod(r.timestamp));
+      const disconnectRecords = data.disconnectRecords.filter(r => isInPeriod(r.timestamp));
+      
+      avgSN = snRecords.length > 0
+        ? snRecords.reduce((sum, r) => sum + r.snValue, 0) / snRecords.length
+        : 0;
+      
+      totalSessions = connectRecords.length;
+      
+      const totalTx = disconnectRecords.reduce((sum, r) => sum + r.txBytes, 0);
+      const totalRx = disconnectRecords.reduce((sum, r) => sum + r.rxBytes, 0);
+      totalData = totalTx + totalRx;
+    }
 
     const excellentCount = snRecords.filter(r => 
       getSignalQuality(r.snValue) === 'excellent' || getSignalQuality(r.snValue) === 'good'
@@ -221,8 +262,8 @@ const Index = () => {
     return {
       label: comparison.label,
       avgSN,
-      totalSessions: connectRecords.length,
-      totalData: totalTx + totalRx,
+      totalSessions,
+      totalData,
       snReadings: snRecords.length,
       successRate,
     };
