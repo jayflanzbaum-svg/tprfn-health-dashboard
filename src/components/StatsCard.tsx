@@ -9,6 +9,7 @@ interface StatsCardProps {
   trend?: {
     value: number;
     label: string;
+    previousValue?: string | number; // The baseline value for comparison
   };
   className?: string;
   delay?: number;
@@ -84,14 +85,19 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           )}
           {trend && (
-            <div className="mt-2 flex items-center gap-1">
+            <div className="mt-2 flex items-center gap-1 flex-wrap">
               <span className={cn(
                 "text-xs font-medium",
                 trend.value >= 0 ? "text-chart-success" : "text-chart-danger"
               )}>
-                {trend.value >= 0 ? '+' : ''}{trend.value}%
+                {trend.value >= 0 ? '+' : ''}{trend.value.toFixed(1)}%
               </span>
               <span className="text-xs text-muted-foreground">{trend.label}</span>
+              {trend.previousValue !== undefined && (
+                <span className="text-xs text-muted-foreground/70 ml-1">
+                  (was {trend.previousValue})
+                </span>
+              )}
             </div>
           )}
           {isActive && onJumpToLogs && (
