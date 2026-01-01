@@ -60,45 +60,74 @@ Deno.serve(async (req) => {
     const callsignArray = Array.from(callsignSet);
 
     // Fetch in batches using cursor-based pagination (timestamp + id)
-    // NOTE: PostgREST enforces a max of 1000 rows per request, so keep pageSize at 1000.
-    // UUIDs are not time-ordered, so we must page by (timestamp, id) to avoid skipping rows.
-    const allEntries: any[] = [];
+    // Notes:
+    // - PostgREST enforces a max of 1000 rows per request, so keep pageSize at 1000.
+    // - UUIDs are not time-ordered, so we page by (timestamp, id) to avoid skipping rows.
+    // - For performance, we filter to only the event types needed for these charts.
+
     const pageSize = 1000;
     let iterations = 0;
     const maxIterations = 600;
 
     const startIso = new Date(startDate).toISOString();
+    const endIso = new Date(endDate).toISOString();
+
+    // Aggregate as we page (avoid holding an entire year's raw rows in memory)
+    const dailySNMap = new Map<string, { total: number; count: number }>();
+    const monthlySNMap = new Map<string, { total: number; count: number }>();
+    const connectionMap = new Map<
+      string,
+      {
+        station1: string;
+        station2: string;
+        snTotal: number;
+        snCount: number;
+        sessionCount: number;
+        totalTxBytes: number;
+        totalRxBytes: number;
+        bitrateTotal: number;
+        bitrateCount: number;
+        maxBitrate: number;
+        maxBitrateAt: string | null;
+      }
+    >();
+
+    // Helps attribute disconnect records that don't include remote_callsign
+    const lastPartnerMap = new Map<string, { partner: string; timestamp: Date }>();
+    const MAX_PARTNER_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+    let totalRecords = 0;
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
+
     let cursorTimestamp = startIso;
     let cursorId = '00000000-0000-0000-0000-000000000000';
+
+    const EVENT_TYPES = [
+      'sn_report',
+      'connect_in',
+      'connect_out',
+      'disconnect',
+      'disconnect_timeout',
+    ];
 
     while (iterations < maxIterations) {
       let batchQuery = supabase
         .from('syslog_entries')
-        .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate)
-        // If callsigns are provided, filter server-side by the hub callsign (fast + reduces payload)
-        .in('callsign', callsignArray.length > 0 ? callsignArray : ['__NO_MATCH__'])
-        .or(
-          `timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`
+        .select(
+          'id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds'
         )
+        .gte('timestamp', startIso)
+        .lte('timestamp', endIso)
+        .in('event_type', EVENT_TYPES)
+        .or(`timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`)
         .order('timestamp', { ascending: true })
         .order('id', { ascending: true })
         .limit(pageSize);
 
-      // If no callsigns were provided, remove the forced no-match filter by rebuilding the query.
-      if (callsignArray.length === 0) {
-        batchQuery = supabase
-          .from('syslog_entries')
-          .select('id, timestamp, callsign, remote_callsign, event_type, snr, bytes_sent, bytes_received, bitrate, duration_seconds')
-          .gte('timestamp', startDate)
-          .lte('timestamp', endDate)
-          .or(
-            `timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`
-          )
-          .order('timestamp', { ascending: true })
-          .order('id', { ascending: true })
-          .limit(pageSize);
+      // If callsigns are provided, they represent hubs; filter server-side by hub.
+      if (callsignArray.length > 0) {
+        batchQuery = batchQuery.in('hub', callsignArray);
       }
 
       const { data: entries, error } = await batchQuery;
@@ -110,7 +139,138 @@ Deno.serve(async (req) => {
 
       if (!entries || entries.length === 0) break;
 
-      allEntries.push(...entries);
+      for (const entry of entries) {
+        totalRecords++;
+
+        const timestamp = new Date(entry.timestamp);
+        const station = entry.callsign?.toUpperCase().trim() || '';
+        const partner = entry.remote_callsign?.toUpperCase().trim() || '';
+
+        if (!minDate || timestamp < minDate) minDate = timestamp;
+        if (!maxDate || timestamp > maxDate) maxDate = timestamp;
+
+        const connectionId = [station, partner].filter(Boolean).sort().join('↔');
+
+        if (entry.event_type === 'sn_report' && entry.snr !== null && partner) {
+          // Daily aggregate (date + hour)
+          const dateStr = timestamp.toISOString().split('T')[0];
+          const hour = timestamp.getUTCHours();
+          const dailyKey = `${dateStr}-${hour}`;
+
+          if (!dailySNMap.has(dailyKey)) {
+            dailySNMap.set(dailyKey, { total: 0, count: 0 });
+          }
+          const daily = dailySNMap.get(dailyKey)!;
+          daily.total += entry.snr;
+          daily.count++;
+
+          // Monthly aggregate (year + month) — month-over-month (no week breakdown)
+          const year = timestamp.getUTCFullYear();
+          const month = timestamp.getUTCMonth();
+          const monthlyKey = `${year}-${month}`;
+
+          if (!monthlySNMap.has(monthlyKey)) {
+            monthlySNMap.set(monthlyKey, { total: 0, count: 0 });
+          }
+          const monthly = monthlySNMap.get(monthlyKey)!;
+          monthly.total += entry.snr;
+          monthly.count++;
+
+          // Remember partner for this station (helps later for disconnect records)
+          lastPartnerMap.set(station, { partner, timestamp });
+          lastPartnerMap.set(partner, { partner: station, timestamp });
+
+          // Connection stats
+          if (!connectionMap.has(connectionId)) {
+            connectionMap.set(connectionId, {
+              station1: station < partner ? station : partner,
+              station2: station < partner ? partner : station,
+              snTotal: 0,
+              snCount: 0,
+              sessionCount: 0,
+              totalTxBytes: 0,
+              totalRxBytes: 0,
+              bitrateTotal: 0,
+              bitrateCount: 0,
+              maxBitrate: 0,
+              maxBitrateAt: null,
+            });
+          }
+          const conn = connectionMap.get(connectionId)!;
+          conn.snTotal += entry.snr;
+          conn.snCount++;
+        }
+
+        if (entry.event_type === 'connect_in' || entry.event_type === 'connect_out') {
+          if (!partner) continue;
+
+          if (!connectionMap.has(connectionId)) {
+            connectionMap.set(connectionId, {
+              station1: station < partner ? station : partner,
+              station2: station < partner ? partner : station,
+              snTotal: 0,
+              snCount: 0,
+              sessionCount: 0,
+              totalTxBytes: 0,
+              totalRxBytes: 0,
+              bitrateTotal: 0,
+              bitrateCount: 0,
+              maxBitrate: 0,
+              maxBitrateAt: null,
+            });
+          }
+          connectionMap.get(connectionId)!.sessionCount++;
+
+          // Remember partner for this station (helps later for disconnect records)
+          lastPartnerMap.set(station, { partner, timestamp });
+          lastPartnerMap.set(partner, { partner: station, timestamp });
+        }
+
+        if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
+          // Disconnect rows often don't have remote_callsign; infer it from the latest known partner
+          let resolvedPartner = partner;
+          if (!resolvedPartner) {
+            const last = lastPartnerMap.get(station);
+            if (last && timestamp.getTime() - last.timestamp.getTime() <= MAX_PARTNER_WINDOW_MS) {
+              resolvedPartner = last.partner;
+            }
+          }
+          if (!resolvedPartner) continue;
+
+          const resolvedConnectionId = [station, resolvedPartner].filter(Boolean).sort().join('↔');
+          if (!resolvedConnectionId.includes('↔')) continue;
+
+          if (!connectionMap.has(resolvedConnectionId)) {
+            connectionMap.set(resolvedConnectionId, {
+              station1: station < resolvedPartner ? station : resolvedPartner,
+              station2: station < resolvedPartner ? resolvedPartner : station,
+              snTotal: 0,
+              snCount: 0,
+              sessionCount: 0,
+              totalTxBytes: 0,
+              totalRxBytes: 0,
+              bitrateTotal: 0,
+              bitrateCount: 0,
+              maxBitrate: 0,
+              maxBitrateAt: null,
+            });
+          }
+
+          const conn = connectionMap.get(resolvedConnectionId)!;
+          conn.totalTxBytes += entry.bytes_sent || 0;
+          conn.totalRxBytes += entry.bytes_received || 0;
+
+          const bitrate = typeof entry.bitrate === 'number' ? entry.bitrate : null;
+          if (bitrate !== null && bitrate > 0) {
+            conn.bitrateTotal += bitrate;
+            conn.bitrateCount++;
+            if (bitrate > conn.maxBitrate) {
+              conn.maxBitrate = bitrate;
+              conn.maxBitrateAt = timestamp.toISOString();
+            }
+          }
+        }
+      }
 
       const lastEntry = entries[entries.length - 1];
       cursorTimestamp = lastEntry.timestamp;
@@ -125,220 +285,61 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Fetched ${allEntries.length} entries in ${iterations} iterations`);
-
-    // Now aggregate the data on the server
-    const dailySNMap = new Map<string, { total: number; count: number }>();
-    const monthlySNMap = new Map<string, { total: number; count: number }>();
-    const connectionMap = new Map<string, {
-      station1: string;
-      station2: string;
-      snTotal: number;
-      snCount: number;
-      sessionCount: number;
-      totalTxBytes: number;
-      totalRxBytes: number;
-      bitrateTotal: number;
-      bitrateCount: number;
-      maxBitrate: number;
-      maxBitrateAt: string | null;
-    }>();
-
-    // Helps attribute disconnect records that don't include remote_callsign
-    const lastPartnerMap = new Map<string, { partner: string; timestamp: Date }>();
-    const MAX_PARTNER_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
-
-    let minDate = new Date();
-    let maxDate = new Date(0);
-
-    for (const entry of allEntries) {
-      const timestamp = new Date(entry.timestamp);
-      const station = entry.callsign?.toUpperCase().trim() || '';
-      const partner = entry.remote_callsign?.toUpperCase().trim() || '';
-
-      if (timestamp < minDate) minDate = timestamp;
-      if (timestamp > maxDate) maxDate = timestamp;
-
-      // Create connection ID (sorted)
-      const connectionId = [station, partner].filter(Boolean).sort().join('↔');
-
-      if (entry.event_type === 'sn_report' && entry.snr !== null && partner) {
-        // Daily aggregate (date + hour)
-        const dateStr = timestamp.toISOString().split('T')[0];
-        const hour = timestamp.getUTCHours();
-        const dailyKey = `${dateStr}-${hour}`;
-
-        if (!dailySNMap.has(dailyKey)) {
-          dailySNMap.set(dailyKey, { total: 0, count: 0 });
-        }
-        const daily = dailySNMap.get(dailyKey)!;
-        daily.total += entry.snr;
-        daily.count++;
-
-        // Monthly aggregate (year + month + week)
-        const year = timestamp.getUTCFullYear();
-        const month = timestamp.getUTCMonth();
-        const day = timestamp.getUTCDate();
-        const week = Math.ceil(day / 7);
-        const monthlyKey = `${year}-${month}-${week}`;
-
-        if (!monthlySNMap.has(monthlyKey)) {
-          monthlySNMap.set(monthlyKey, { total: 0, count: 0 });
-        }
-        const monthly = monthlySNMap.get(monthlyKey)!;
-        monthly.total += entry.snr;
-        monthly.count++;
-
-        // Remember partner for this station (helps later for disconnect records)
-        lastPartnerMap.set(station, { partner, timestamp });
-        lastPartnerMap.set(partner, { partner: station, timestamp });
-
-        // Connection stats
-        if (!connectionMap.has(connectionId)) {
-          connectionMap.set(connectionId, {
-            station1: station < partner ? station : partner,
-            station2: station < partner ? partner : station,
-            snTotal: 0,
-            snCount: 0,
-            sessionCount: 0,
-            totalTxBytes: 0,
-            totalRxBytes: 0,
-            bitrateTotal: 0,
-            bitrateCount: 0,
-            maxBitrate: 0,
-            maxBitrateAt: null,
-          });
-        }
-        const conn = connectionMap.get(connectionId)!;
-        conn.snTotal += entry.snr;
-        conn.snCount++;
-      }
-
-      if (entry.event_type === 'connect_in' || entry.event_type === 'connect_out') {
-        if (!partner) continue;
-
-        if (!connectionMap.has(connectionId)) {
-          connectionMap.set(connectionId, {
-            station1: station < partner ? station : partner,
-            station2: station < partner ? partner : station,
-            snTotal: 0,
-            snCount: 0,
-            sessionCount: 0,
-            totalTxBytes: 0,
-            totalRxBytes: 0,
-            bitrateTotal: 0,
-            bitrateCount: 0,
-            maxBitrate: 0,
-            maxBitrateAt: null,
-          });
-        }
-        connectionMap.get(connectionId)!.sessionCount++;
-
-        // Remember partner for this station (helps later for disconnect records)
-        lastPartnerMap.set(station, { partner, timestamp });
-        lastPartnerMap.set(partner, { partner: station, timestamp });
-      }
-
-       if (entry.event_type === 'disconnect' || entry.event_type === 'disconnect_timeout') {
-         // Disconnect rows often don't have remote_callsign; infer it from the latest known partner
-         let resolvedPartner = partner;
-         if (!resolvedPartner) {
-           const last = lastPartnerMap.get(station);
-           if (last && timestamp.getTime() - last.timestamp.getTime() <= MAX_PARTNER_WINDOW_MS) {
-             resolvedPartner = last.partner;
-           }
-         }
-         if (!resolvedPartner) continue;
-
-         const resolvedConnectionId = [station, resolvedPartner].filter(Boolean).sort().join('↔');
-         if (!resolvedConnectionId.includes('↔')) continue;
-
-         if (!connectionMap.has(resolvedConnectionId)) {
-           connectionMap.set(resolvedConnectionId, {
-             station1: station < resolvedPartner ? station : resolvedPartner,
-             station2: station < resolvedPartner ? resolvedPartner : station,
-             snTotal: 0,
-             snCount: 0,
-             sessionCount: 0,
-             totalTxBytes: 0,
-             totalRxBytes: 0,
-             bitrateTotal: 0,
-             bitrateCount: 0,
-             maxBitrate: 0,
-             maxBitrateAt: null,
-           });
-         }
-
-         const conn = connectionMap.get(resolvedConnectionId)!;
-         conn.totalTxBytes += entry.bytes_sent || 0;
-         conn.totalRxBytes += entry.bytes_received || 0;
-
-         const bitrate = typeof entry.bitrate === 'number' ? entry.bitrate : null;
-         if (bitrate !== null && bitrate > 0) {
-           conn.bitrateTotal += bitrate;
-           conn.bitrateCount++;
-           if (bitrate > conn.maxBitrate) {
-             conn.maxBitrate = bitrate;
-             conn.maxBitrateAt = timestamp.toISOString();
-           }
-         }
-       }
-    }
+    console.log(`Fetched ${totalRecords} entries in ${iterations} iterations`);
 
     // Convert maps to arrays
     const dailySNAggregates: AggregatedData['dailySNAggregates'] = [];
     dailySNMap.forEach((val, key) => {
-      const [date, hourStr] = key.split('-').length === 4 
-        ? [key.substring(0, 10), key.substring(11)]
-        : [key.substring(0, 10), key.split('-').pop()!];
       dailySNAggregates.push({
         date: key.substring(0, 10),
         hour: parseInt(key.split('-').pop()!, 10),
         avgSN: val.total / val.count,
-        count: val.count
+        count: val.count,
       });
     });
 
     const monthlySNAggregates: AggregatedData['monthlySNAggregates'] = [];
     monthlySNMap.forEach((val, key) => {
-      const parts = key.split('-');
+      const [yearStr, monthStr] = key.split('-');
       monthlySNAggregates.push({
-        year: parseInt(parts[0], 10),
-        month: parseInt(parts[1], 10),
-        week: parseInt(parts[2], 10),
+        year: parseInt(yearStr, 10),
+        month: parseInt(monthStr, 10),
+        week: 1,
         avgSN: val.total / val.count,
-        count: val.count
+        count: val.count,
       });
     });
 
     const connectionStats: AggregatedData['connectionStats'] = [];
     connectionMap.forEach((val) => {
-       connectionStats.push({
-         station1: val.station1,
-         station2: val.station2,
-         avgSN: val.snCount > 0 ? val.snTotal / val.snCount : 0,
-         sessionCount: val.sessionCount,
-         totalTxBytes: val.totalTxBytes,
-         totalRxBytes: val.totalRxBytes,
-         snCount: val.snCount,
-         avgBitrate: val.bitrateCount > 0 ? val.bitrateTotal / val.bitrateCount : 0,
-         maxBitrate: val.maxBitrate,
-         maxBitrateAt: val.maxBitrateAt,
-       });
+      connectionStats.push({
+        station1: val.station1,
+        station2: val.station2,
+        avgSN: val.snCount > 0 ? val.snTotal / val.snCount : 0,
+        sessionCount: val.sessionCount,
+        totalTxBytes: val.totalTxBytes,
+        totalRxBytes: val.totalRxBytes,
+        snCount: val.snCount,
+        avgBitrate: val.bitrateCount > 0 ? val.bitrateTotal / val.bitrateCount : 0,
+        maxBitrate: val.maxBitrate,
+        maxBitrateAt: val.maxBitrateAt,
+      });
     });
 
     const result: AggregatedData = {
       dailySNAggregates,
       monthlySNAggregates,
       connectionStats,
-      totalRecords: allEntries.length,
+      totalRecords,
       dateRange: {
-        start: minDate.toISOString(),
-        end: maxDate.toISOString()
-      }
+        start: (minDate ?? new Date(startIso)).toISOString(),
+        end: (maxDate ?? new Date(endIso)).toISOString(),
+      },
     };
 
-    console.log(`Returning ${dailySNAggregates.length} daily aggregates, ${monthlySNAggregates.length} monthly aggregates, ${connectionStats.length} connections`);
+    console.log(
+      `Returning ${dailySNAggregates.length} daily aggregates, ${monthlySNAggregates.length} monthly aggregates, ${connectionStats.length} connections`
+    );
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
