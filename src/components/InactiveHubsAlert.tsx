@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface InactiveHubsAlertProps {
   allowedCallsigns: string[];
+  showSuccessInHeader?: boolean;
 }
 
 interface StationActivity {
@@ -12,7 +13,7 @@ interface StationActivity {
   lastSeen: Date | null;
 }
 
-export function InactiveHubsAlert({ allowedCallsigns }: InactiveHubsAlertProps) {
+export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = false }: InactiveHubsAlertProps) {
   const [inactiveStations, setInactiveStations] = useState<StationActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,23 +143,9 @@ export function InactiveHubsAlert({ allowedCallsigns }: InactiveHubsAlertProps) 
     return `${diffHours}h ago`;
   };
 
-  if (loading) {
-    return (
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-3 py-2 rounded-md">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Checking station activity...</span>
-      </div>
-    );
-  }
-
-  // All stations active - show success state
-  if (inactiveStations.length === 0) {
-    return (
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-3 py-2 rounded-md">
-        <CheckCircle2 className="h-4 w-4 text-green-500" />
-        <span>All {allowedCallsigns.length} hub stations active in last 24 hours</span>
-      </div>
-    );
+  // If loading or all active, don't render anything here (success shown in header)
+  if (loading || inactiveStations.length === 0) {
+    return null;
   }
 
   return (
