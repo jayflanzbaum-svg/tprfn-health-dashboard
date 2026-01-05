@@ -90,30 +90,30 @@ export function DashboardHeader({
   };
 
   return (
-    <header className="mb-8 animate-fade-in">
+    <header className="mb-4 animate-fade-in">
       {/* Row 1: Title and controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20">
-            <Radio className="h-7 w-7 text-accent" />
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+            <Radio className="h-5 w-5 text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            <h1 className="text-xl font-bold text-foreground tracking-tight">
               TPRFN <span className="gradient-text">HEALTH DASHBOARD</span>
             </h1>
-            <p className="text-muted-foreground mt-0.5">
+            <p className="text-muted-foreground text-xs">
               RF Connection Analytics • Auto-refreshes every 5 min
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Station Filter Dropdown */}
           <Select 
             value={selectedStation || 'all'} 
             onValueChange={(value) => onStationChange(value === 'all' ? null : value)}
           >
-            <SelectTrigger className="w-48 bg-card border-border">
+            <SelectTrigger className="w-40 h-8 text-sm bg-card border-border">
               <SelectValue placeholder="All Stations" />
             </SelectTrigger>
             <SelectContent className="bg-card border-border z-50">
@@ -133,33 +133,33 @@ export function DashboardHeader({
           />
 
           <div 
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary border border-border/50"
             title={selectedStation ? `Selected station: ${selectedStation}` : "Hub stations (callsigns) in the data"}
           >
-            <Wifi className="h-4 w-4 text-accent" />
-            <span className="text-sm">
+            <Wifi className="h-3.5 w-3.5 text-accent" />
+            <span className="text-xs">
               {selectedStation ? (
                 <>
                   <span className="font-mono font-semibold text-foreground">{selectedStation}</span>
-                  <span className="text-muted-foreground ml-1">Hub Station</span>
+                  <span className="text-muted-foreground ml-1">Hub</span>
                 </>
               ) : (
                 <>
                   <span className="font-mono font-semibold text-foreground">{stationCount}</span>
-                  <span className="text-muted-foreground ml-1">Hub Stations</span>
+                  <span className="text-muted-foreground ml-1">Hubs</span>
                 </>
               )}
             </span>
           </div>
 
           <div 
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border/50"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary border border-border/50"
             title="Unique station pairs that communicated"
           >
-            <Radio className="h-4 w-4 text-chart-secondary" />
-            <span className="text-sm">
+            <Radio className="h-3.5 w-3.5 text-chart-secondary" />
+            <span className="text-xs">
               <span className="font-mono font-semibold text-foreground">{connectionCount}</span>
-              <span className="text-muted-foreground ml-1">station pairs</span>
+              <span className="text-muted-foreground ml-1">pairs</span>
             </span>
           </div>
 
@@ -167,49 +167,43 @@ export function DashboardHeader({
           <StationLocationsManager callsigns={stations} />
 
           {/* Refresh button and last updated */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {onRefresh && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="gap-1.5"
+                className="h-7 px-2 gap-1"
               >
-                <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-                <span className="hidden sm:inline">Refresh</span>
+                <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+                <span className="hidden sm:inline text-xs">Refresh</span>
               </Button>
             )}
             {lastUpdated && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>Updated: {formatTime(lastUpdated)}</span>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>{formatTime(lastUpdated)}</span>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Row 2: Prominent Time Display */}
-      <div className="mt-3 flex items-center justify-center">
-        <div className="inline-flex flex-wrap items-center justify-center gap-4 px-5 py-2.5 rounded-lg bg-gradient-to-r from-accent/10 via-primary/10 to-chart-secondary/10 border border-accent/20 shadow-md">
-          <Globe className="h-5 w-5 text-accent" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg font-mono font-bold text-foreground tracking-wide">
+          {/* Compact Time Display - inline */}
+          <div className="hidden lg:inline-flex items-center gap-2 px-3 py-1 rounded-md bg-gradient-to-r from-accent/10 via-primary/10 to-chart-secondary/10 border border-accent/20">
+            <Globe className="h-3.5 w-3.5 text-accent" />
+            <span className="text-sm font-mono font-bold text-foreground">
               {formatZulu(now)}
             </span>
-            <span className="text-xs text-muted-foreground uppercase">UTC</span>
-          </div>
-          <div className="h-5 w-px bg-border/50" />
-          <span className="text-xl font-mono font-bold text-accent tracking-wide">
-            {formatDateMMDDYYYY(now)}
-          </span>
-          <div className="h-5 w-px bg-border/50" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg font-mono font-bold text-foreground tracking-wide">
+            <span className="text-xs text-muted-foreground">UTC</span>
+            <div className="h-3 w-px bg-border/50" />
+            <span className="text-sm font-mono font-bold text-accent">
+              {formatDateMMDDYYYY(now)}
+            </span>
+            <div className="h-3 w-px bg-border/50" />
+            <span className="text-sm font-mono font-bold text-foreground">
               {format(now, 'HH:mm:ss')}
             </span>
-            <span className="text-xs text-muted-foreground uppercase">{tzAbbr}</span>
+            <span className="text-xs text-muted-foreground">{tzAbbr}</span>
           </div>
         </div>
       </div>
