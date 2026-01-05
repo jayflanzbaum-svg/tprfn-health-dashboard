@@ -556,6 +556,17 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Station Map */}
+        <div className="mb-8">
+          <LiveStationMap 
+            locations={locations}
+            hubConnections={filteredData.hubConnections}
+            distances={distances}
+            hubCallsigns={allowedCallsigns}
+            lookupCallsigns={lookupCallsigns}
+          />
+        </div>
+
         {/* Signal Quality & Session Outcomes - Balanced Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <LazySection fallback={<PieChartSkeleton />}>
@@ -605,17 +616,6 @@ const Index = () => {
           <LazySection fallback={<LeaderboardSkeleton />}>
             <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
-        </div>
-
-        {/* Station Map */}
-        <div className="mb-8">
-          <LiveStationMap 
-            locations={locations}
-            hubConnections={filteredData.hubConnections}
-            distances={distances}
-            hubCallsigns={allowedCallsigns}
-            lookupCallsigns={lookupCallsigns}
-          />
         </div>
 
         {/* Detailed Table */}
