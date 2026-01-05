@@ -557,6 +557,7 @@ export function LiveStationMap({
         zoom: 4,
         zoomControl: true,
         preferCanvas: true, // Better performance for many elements
+        scrollWheelZoom: false, // Disable scroll wheel zoom to prevent accidental zooming
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
