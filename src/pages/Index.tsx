@@ -466,28 +466,31 @@ const Index = () => {
         {/* Inactive Hubs Alert */}
         <InactiveHubsAlert allowedCallsigns={allowedCallsigns} />
 
-        {/* Comparison Label */}
-        {changes && (
-          <div className="mb-6">
-            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full inline-block">
-              Comparing {changes.label}
-            </div>
-          </div>
-        )}
-
         {/* Stats Cards */}
         <div className="relative">
-          {logFilter !== 'all' && (
-            <div className="mb-3">
-              <button
-                onClick={() => setLogFilter('all')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span>Clear filter</span>
-                <span className="text-lg leading-none">&times;</span>
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 mb-3 min-h-[28px]">
+            {logFilter !== 'all' && (
+              <>
+                <button
+                  onClick={() => {
+                    setLogFilter(logFilter);
+                    logTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-accent/20 hover:bg-accent/30 text-accent transition-colors"
+                >
+                  <span>Jump to Log Entries</span>
+                  <span className="text-sm leading-none">↓</span>
+                </button>
+                <button
+                  onClick={() => setLogFilter('all')}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>Clear filter</span>
+                  <span className="text-lg leading-none">&times;</span>
+                </button>
+              </>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatsCard
               title="Average S/N Ratio"
