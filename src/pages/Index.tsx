@@ -431,6 +431,7 @@ const Index = () => {
             dataDateRange={data.dateRange}
             onRefresh={refetch}
             isRefreshing={isRefreshing}
+            allowedCallsigns={allowedCallsigns}
           />
 
           <main className="mt-8">
@@ -461,37 +462,14 @@ const Index = () => {
           dataDateRange={data.dateRange}
           onRefresh={refetch}
           isRefreshing={isRefreshing}
+          allowedCallsigns={allowedCallsigns}
         />
 
         {/* Inactive Hubs Alert */}
         <InactiveHubsAlert allowedCallsigns={allowedCallsigns} />
 
         {/* Stats Cards */}
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-3 min-h-[28px]">
-            {logFilter !== 'all' && (
-              <>
-                <button
-                  onClick={() => {
-                    setLogFilter(logFilter);
-                    logTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-accent/20 hover:bg-accent/30 text-accent transition-colors"
-                >
-                  <span>Jump to Log Entries</span>
-                  <span className="text-sm leading-none">↓</span>
-                </button>
-                <button
-                  onClick={() => setLogFilter('all')}
-                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Clear filter</span>
-                  <span className="text-lg leading-none">&times;</span>
-                </button>
-              </>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatsCard
               title="Average S/N Ratio"
               value={kpiComparison ? `${kpiComparison.current.avgSn.toFixed(1)} dB` : `${stats?.avgSN} dB`}
@@ -501,6 +479,7 @@ const Index = () => {
               onClick={() => handleFilterClick('sn')}
               isActive={logFilter === 'sn'}
               onJumpToLogs={() => handleJumpToLogs('sn')}
+              onClearFilter={() => setLogFilter('all')}
               accentColor="teal"
               trend={kpiComparison?.label ? { 
                 value: kpiComparison.changes.avgSn, 
@@ -517,6 +496,7 @@ const Index = () => {
               onClick={() => handleFilterClick('sessions')}
               isActive={logFilter === 'sessions'}
               onJumpToLogs={() => handleJumpToLogs('sessions')}
+              onClearFilter={() => setLogFilter('all')}
               accentColor="blue"
               trend={kpiComparison?.label ? { 
                 value: kpiComparison.changes.sessions, 
@@ -533,6 +513,7 @@ const Index = () => {
               onClick={() => handleFilterClick('data')}
               isActive={logFilter === 'data'}
               onJumpToLogs={() => handleJumpToLogs('data')}
+              onClearFilter={() => setLogFilter('all')}
               accentColor="purple"
               trend={kpiComparison?.label ? { 
                 value: kpiComparison.changes.totalData, 
@@ -549,6 +530,7 @@ const Index = () => {
               onClick={() => handleFilterClick('readings')}
               isActive={logFilter === 'readings'}
               onJumpToLogs={() => handleJumpToLogs('readings')}
+              onClearFilter={() => setLogFilter('all')}
               accentColor="orange"
               trend={kpiComparison?.label ? { 
                 value: kpiComparison.changes.snReadings, 
@@ -557,7 +539,6 @@ const Index = () => {
               } : undefined}
             />
           </div>
-        </div>
 
         {/* Station Map */}
         <div className="mb-8">

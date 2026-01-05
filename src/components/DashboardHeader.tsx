@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Radio, Wifi, Clock, RefreshCw, Globe } from 'lucide-react';
+import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -12,6 +12,7 @@ import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StationLocationsManager } from '@/components/StationLocationsManager';
+import { useHubActivityStatus } from '@/hooks/useHubActivityStatus';
 
 interface DashboardHeaderProps {
   stationCount: number;
@@ -25,6 +26,7 @@ interface DashboardHeaderProps {
   dataDateRange?: { start: Date; end: Date };
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  allowedCallsigns: string[];
 }
 
 function useCurrentTime() {
@@ -76,10 +78,12 @@ export function DashboardHeader({
   onDateRangeChange,
   dataDateRange,
   onRefresh,
-  isRefreshing
+  isRefreshing,
+  allowedCallsigns
 }: DashboardHeaderProps) {
   const now = useCurrentTime();
   const tzAbbr = getTimezoneAbbr();
+  const hubStatus = useHubActivityStatus(allowedCallsigns);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
@@ -204,6 +208,22 @@ export function DashboardHeader({
               {format(now, 'HH:mm:ss')}
             </span>
             <span className="text-xs text-muted-foreground">{tzAbbr}</span>
+            <div className="h-3 w-px bg-border/50" />
+            {hubStatus.loading ? (
+              <div className="flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Checking...</span>
+              </div>
+            ) : hubStatus.allActive ? (
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                <span className="text-xs text-muted-foreground">ALL {hubStatus.totalCount} HUB STATIONS ACTIVE</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">{hubStatus.activeCount}/{hubStatus.totalCount} ACTIVE</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

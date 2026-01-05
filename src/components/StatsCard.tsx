@@ -16,6 +16,7 @@ interface StatsCardProps {
   onClick?: () => void;
   isActive?: boolean;
   onJumpToLogs?: () => void;
+  onClearFilter?: () => void;
   accentColor?: 'teal' | 'blue' | 'purple' | 'orange';
 }
 
@@ -57,7 +58,7 @@ const accentColors = {
   },
 };
 
-export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive, onJumpToLogs, accentColor = 'teal' }: StatsCardProps) {
+export function StatsCard({ title, value, subtitle, icon, trend, className, delay = 0, onClick, isActive, onJumpToLogs, onClearFilter, accentColor = 'teal' }: StatsCardProps) {
   const Icon = icons[icon];
   const colors = accentColors[accentColor];
 
@@ -100,17 +101,33 @@ export function StatsCard({ title, value, subtitle, icon, trend, className, dela
               )}
             </div>
           )}
-          {isActive && onJumpToLogs && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onJumpToLogs();
-              }}
-              className={cn("mt-2 flex items-center gap-1 hover:underline", colors.text)}
-            >
-              <ArrowDown className="h-3 w-3" />
-              <span className="text-xs font-medium">Jump to Log Entries</span>
-            </button>
+          {isActive && (
+            <div className="mt-2 flex items-center gap-3">
+              {onJumpToLogs && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onJumpToLogs();
+                  }}
+                  className={cn("flex items-center gap-1 hover:underline", colors.text)}
+                >
+                  <ArrowDown className="h-3 w-3" />
+                  <span className="text-xs font-medium">Jump to Log</span>
+                </button>
+              )}
+              {onClearFilter && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearFilter();
+                  }}
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>Clear Filter</span>
+                  <span className="text-sm leading-none">&times;</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white dark:bg-card border border-border/50 shadow-sm">
