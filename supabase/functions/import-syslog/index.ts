@@ -15,6 +15,9 @@ const monthMap: Record<string, number> = {
 // Forced year - passed in request body, no inference
 let forcedYear = 2025;
 
+// Track last partner per station for correlating disconnects
+const lastPartnerMap = new Map<string, { partner: string; timestamp: number }>();
+
 // Parse syslog line and extract structured data
 function parseSyslogLine(line: string): {
   timestamp: string | null;
@@ -62,6 +65,9 @@ function parseSyslogLine(line: string): {
   const hubMatch = line.match(/\s+(H-[\w-]+)\s+/);
   if (!hubMatch) return null;
   result.hub = hubMatch[1].replace('H-', '');
+  
+  // Get base callsign (without SSID)
+  const baseCallsign = result.hub.replace(/-\d+$/, '');
 
   // Determine event type and extract callsigns
   const snPattern = /VARAHF\s+([\w-]+)\s+Average\s+S\/N:\s+([-\d.]+)\s*dB/;
@@ -71,32 +77,59 @@ function parseSyslogLine(line: string): {
 
   const snMatch = line.match(snPattern);
   if (snMatch) {
-    result.callsign = result.hub.replace(/-\d+$/, '');
-    result.remoteCallsign = snMatch[1].replace(/-\d+$/, '');
+    result.callsign = baseCallsign;
+    const partnerWithSsid = snMatch[1];
+    const partnerBase = partnerWithSsid.replace(/-\d+$/, '');
+    result.remoteCallsign = partnerBase;
     result.snr = parseFloat(snMatch[2]);
     result.eventType = 'sn_report';
+    
+    // Track this partner for later disconnect correlation
+    lastPartnerMap.set(baseCallsign, { 
+      partner: partnerBase, 
+      timestamp: parsedDate.getTime() 
+    });
+    
     return result;
   }
 
   const connectOutMatch = line.match(connectOutPattern);
   if (connectOutMatch) {
-    result.callsign = result.hub.replace(/-\d+$/, '');
-    result.remoteCallsign = connectOutMatch[1].replace(/-\d+$/, '');
+    result.callsign = baseCallsign;
+    const partnerWithSsid = connectOutMatch[1];
+    const partnerBase = partnerWithSsid.replace(/-\d+$/, '');
+    result.remoteCallsign = partnerBase;
     result.eventType = 'connect_out';
+    
+    // Track this partner for later disconnect correlation
+    lastPartnerMap.set(baseCallsign, { 
+      partner: partnerBase, 
+      timestamp: parsedDate.getTime() 
+    });
+    
     return result;
   }
 
   const connectInMatch = line.match(connectInPattern);
   if (connectInMatch) {
-    result.callsign = result.hub.replace(/-\d+$/, '');
-    result.remoteCallsign = connectInMatch[1].replace(/-\d+$/, '');
+    result.callsign = baseCallsign;
+    const partnerWithSsid = connectInMatch[1];
+    const partnerBase = partnerWithSsid.replace(/-\d+$/, '');
+    result.remoteCallsign = partnerBase;
     result.eventType = 'connect_in';
+    
+    // Track this partner for later disconnect correlation
+    lastPartnerMap.set(baseCallsign, { 
+      partner: partnerBase, 
+      timestamp: parsedDate.getTime() 
+    });
+    
     return result;
   }
 
   const disconnectMatch = line.match(disconnectPattern);
   if (disconnectMatch) {
-    result.callsign = result.hub.replace(/-\d+$/, '');
+    result.callsign = baseCallsign;
     result.eventType = disconnectMatch[1]?.toLowerCase() === 'timeout' ? 'disconnect_timeout' : 'disconnect';
     result.bytesSent = parseInt(disconnectMatch[2]);
     result.bitrate = parseInt(disconnectMatch[3]);
@@ -104,6 +137,17 @@ function parseSyslogLine(line: string): {
     const sessionTime = disconnectMatch[6];
     const parts = sessionTime.split(':');
     result.durationSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    
+    // Try to find the partner from our tracking map
+    const lastPartner = lastPartnerMap.get(baseCallsign);
+    if (lastPartner) {
+      // Only use if the last connect/SN was within 10 minutes
+      const timeDiff = parsedDate.getTime() - lastPartner.timestamp;
+      if (timeDiff >= 0 && timeDiff < 600000) { // 10 minutes
+        result.remoteCallsign = lastPartner.partner;
+      }
+    }
+    
     return result;
   }
 

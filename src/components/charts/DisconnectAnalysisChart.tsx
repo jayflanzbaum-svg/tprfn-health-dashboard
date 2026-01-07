@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -8,13 +8,15 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from 'recharts';
-import { HubConnection, formatConnectionShort, formatCallsign } from '@/lib/syslogParser';
+import { HubConnection, DisconnectRecord, formatConnectionShort, formatCallsign } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
 import { HelpCircle, X, Users, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SessionDrilldownModal } from './SessionDrilldownModal';
 
 interface DisconnectAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -32,6 +34,26 @@ type ViewMode = 'partner-sessions' | 'station-activity';
 export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections, dateRangeKey }: DisconnectAnalysisChartProps) {
   const [showHelp, setShowHelp] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('partner-sessions');
+  const [drilldown, setDrilldown] = useState<{
+    open: boolean;
+    connectionId: string;
+    records: DisconnectRecord[];
+    filterType: 'all' | 'normal' | 'noData' | 'timeout';
+  }>({ open: false, connectionId: '', records: [], filterType: 'all' });
+
+  // Build a map of connectionId -> DisconnectRecords for drill-down
+  const connectionRecordsMap = useMemo(() => {
+    const map = new Map<string, DisconnectRecord[]>();
+    hubConnections.forEach((hub) => {
+      map.set(hub.connectionId, hub.disconnectRecords);
+    });
+    return map;
+  }, [hubConnections]);
+
+  const handleBarClick = useCallback((connectionId: string, filterType: 'all' | 'normal' | 'noData' | 'timeout') => {
+    const records = connectionRecordsMap.get(connectionId) || [];
+    setDrilldown({ open: true, connectionId, records, filterType });
+  }, [connectionRecordsMap]);
 
   // Check if we have raw disconnect records
   const hasRawData = useMemo(() => {
@@ -423,7 +445,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   };
                   return [value, labels[name] || name];
                 }}
-                labelFormatter={(label) => `Connection: ${label}`}
+                labelFormatter={(label) => `Connection: ${label} (click bar to view sessions)`}
               />
               <Legend 
                 formatter={(value) => {
@@ -435,9 +457,30 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   return labels[value] || value;
                 }}
               />
-              <Bar dataKey="normal" stackId="a" fill={DISCONNECT_COLORS.normal} name="normal" />
-              <Bar dataKey="noData" stackId="a" fill={DISCONNECT_COLORS.noData} name="noData" />
-              <Bar dataKey="timeout" stackId="a" fill={DISCONNECT_COLORS.timeout} name="timeout" />
+              <Bar 
+                dataKey="normal" 
+                stackId="a" 
+                fill={DISCONNECT_COLORS.normal} 
+                name="normal"
+                cursor="pointer"
+                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'normal')}
+              />
+              <Bar 
+                dataKey="noData" 
+                stackId="a" 
+                fill={DISCONNECT_COLORS.noData} 
+                name="noData"
+                cursor="pointer"
+                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'noData')}
+              />
+              <Bar 
+                dataKey="timeout" 
+                stackId="a" 
+                fill={DISCONNECT_COLORS.timeout} 
+                name="timeout"
+                cursor="pointer"
+                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'timeout')}
+              />
             </BarChart>
           ) : (
             <BarChart
@@ -490,6 +533,15 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
           )}
         </ResponsiveContainer>
       </div>
+
+      {/* Drilldown Modal */}
+      <SessionDrilldownModal
+        open={drilldown.open}
+        onOpenChange={(open) => setDrilldown(prev => ({ ...prev, open }))}
+        connectionId={drilldown.connectionId}
+        records={drilldown.records}
+        filterType={drilldown.filterType}
+      />
     </div>
   );
 });
