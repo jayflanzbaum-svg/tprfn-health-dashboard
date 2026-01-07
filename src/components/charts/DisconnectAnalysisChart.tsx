@@ -23,7 +23,8 @@ interface DisconnectAnalysisChartProps {
 
 const DISCONNECT_COLORS = {
   normal: 'hsl(142, 70%, 45%)',    // Green - healthy
-  timeout: 'hsl(38, 92%, 50%)',    // Orange - warning
+  noData: 'hsl(220, 13%, 60%)',    // Grey - no data exchanged
+  timeout: 'hsl(38, 92%, 50%)',    // Orange - warning/timeout
 };
 
 type ViewMode = 'partner-sessions' | 'station-activity';
@@ -43,7 +44,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     return found;
   }, [hubConnections]);
 
-  // Partner Sessions view - only real connections with data exchanged
+  // Partner Sessions view - all connections showing data/noData/timeout breakdown
   const partnerSessionsData = useMemo(() => {
     if (!hasRawData) {
       // Aggregated mode - use session counts
@@ -51,6 +52,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
         name: string;
         connectionId: string;
         normal: number;
+        noData: number;
         timeout: number;
         total: number;
         healthScore: number;
@@ -62,6 +64,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             name: formatConnectionShort(hub.connectionId),
             connectionId: hub.connectionId,
             normal: hub.sessionCount,
+            noData: 0,
             timeout: 0,
             total: hub.sessionCount,
             healthScore: 100,
@@ -72,31 +75,36 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       return data.sort((a, b) => b.total - a.total);
     }
 
-    // Raw data mode - only count disconnects where data was actually exchanged
+    // Raw data mode - show all sessions with breakdown
     const data: {
       name: string;
       connectionId: string;
       normal: number;
+      noData: number;
       timeout: number;
       total: number;
       healthScore: number;
     }[] = [];
 
     hubConnections.forEach((hub) => {
-      // Filter to only real sessions (where data was exchanged)
+      const noDataSessions = hub.disconnectRecords.filter(r => r.txBytes + r.rxBytes === 0);
       const realSessions = hub.disconnectRecords.filter(r => r.txBytes + r.rxBytes > 0);
       
       const normal = realSessions.filter(r => r.disconnectType === 'normal').length;
+      const noData = noDataSessions.length;
       const timeout = realSessions.filter(r => r.disconnectType === 'timeout').length;
-      const total = realSessions.length;
+      const total = hub.disconnectRecords.length;
 
       if (total > 0) {
-        const healthScore = Math.round((normal / total) * 100);
+        // Health score based on real sessions only
+        const realTotal = normal + timeout;
+        const healthScore = realTotal > 0 ? Math.round((normal / realTotal) * 100) : 100;
         
         data.push({
           name: formatConnectionShort(hub.connectionId),
           connectionId: hub.connectionId,
           normal,
+          noData,
           timeout,
           total,
           healthScore,
@@ -178,6 +186,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       });
       return {
         normal: totalSessions,
+        noData: 0,
         timeout: 0,
         total: totalSessions,
         healthPercent: totalSessions > 0 ? 100 : 0,
@@ -185,20 +194,28 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     }
 
     let totalNormal = 0;
+    let totalNoData = 0;
     let totalTimeout = 0;
 
     hubConnections.forEach((hub) => {
-      const realSessions = hub.disconnectRecords.filter(r => r.txBytes + r.rxBytes > 0);
-      totalNormal += realSessions.filter(r => r.disconnectType === 'normal').length;
-      totalTimeout += realSessions.filter(r => r.disconnectType === 'timeout').length;
+      hub.disconnectRecords.forEach((record) => {
+        if (record.txBytes + record.rxBytes === 0) {
+          totalNoData++;
+        } else if (record.disconnectType === 'timeout') {
+          totalTimeout++;
+        } else {
+          totalNormal++;
+        }
+      });
     });
 
-    const total = totalNormal + totalTimeout;
+    const realTotal = totalNormal + totalTimeout;
     return {
       normal: totalNormal,
+      noData: totalNoData,
       timeout: totalTimeout,
-      total,
-      healthPercent: total > 0 ? Math.round((totalNormal / total) * 100) : 0,
+      total: totalNormal + totalNoData + totalTimeout,
+      healthPercent: realTotal > 0 ? Math.round((totalNormal / realTotal) * 100) : 0,
     };
   }, [hubConnections, hasRawData]);
 
@@ -315,29 +332,27 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             <div className="space-y-3 text-sm">
               <div>
                 <span className="font-medium">Partner Sessions:</span>
-                <span className="text-muted-foreground ml-1">Shows actual connections where data was exchanged between specific station pairs. Beacons/probes (0 bytes) are excluded.</span>
+                <span className="text-muted-foreground ml-1">Shows all connections per station pair with breakdown: data exchanged, no data (probes), and timeouts.</span>
               </div>
               <div>
                 <span className="font-medium">Station Activity:</span>
-                <span className="text-muted-foreground ml-1">Shows all disconnect events per station, including beacons/probes (grey) and real sessions.</span>
+                <span className="text-muted-foreground ml-1">Shows all disconnect events aggregated per station.</span>
               </div>
-                <div className="pt-2 border-t border-border">
-                <h5 className="font-medium mb-2">Disconnect Types:</h5>
+              <div className="pt-2 border-t border-border">
+                <h5 className="font-medium mb-2">Session Types:</h5>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.normal }}></div>
-                    <span><strong>Normal:</strong> Clean disconnect after data exchange</span>
+                    <span><strong>Data Exchanged:</strong> Clean disconnect after successful data transfer</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.noData }}></div>
+                    <span><strong>No Data:</strong> Connected but no bytes transferred (probe/beacon)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.timeout }}></div>
-                    <span><strong>Timeout:</strong> Connection lost (signal fade, QRM)</span>
+                    <span><strong>Timeout:</strong> Connection lost during data exchange (signal fade, QRM)</span>
                   </div>
-                  {viewMode === 'station-activity' && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full shrink-0 bg-muted-foreground/50"></div>
-                      <span><strong>Beacon/Probe:</strong> No data exchanged (0 bytes)</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -349,7 +364,11 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
           <div className="flex gap-4 mt-4 text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.normal }}></div>
-              <span className="text-muted-foreground">Normal: <span className="font-mono font-medium text-foreground">{partnerStats.normal}</span></span>
+              <span className="text-muted-foreground">Data Exchanged: <span className="font-mono font-medium text-foreground">{partnerStats.normal}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.noData }}></div>
+              <span className="text-muted-foreground">No Data: <span className="font-mono font-medium text-foreground">{partnerStats.noData}</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.timeout }}></div>
@@ -397,15 +416,27 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   boxShadow: 'var(--shadow-lg)',
                 }}
                 formatter={(value: number, name: string) => {
-                  const label = name === 'normal' ? 'Normal' : 'Timeout';
-                  return [value, label];
+                  const labels: Record<string, string> = {
+                    normal: 'Data Exchanged',
+                    noData: 'No Data',
+                    timeout: 'Timeout'
+                  };
+                  return [value, labels[name] || name];
                 }}
                 labelFormatter={(label) => `Connection: ${label}`}
               />
               <Legend 
-                formatter={(value) => value === 'normal' ? 'Normal (Healthy)' : 'Timeout (Poor Signal)'}
+                formatter={(value) => {
+                  const labels: Record<string, string> = {
+                    normal: 'Data Exchanged',
+                    noData: 'No Data (Probe)',
+                    timeout: 'Timeout'
+                  };
+                  return labels[value] || value;
+                }}
               />
               <Bar dataKey="normal" stackId="a" fill={DISCONNECT_COLORS.normal} name="normal" />
+              <Bar dataKey="noData" stackId="a" fill={DISCONNECT_COLORS.noData} name="noData" />
               <Bar dataKey="timeout" stackId="a" fill={DISCONNECT_COLORS.timeout} name="timeout" />
             </BarChart>
           ) : (
