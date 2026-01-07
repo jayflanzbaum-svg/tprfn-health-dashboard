@@ -463,7 +463,10 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                 fill={DISCONNECT_COLORS.normal} 
                 name="normal"
                 cursor="pointer"
-                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'normal')}
+                onClick={(_, index) => {
+                  const item = partnerExpandable.displayItems[index];
+                  if (item?.connectionId) handleBarClick(item.connectionId, 'normal');
+                }}
               />
               <Bar 
                 dataKey="noData" 
@@ -471,7 +474,10 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                 fill={DISCONNECT_COLORS.noData} 
                 name="noData"
                 cursor="pointer"
-                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'noData')}
+                onClick={(_, index) => {
+                  const item = partnerExpandable.displayItems[index];
+                  if (item?.connectionId) handleBarClick(item.connectionId, 'noData');
+                }}
               />
               <Bar 
                 dataKey="timeout" 
@@ -479,7 +485,10 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                 fill={DISCONNECT_COLORS.timeout} 
                 name="timeout"
                 cursor="pointer"
-                onClick={(data) => data?.connectionId && handleBarClick(data.connectionId, 'timeout')}
+                onClick={(_, index) => {
+                  const item = partnerExpandable.displayItems[index];
+                  if (item?.connectionId) handleBarClick(item.connectionId, 'timeout');
+                }}
               />
             </BarChart>
           ) : (
