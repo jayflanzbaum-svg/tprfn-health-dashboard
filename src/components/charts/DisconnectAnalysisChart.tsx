@@ -24,7 +24,6 @@ interface DisconnectAnalysisChartProps {
 const DISCONNECT_COLORS = {
   normal: 'hsl(142, 70%, 45%)',    // Green - healthy
   timeout: 'hsl(38, 92%, 50%)',    // Orange - warning
-  command: 'hsl(199, 89%, 48%)',   // Blue - manual
 };
 
 type ViewMode = 'partner-sessions' | 'station-activity';
@@ -53,7 +52,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
         connectionId: string;
         normal: number;
         timeout: number;
-        command: number;
         total: number;
         healthScore: number;
       }[] = [];
@@ -65,7 +63,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             connectionId: hub.connectionId,
             normal: hub.sessionCount,
             timeout: 0,
-            command: 0,
             total: hub.sessionCount,
             healthScore: 100,
           });
@@ -81,7 +78,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       connectionId: string;
       normal: number;
       timeout: number;
-      command: number;
       total: number;
       healthScore: number;
     }[] = [];
@@ -92,7 +88,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       
       const normal = realSessions.filter(r => r.disconnectType === 'normal').length;
       const timeout = realSessions.filter(r => r.disconnectType === 'timeout').length;
-      const command = realSessions.filter(r => r.disconnectType === 'command').length;
       const total = realSessions.length;
 
       if (total > 0) {
@@ -103,7 +98,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
           connectionId: hub.connectionId,
           normal,
           timeout,
-          command,
           total,
           healthScore,
         });
@@ -120,13 +114,13 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     }
 
     // Aggregate by station
-    const stationStats = new Map<string, { normal: number; timeout: number; command: number; beacons: number }>();
+    const stationStats = new Map<string, { normal: number; timeout: number; beacons: number }>();
 
     hubConnections.forEach((hub) => {
       hub.disconnectRecords.forEach((record) => {
         const station = record.station;
         if (!stationStats.has(station)) {
-          stationStats.set(station, { normal: 0, timeout: 0, command: 0, beacons: 0 });
+          stationStats.set(station, { normal: 0, timeout: 0, beacons: 0 });
         }
         const stats = stationStats.get(station)!;
         
@@ -134,9 +128,8 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
         if (isBeacon) {
           stats.beacons++;
         } else {
-          if (record.disconnectType === 'normal') stats.normal++;
-          else if (record.disconnectType === 'timeout') stats.timeout++;
-          else if (record.disconnectType === 'command') stats.command++;
+          if (record.disconnectType === 'timeout') stats.timeout++;
+          else stats.normal++;
         }
       });
     });
@@ -146,22 +139,20 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       station: string;
       normal: number;
       timeout: number;
-      command: number;
       beacons: number;
       total: number;
       realSessions: number;
     }[] = [];
 
     stationStats.forEach((stats, station) => {
-      const total = stats.normal + stats.timeout + stats.command + stats.beacons;
-      const realSessions = stats.normal + stats.timeout + stats.command;
+      const total = stats.normal + stats.timeout + stats.beacons;
+      const realSessions = stats.normal + stats.timeout;
       
       data.push({
         name: formatCallsign(station),
         station,
         normal: stats.normal,
         timeout: stats.timeout,
-        command: stats.command,
         beacons: stats.beacons,
         total,
         realSessions,
@@ -188,7 +179,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
       return {
         normal: totalSessions,
         timeout: 0,
-        command: 0,
         total: totalSessions,
         healthPercent: totalSessions > 0 ? 100 : 0,
       };
@@ -196,20 +186,17 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
 
     let totalNormal = 0;
     let totalTimeout = 0;
-    let totalCommand = 0;
 
     hubConnections.forEach((hub) => {
       const realSessions = hub.disconnectRecords.filter(r => r.txBytes + r.rxBytes > 0);
       totalNormal += realSessions.filter(r => r.disconnectType === 'normal').length;
       totalTimeout += realSessions.filter(r => r.disconnectType === 'timeout').length;
-      totalCommand += realSessions.filter(r => r.disconnectType === 'command').length;
     });
 
-    const total = totalNormal + totalTimeout + totalCommand;
+    const total = totalNormal + totalTimeout;
     return {
       normal: totalNormal,
       timeout: totalTimeout,
-      command: totalCommand,
       total,
       healthPercent: total > 0 ? Math.round((totalNormal / total) * 100) : 0,
     };
@@ -334,7 +321,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                 <span className="font-medium">Station Activity:</span>
                 <span className="text-muted-foreground ml-1">Shows all disconnect events per station, including beacons/probes (grey) and real sessions.</span>
               </div>
-              <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border">
                 <h5 className="font-medium mb-2">Disconnect Types:</h5>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -344,10 +331,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.timeout }}></div>
                     <span><strong>Timeout:</strong> Connection lost (signal fade, QRM)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.command }}></div>
-                    <span><strong>Manual:</strong> Operator-initiated disconnect</span>
                   </div>
                   {viewMode === 'station-activity' && (
                     <div className="flex items-center gap-2">
@@ -371,10 +354,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.timeout }}></div>
               <span className="text-muted-foreground">Timeout: <span className="font-mono font-medium text-foreground">{partnerStats.timeout}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DISCONNECT_COLORS.command }}></div>
-              <span className="text-muted-foreground">Manual: <span className="font-mono font-medium text-foreground">{partnerStats.command}</span></span>
             </div>
           </div>
         ) : (
@@ -418,17 +397,16 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   boxShadow: 'var(--shadow-lg)',
                 }}
                 formatter={(value: number, name: string) => {
-                  const label = name === 'normal' ? 'Normal' : name === 'timeout' ? 'Timeout' : 'Manual';
+                  const label = name === 'normal' ? 'Normal' : 'Timeout';
                   return [value, label];
                 }}
                 labelFormatter={(label) => `Connection: ${label}`}
               />
               <Legend 
-                formatter={(value) => value === 'normal' ? 'Normal (Healthy)' : value === 'timeout' ? 'Timeout (Poor Signal)' : 'Manual'}
+                formatter={(value) => value === 'normal' ? 'Normal (Healthy)' : 'Timeout (Poor Signal)'}
               />
               <Bar dataKey="normal" stackId="a" fill={DISCONNECT_COLORS.normal} name="normal" />
               <Bar dataKey="timeout" stackId="a" fill={DISCONNECT_COLORS.timeout} name="timeout" />
-              <Bar dataKey="command" stackId="a" fill={DISCONNECT_COLORS.command} name="command" />
             </BarChart>
           ) : (
             <BarChart
@@ -458,8 +436,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   const labels: Record<string, string> = {
                     beacons: 'Beacons/Probes',
                     normal: 'Normal',
-                    timeout: 'Timeout',
-                    command: 'Manual'
+                    timeout: 'Timeout'
                   };
                   return [value, labels[name] || name];
                 }}
@@ -470,8 +447,7 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
                   const labels: Record<string, string> = {
                     beacons: 'Beacons/Probes (No Data)',
                     normal: 'Normal',
-                    timeout: 'Timeout',
-                    command: 'Manual'
+                    timeout: 'Timeout'
                   };
                   return labels[value] || value;
                 }}
@@ -479,7 +455,6 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
               <Bar dataKey="beacons" stackId="a" fill="hsl(var(--muted-foreground) / 0.5)" name="beacons" />
               <Bar dataKey="normal" stackId="a" fill={DISCONNECT_COLORS.normal} name="normal" />
               <Bar dataKey="timeout" stackId="a" fill={DISCONNECT_COLORS.timeout} name="timeout" />
-              <Bar dataKey="command" stackId="a" fill={DISCONNECT_COLORS.command} name="command" />
             </BarChart>
           )}
         </ResponsiveContainer>
