@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -8,11 +8,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  Cell,
 } from 'recharts';
 import { HubConnection, formatConnectionShort } from '@/lib/syslogParser';
 import { useExpandableList } from '@/hooks/useExpandableList';
 import { ExpandCollapseButton } from '@/components/ExpandCollapseButton';
+import { HelpCircle, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface DisconnectAnalysisChartProps {
   hubConnections: Map<string, HubConnection>;
@@ -26,6 +27,7 @@ const DISCONNECT_COLORS = {
 };
 
 export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ hubConnections, dateRangeKey }: DisconnectAnalysisChartProps) {
+  const [showHelp, setShowHelp] = useState(false);
   const { chartData, isAggregated } = useMemo(() => {
     // Check if we have raw disconnect records or just aggregated data
     let hasRawData = false;
@@ -128,16 +130,29 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
     <div className="chart-card">
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              {isAggregated ? 'Sessions by Connection' : 'Disconnect Analysis by Connection'}
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isAggregated 
-                ? 'Session counts per hub pair (detailed breakdown unavailable for large date ranges)'
-                : 'RF connection health indicator - breakdown by disconnect reason'
-              }
-            </p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">
+                {isAggregated ? 'Sessions by Connection' : 'Disconnect Analysis by Connection'}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isAggregated 
+                  ? 'Session counts per hub pair (detailed breakdown unavailable for large date ranges)'
+                  : 'RF connection health indicator - breakdown by disconnect reason'
+                }
+              </p>
+            </div>
+            {!isAggregated && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Show disconnect type explanations"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-4">
             {hasMore && (
@@ -154,6 +169,47 @@ export const DisconnectAnalysisChart = memo(function DisconnectAnalysisChart({ h
             </div>
           </div>
         </div>
+
+        {/* Help panel */}
+        {showHelp && (
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-6 w-6 p-0"
+              onClick={() => setShowHelp(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <h4 className="font-semibold text-sm mb-3">Understanding Disconnect Types</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start gap-2">
+                <div className="w-3 h-3 rounded-full mt-1 shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.normal }}></div>
+                <div>
+                  <span className="font-medium">Normal:</span>
+                  <span className="text-muted-foreground ml-1">Connection established → data exchanged → one station initiated proper disconnect → other station acknowledged. This is a healthy, complete session.</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-3 h-3 rounded-full mt-1 shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.timeout }}></div>
+                <div>
+                  <span className="font-medium">Timeout:</span>
+                  <span className="text-muted-foreground ml-1">Connection was lost without proper handshake—typically due to signal loss, propagation fade, QRM, or equipment issues. The session was interrupted.</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-3 h-3 rounded-full mt-1 shrink-0" style={{ backgroundColor: DISCONNECT_COLORS.command }}></div>
+                <div>
+                  <span className="font-medium">Manual:</span>
+                  <span className="text-muted-foreground ml-1">Operator-initiated disconnect command. Session ended by user action rather than automatic completion.</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+              <strong>Note:</strong> Each bar shows a specific station pair (e.g., "N4SFL ↔ KK4DIV"). Times are in UTC. Day starts at 00:00 UTC.
+            </div>
+          </div>
+        )}
         
         {/* Summary stats */}
         <div className="flex gap-4 mt-4 text-sm">
