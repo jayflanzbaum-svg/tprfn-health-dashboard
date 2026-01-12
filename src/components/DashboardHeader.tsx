@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2 } from 'lucide-react';
+import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2, Share2, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -13,6 +13,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StationLocationsManager } from '@/components/StationLocationsManager';
 import { useHubActivityStatus } from '@/hooks/useHubActivityStatus';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface DashboardHeaderProps {
   stationCount: number;
@@ -27,6 +32,7 @@ interface DashboardHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   allowedCallsigns: string[];
+  onShareClick?: () => Promise<boolean>;
 }
 
 function useCurrentTime() {
@@ -79,11 +85,23 @@ export function DashboardHeader({
   dataDateRange,
   onRefresh,
   isRefreshing,
-  allowedCallsigns
+  allowedCallsigns,
+  onShareClick
 }: DashboardHeaderProps) {
   const now = useCurrentTime();
   const tzAbbr = getTimezoneAbbr();
   const hubStatus = useHubActivityStatus(allowedCallsigns);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (onShareClick) {
+      const success = await onShareClick();
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+  };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
@@ -169,6 +187,32 @@ export function DashboardHeader({
 
           {/* Station Locations Manager */}
           <StationLocationsManager callsigns={stations} />
+
+          {/* Share button */}
+          {onShareClick && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="h-7 px-2 gap-1"
+                >
+                  {copied ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <Share2 className="h-3 w-3" />
+                  )}
+                  <span className="hidden sm:inline text-xs">
+                    {copied ? 'Copied!' : 'Share'}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy shareable URL with current filters</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Refresh button and last updated */}
           <div className="flex items-center gap-1.5">
