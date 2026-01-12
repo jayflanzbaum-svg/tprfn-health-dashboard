@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
 import { useKpiStats } from '@/hooks/useKpiStats';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
@@ -28,9 +29,21 @@ import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
 import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
 
 const Index = () => {
-  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
+  // URL-based filter state
+  const { filters, setFilters, copyShareableUrl, hasUrlFilters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
+  
+  // Initialize state from URL or defaults
+  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>(
+    filters.callsigns || [...DEFAULT_ALLOWED_CALLSIGNS].sort()
+  );
+  const [dateRange, setDateRange] = useState<DateRange>(filters.dateRange);
+  const [selectedStation, setSelectedStation] = useState<string | null>(filters.selectedStation);
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
+
+  // Sync state changes to URL
+  useEffect(() => {
+    setFilters({ dateRange, selectedStation, callsigns: allowedCallsigns });
+  }, [dateRange, selectedStation, allowedCallsigns, setFilters]);
 
   const fetchDays = useMemo(() => {
     const msPerDay = 1000 * 60 * 60 * 24;
@@ -42,7 +55,6 @@ const Index = () => {
   const { data, loading, error, refetch, lastUpdated, isRefreshing } = useDatabaseData(allowedCallsigns, fetchDays);
   const { locations, distances, lookupCallsigns } = useStationLocations();
   const [logFilter, setLogFilter] = useState<LogFilter>('sn');
-  const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const logTableRef = useRef<HTMLDivElement>(null);
   
   // Accurate KPI stats from database function
@@ -432,6 +444,7 @@ const Index = () => {
             onRefresh={refetch}
             isRefreshing={isRefreshing}
             allowedCallsigns={allowedCallsigns}
+            onShareClick={copyShareableUrl}
           />
 
           <main className="mt-8">
@@ -463,6 +476,7 @@ const Index = () => {
           onRefresh={refetch}
           isRefreshing={isRefreshing}
           allowedCallsigns={allowedCallsigns}
+          onShareClick={copyShareableUrl}
         />
 
         {/* Inactive Hubs Alert */}
