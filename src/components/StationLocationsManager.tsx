@@ -33,15 +33,6 @@ interface StationLocationsManagerProps {
   callsigns: string[];
 }
 
-const PAUSE_DURATION_OPTIONS = [
-  { label: '1 day', days: 1 },
-  { label: '3 days', days: 3 },
-  { label: '7 days', days: 7 },
-  { label: '14 days', days: 14 },
-  { label: '30 days', days: 30 },
-  { label: 'Indefinitely', days: 0 },
-];
-
 export function StationLocationsManager({ callsigns }: StationLocationsManagerProps) {
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
   const [isOpen, setIsOpen] = useState(false);
@@ -49,6 +40,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
   const [editForm, setEditForm] = useState({ grid_square: '', latitude: '', longitude: '' });
   const [togglingPause, setTogglingPause] = useState<string | null>(null);
   const [pausePopoverOpen, setPausePopoverOpen] = useState<string | null>(null);
+  const [pauseDays, setPauseDays] = useState<string>('7');
 
   const handleLookupAll = async () => {
     try {
@@ -274,20 +266,46 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                               />
                             </div>
                           </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2" align="center">
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium mb-2">Pause for:</p>
-                              {PAUSE_DURATION_OPTIONS.map((option) => (
+                          <PopoverContent className="w-56 p-3" align="center">
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">Pause for how many days?</p>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={30}
+                                  value={pauseDays}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '' || (parseInt(val) >= 1 && parseInt(val) <= 30)) {
+                                      setPauseDays(val);
+                                    }
+                                  }}
+                                  className="w-20 h-8"
+                                  placeholder="1-30"
+                                />
+                                <span className="text-sm text-muted-foreground">days</span>
+                              </div>
+                              <div className="flex gap-2">
                                 <Button
-                                  key={option.days}
-                                  variant="ghost"
                                   size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => handlePause(callsign, option.days)}
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const days = parseInt(pauseDays) || 7;
+                                    handlePause(callsign, Math.min(30, Math.max(1, days)));
+                                  }}
+                                  disabled={!pauseDays || parseInt(pauseDays) < 1 || parseInt(pauseDays) > 30}
                                 >
-                                  {option.label}
+                                  Pause
                                 </Button>
-                              ))}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setPausePopoverOpen(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
                           </PopoverContent>
                         </Popover>
