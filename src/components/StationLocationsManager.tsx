@@ -215,6 +215,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                           checked={!loc?.is_paused}
                           onCheckedChange={() => handleTogglePause(callsign)}
                           title={loc?.is_paused ? 'Station is paused - click to resume' : 'Station is active - click to pause'}
+                          className={!loc?.is_paused ? 'data-[state=checked]:bg-green-500' : ''}
                         />
                       )}
                       {loc?.is_paused && (
