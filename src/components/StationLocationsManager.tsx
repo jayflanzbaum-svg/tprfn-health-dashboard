@@ -18,19 +18,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MapPin, RefreshCw, Edit2, Check, X, Loader2 } from 'lucide-react';
+import { MapPin, RefreshCw, Edit2, Check, X, Loader2, Pause, Play } from 'lucide-react';
 import { StationLocation, useStationLocations } from '@/hooks/useStationLocations';
 import { toast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 
 interface StationLocationsManagerProps {
   callsigns: string[];
 }
 
 export function StationLocationsManager({ callsigns }: StationLocationsManagerProps) {
-  const { locations, loading, lookupCallsigns, updateLocation } = useStationLocations();
+  const { locations, loading, lookupCallsigns, updateLocation, togglePause } = useStationLocations();
   const [isOpen, setIsOpen] = useState(false);
   const [editingCallsign, setEditingCallsign] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ grid_square: '', latitude: '', longitude: '' });
+  const [togglingPause, setTogglingPause] = useState<string | null>(null);
 
   const handleLookupAll = async () => {
     try {
@@ -86,6 +88,29 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
     setEditForm({ grid_square: '', latitude: '', longitude: '' });
   };
 
+  const handleTogglePause = async (callsign: string) => {
+    setTogglingPause(callsign);
+    try {
+      await togglePause(callsign);
+      const loc = locations.get(callsign.toUpperCase());
+      const wasPaused = loc?.is_paused;
+      toast({
+        title: wasPaused ? 'Station resumed' : 'Station paused',
+        description: wasPaused 
+          ? `${callsign} will now be included in inactive alerts` 
+          : `${callsign} will be excluded from inactive alerts`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to update',
+        description: 'Could not toggle pause state',
+        variant: 'destructive',
+      });
+    } finally {
+      setTogglingPause(null);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -117,6 +142,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
               <TableHead>Lat/Long</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Source</TableHead>
+              <TableHead className="text-center">Active</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -179,6 +205,22 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                     ) : (
                       <span className="text-muted-foreground text-xs">Not set</span>
                     )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {togglingPause === callsign ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Switch
+                          checked={!loc?.is_paused}
+                          onCheckedChange={() => handleTogglePause(callsign)}
+                          title={loc?.is_paused ? 'Station is paused - click to resume' : 'Station is active - click to pause'}
+                        />
+                      )}
+                      {loc?.is_paused && (
+                        <span className="text-xs text-muted-foreground">(Paused)</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {isEditing ? (

@@ -24,9 +24,11 @@ export type Database = {
           grid_square: string | null
           id: string
           is_manual_override: boolean
+          is_paused: boolean
           last_fetched_at: string | null
           latitude: number | null
           longitude: number | null
+          paused_at: string | null
           source: string
           state: string | null
           updated_at: string
@@ -40,9 +42,11 @@ export type Database = {
           grid_square?: string | null
           id?: string
           is_manual_override?: boolean
+          is_paused?: boolean
           last_fetched_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          paused_at?: string | null
           source?: string
           state?: string | null
           updated_at?: string
@@ -56,9 +60,11 @@ export type Database = {
           grid_square?: string | null
           id?: string
           is_manual_override?: boolean
+          is_paused?: boolean
           last_fetched_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          paused_at?: string | null
           source?: string
           state?: string | null
           updated_at?: string

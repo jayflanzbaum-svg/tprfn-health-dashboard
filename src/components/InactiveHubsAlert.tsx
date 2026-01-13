@@ -16,6 +16,27 @@ interface StationActivity {
 export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = false }: InactiveHubsAlertProps) {
   const [inactiveStations, setInactiveStations] = useState<StationActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pausedCallsigns, setPausedCallsigns] = useState<Set<string>>(new Set());
+
+  // Fetch paused stations
+  useEffect(() => {
+    const fetchPausedStations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('station_locations')
+          .select('callsign')
+          .eq('is_paused', true);
+        
+        if (!error && data) {
+          setPausedCallsigns(new Set(data.map(s => s.callsign.toUpperCase())));
+        }
+      } catch (err) {
+        console.error('Error fetching paused stations:', err);
+      }
+    };
+    
+    fetchPausedStations();
+  }, []);
 
   // Fetch last 24 hours of activity directly from database (independent of date filter)
   useEffect(() => {
@@ -67,11 +88,17 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
           }
         }
 
-        // Find stations that haven't connected in 24 hours
+        // Find stations that haven't connected in 24 hours (excluding paused ones)
         const inactive: StationActivity[] = [];
         
         for (const callsign of allowedCallsigns) {
           const normalized = callsign.toUpperCase().trim();
+          
+          // Skip paused stations
+          if (pausedCallsigns.has(normalized)) {
+            continue;
+          }
+          
           const lastActivity = lastActivityMap.get(normalized);
           
           if (!lastActivity) {
@@ -127,7 +154,7 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
     // Refresh every 5 minutes
     const interval = setInterval(fetchLast24HoursActivity, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [allowedCallsigns]);
+  }, [allowedCallsigns, pausedCallsigns]);
 
   const formatLastSeen = (date: Date | null) => {
     if (!date) return 'Never seen';

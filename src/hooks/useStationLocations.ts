@@ -14,6 +14,8 @@ export interface StationLocation {
   source: string;
   is_manual_override: boolean;
   last_fetched_at: string | null;
+  is_paused: boolean;
+  paused_at: string | null;
 }
 
 interface UseStationLocationsResult {
@@ -24,6 +26,8 @@ interface UseStationLocationsResult {
   lookupCallsigns: (callsigns: string[]) => Promise<void>;
   updateLocation: (callsign: string, data: Partial<StationLocation>) => Promise<void>;
   getDistance: (callsign1: string, callsign2: string) => number | null;
+  togglePause: (callsign: string) => Promise<void>;
+  getPausedCallsigns: () => string[];
 }
 
 export function useStationLocations(): UseStationLocationsResult {
@@ -169,6 +173,41 @@ export function useStationLocations(): UseStationLocationsResult {
     return distances.get(key) ?? null;
   }, [distances]);
 
+  const togglePause = useCallback(async (callsign: string) => {
+    try {
+      const upper = callsign.toUpperCase();
+      const existing = locations.get(upper);
+      const newPausedState = !existing?.is_paused;
+      
+      const updateData = {
+        callsign: upper,
+        is_paused: newPausedState,
+        paused_at: newPausedState ? new Date().toISOString() : null,
+      };
+
+      const { data: updated, error } = await supabase
+        .from('station_locations')
+        .upsert(updateData, { onConflict: 'callsign' })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newLocations = new Map(locations);
+      newLocations.set(upper, updated as StationLocation);
+      setLocations(newLocations);
+    } catch (err: any) {
+      console.error('Error toggling pause:', err);
+      throw err;
+    }
+  }, [locations]);
+
+  const getPausedCallsigns = useCallback((): string[] => {
+    return Array.from(locations.entries())
+      .filter(([_, loc]) => loc.is_paused)
+      .map(([callsign]) => callsign);
+  }, [locations]);
+
   return {
     locations,
     distances,
@@ -177,6 +216,8 @@ export function useStationLocations(): UseStationLocationsResult {
     lookupCallsigns,
     updateLocation,
     getDistance,
+    togglePause,
+    getPausedCallsigns,
   };
 }
 
