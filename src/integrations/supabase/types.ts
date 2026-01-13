@@ -29,6 +29,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           paused_at: string | null
+          resume_at: string | null
           source: string
           state: string | null
           updated_at: string
@@ -47,6 +48,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           paused_at?: string | null
+          resume_at?: string | null
           source?: string
           state?: string | null
           updated_at?: string
@@ -65,6 +67,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           paused_at?: string | null
+          resume_at?: string | null
           source?: string
           state?: string | null
           updated_at?: string

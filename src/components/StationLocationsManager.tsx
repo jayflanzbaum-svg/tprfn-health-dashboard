@@ -18,21 +18,37 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MapPin, RefreshCw, Edit2, Check, X, Loader2, Pause, Play } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { MapPin, RefreshCw, Edit2, Check, X, Loader2, Clock } from 'lucide-react';
 import { StationLocation, useStationLocations } from '@/hooks/useStationLocations';
 import { toast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface StationLocationsManagerProps {
   callsigns: string[];
 }
 
+const PAUSE_DURATION_OPTIONS = [
+  { label: '1 day', days: 1 },
+  { label: '3 days', days: 3 },
+  { label: '7 days', days: 7 },
+  { label: '14 days', days: 14 },
+  { label: '30 days', days: 30 },
+  { label: 'Indefinitely', days: 0 },
+];
+
 export function StationLocationsManager({ callsigns }: StationLocationsManagerProps) {
-  const { locations, loading, lookupCallsigns, updateLocation, togglePause } = useStationLocations();
+  const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
   const [isOpen, setIsOpen] = useState(false);
   const [editingCallsign, setEditingCallsign] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ grid_square: '', latitude: '', longitude: '' });
   const [togglingPause, setTogglingPause] = useState<string | null>(null);
+  const [pausePopoverOpen, setPausePopoverOpen] = useState<string | null>(null);
 
   const handleLookupAll = async () => {
     try {
@@ -88,22 +104,39 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
     setEditForm({ grid_square: '', latitude: '', longitude: '' });
   };
 
-  const handleTogglePause = async (callsign: string) => {
+  const handlePause = async (callsign: string, days: number) => {
     setTogglingPause(callsign);
+    setPausePopoverOpen(null);
     try {
-      await togglePause(callsign);
-      const loc = locations.get(callsign.toUpperCase());
-      const wasPaused = loc?.is_paused;
+      await pauseStation(callsign, days);
+      const durationText = days === 0 ? 'indefinitely' : `for ${days} day${days > 1 ? 's' : ''}`;
       toast({
-        title: wasPaused ? 'Station resumed' : 'Station paused',
-        description: wasPaused 
-          ? `${callsign} will now be included in inactive alerts` 
-          : `${callsign} will be excluded from inactive alerts`,
+        title: 'Station paused',
+        description: `${callsign} paused ${durationText}`,
       });
     } catch (err) {
       toast({
-        title: 'Failed to update',
-        description: 'Could not toggle pause state',
+        title: 'Failed to pause',
+        description: 'Could not pause station',
+        variant: 'destructive',
+      });
+    } finally {
+      setTogglingPause(null);
+    }
+  };
+
+  const handleResume = async (callsign: string) => {
+    setTogglingPause(callsign);
+    try {
+      await resumeStation(callsign);
+      toast({
+        title: 'Station resumed',
+        description: `${callsign} will now be included in inactive alerts`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to resume',
+        description: 'Could not resume station',
         variant: 'destructive',
       });
     } finally {
@@ -210,16 +243,54 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                     <div className="flex items-center justify-center gap-2">
                       {togglingPause === callsign ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : loc?.is_paused ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <Switch
+                            checked={false}
+                            onCheckedChange={() => handleResume(callsign)}
+                            title="Station is paused - click to resume"
+                          />
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {loc.resume_at ? (
+                              <span>Resumes {formatDistanceToNow(new Date(loc.resume_at), { addSuffix: true })}</span>
+                            ) : (
+                              <span>Paused indefinitely</span>
+                            )}
+                          </div>
+                        </div>
                       ) : (
-                        <Switch
-                          checked={!loc?.is_paused}
-                          onCheckedChange={() => handleTogglePause(callsign)}
-                          title={loc?.is_paused ? 'Station is paused - click to resume' : 'Station is active - click to pause'}
-                          className={!loc?.is_paused ? 'data-[state=checked]:bg-green-500' : ''}
-                        />
-                      )}
-                      {loc?.is_paused && (
-                        <span className="text-xs text-muted-foreground">(Paused)</span>
+                        <Popover 
+                          open={pausePopoverOpen === callsign} 
+                          onOpenChange={(open) => setPausePopoverOpen(open ? callsign : null)}
+                        >
+                          <PopoverTrigger asChild>
+                            <div>
+                              <Switch
+                                checked={true}
+                                onCheckedChange={() => setPausePopoverOpen(callsign)}
+                                title="Station is active - click to pause"
+                                className="data-[state=checked]:bg-green-500"
+                              />
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2" align="center">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium mb-2">Pause for:</p>
+                              {PAUSE_DURATION_OPTIONS.map((option) => (
+                                <Button
+                                  key={option.days}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start"
+                                  onClick={() => handlePause(callsign, option.days)}
+                                >
+                                  {option.label}
+                                </Button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </div>
                   </TableCell>

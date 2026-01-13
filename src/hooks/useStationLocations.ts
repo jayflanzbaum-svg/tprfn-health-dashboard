@@ -16,6 +16,7 @@ export interface StationLocation {
   last_fetched_at: string | null;
   is_paused: boolean;
   paused_at: string | null;
+  resume_at: string | null;
 }
 
 interface UseStationLocationsResult {
@@ -26,8 +27,10 @@ interface UseStationLocationsResult {
   lookupCallsigns: (callsigns: string[]) => Promise<void>;
   updateLocation: (callsign: string, data: Partial<StationLocation>) => Promise<void>;
   getDistance: (callsign1: string, callsign2: string) => number | null;
-  togglePause: (callsign: string) => Promise<void>;
+  pauseStation: (callsign: string, days?: number) => Promise<void>;
+  resumeStation: (callsign: string) => Promise<void>;
   getPausedCallsigns: () => string[];
+  checkAndResumeExpired: () => Promise<void>;
 }
 
 export function useStationLocations(): UseStationLocationsResult {
@@ -36,10 +39,44 @@ export function useStationLocations(): UseStationLocationsResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check for expired pauses and auto-resume
+  const checkAndResumeExpired = useCallback(async () => {
+    try {
+      const now = new Date().toISOString();
+      
+      // Find stations that should be resumed
+      const { data: expiredStations, error: fetchError } = await supabase
+        .from('station_locations')
+        .select('*')
+        .eq('is_paused', true)
+        .not('resume_at', 'is', null)
+        .lte('resume_at', now);
+      
+      if (fetchError) throw fetchError;
+      
+      if (expiredStations && expiredStations.length > 0) {
+        // Resume each expired station
+        for (const station of expiredStations) {
+          await supabase
+            .from('station_locations')
+            .update({ is_paused: false, paused_at: null, resume_at: null })
+            .eq('callsign', station.callsign);
+        }
+        
+        console.log(`Auto-resumed ${expiredStations.length} stations`);
+      }
+    } catch (err) {
+      console.error('Error checking expired pauses:', err);
+    }
+  }, []);
+
   // Load cached locations from database on mount
   useEffect(() => {
     const loadCached = async () => {
       try {
+        // First check for expired pauses
+        await checkAndResumeExpired();
+        
         const { data, error } = await supabase
           .from('station_locations')
           .select('*');
@@ -57,7 +94,7 @@ export function useStationLocations(): UseStationLocationsResult {
     };
     
     loadCached();
-  }, []);
+  }, [checkAndResumeExpired]);
 
   const lookupCallsigns = useCallback(async (callsigns: string[]) => {
     if (callsigns.length === 0) return;
@@ -173,16 +210,23 @@ export function useStationLocations(): UseStationLocationsResult {
     return distances.get(key) ?? null;
   }, [distances]);
 
-  const togglePause = useCallback(async (callsign: string) => {
+  const pauseStation = useCallback(async (callsign: string, days?: number) => {
     try {
       const upper = callsign.toUpperCase();
-      const existing = locations.get(upper);
-      const newPausedState = !existing?.is_paused;
+      const now = new Date();
+      
+      let resumeAt: string | null = null;
+      if (days && days > 0) {
+        const resumeDate = new Date(now);
+        resumeDate.setDate(resumeDate.getDate() + days);
+        resumeAt = resumeDate.toISOString();
+      }
       
       const updateData = {
         callsign: upper,
-        is_paused: newPausedState,
-        paused_at: newPausedState ? new Date().toISOString() : null,
+        is_paused: true,
+        paused_at: now.toISOString(),
+        resume_at: resumeAt,
       };
 
       const { data: updated, error } = await supabase
@@ -197,7 +241,35 @@ export function useStationLocations(): UseStationLocationsResult {
       newLocations.set(upper, updated as StationLocation);
       setLocations(newLocations);
     } catch (err: any) {
-      console.error('Error toggling pause:', err);
+      console.error('Error pausing station:', err);
+      throw err;
+    }
+  }, [locations]);
+
+  const resumeStation = useCallback(async (callsign: string) => {
+    try {
+      const upper = callsign.toUpperCase();
+      
+      const updateData = {
+        callsign: upper,
+        is_paused: false,
+        paused_at: null,
+        resume_at: null,
+      };
+
+      const { data: updated, error } = await supabase
+        .from('station_locations')
+        .upsert(updateData, { onConflict: 'callsign' })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newLocations = new Map(locations);
+      newLocations.set(upper, updated as StationLocation);
+      setLocations(newLocations);
+    } catch (err: any) {
+      console.error('Error resuming station:', err);
       throw err;
     }
   }, [locations]);
@@ -216,8 +288,10 @@ export function useStationLocations(): UseStationLocationsResult {
     lookupCallsigns,
     updateLocation,
     getDistance,
-    togglePause,
+    pauseStation,
+    resumeStation,
     getPausedCallsigns,
+    checkAndResumeExpired,
   };
 }
 
