@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const callsignSet = new Set((callsigns || []).map((c: string) => c.toUpperCase().trim()));
-    const callsignArray = Array.from(callsignSet);
+    const callsignArray: string[] = Array.from(callsignSet) as string[];
 
     // Fetch in batches using cursor-based pagination (timestamp + id)
     // Notes:
@@ -125,9 +125,13 @@ Deno.serve(async (req) => {
         .order('id', { ascending: true })
         .limit(pageSize);
 
-      // If callsigns are provided, they represent hubs; filter server-side by hub.
+      // If callsigns are provided, filter to entries where either callsign or remote_callsign matches
+      // This matches the client-side filtering logic
       if (callsignArray.length > 0) {
-        batchQuery = batchQuery.in('hub', callsignArray);
+        // Build OR filter for callsign matches
+        const callsignFilters = callsignArray.map((c: string) => `callsign.eq.${c}`).join(',');
+        const remoteFilters = callsignArray.map((c: string) => `remote_callsign.eq.${c}`).join(',');
+        batchQuery = batchQuery.or(`${callsignFilters},${remoteFilters}`);
       }
 
       const { data: entries, error } = await batchQuery;
