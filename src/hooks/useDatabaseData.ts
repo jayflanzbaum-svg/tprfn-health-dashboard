@@ -149,6 +149,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       const { data: entries, error: queryError } = await supabase
         .from('syslog_entries')
         .select(SELECTED_COLUMNS)
+        .gte('timestamp', startIso)
         .lte('timestamp', endIso)
         .or(`timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`)
         .order('timestamp', { ascending: true })
