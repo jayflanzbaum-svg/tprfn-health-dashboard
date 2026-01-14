@@ -185,8 +185,8 @@ export function DashboardHeader({
             </span>
           </div>
 
-          {/* Station Locations Manager */}
-          <StationLocationsManager callsigns={stations} />
+          {/* Station Locations Manager - use allowedCallsigns to show ALL hubs including paused ones */}
+          <StationLocationsManager callsigns={allowedCallsigns} />
 
           {/* Share button */}
           {onShareClick && (
