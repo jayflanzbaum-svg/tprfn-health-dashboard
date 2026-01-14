@@ -17,6 +17,7 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
   const [inactiveStations, setInactiveStations] = useState<StationActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [pausedCallsigns, setPausedCallsigns] = useState<Set<string>>(new Set());
+  const [pausedLoaded, setPausedLoaded] = useState(false);
 
   // Fetch paused stations
   useEffect(() => {
@@ -32,6 +33,8 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
         }
       } catch (err) {
         console.error('Error fetching paused stations:', err);
+      } finally {
+        setPausedLoaded(true);
       }
     };
     
@@ -39,11 +42,14 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
   }, []);
 
   // Fetch last 24 hours of activity directly from database (independent of date filter)
+  // Wait for pausedLoaded before running to avoid race condition
   useEffect(() => {
     const fetchLast24HoursActivity = async () => {
-      if (allowedCallsigns.length === 0) {
-        setInactiveStations([]);
-        setLoading(false);
+      if (allowedCallsigns.length === 0 || !pausedLoaded) {
+        if (allowedCallsigns.length === 0) {
+          setInactiveStations([]);
+          setLoading(false);
+        }
         return;
       }
 
@@ -154,7 +160,7 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
     // Refresh every 5 minutes
     const interval = setInterval(fetchLast24HoursActivity, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [allowedCallsigns, pausedCallsigns]);
+  }, [allowedCallsigns, pausedCallsigns, pausedLoaded]);
 
   const formatLastSeen = (date: Date | null) => {
     if (!date) return 'Never seen';
