@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Map, Radio, Wifi, Signal, Eye, EyeOff, Building2, Users, Maximize2, Activity, Clock, ArrowRightLeft, Zap } from 'lucide-react';
+import { Map, Radio, Wifi, Signal, Eye, EyeOff, Building2, Users, Maximize2, Activity, Clock, ArrowRightLeft, Zap, Share2 } from 'lucide-react';
 import { StationLocation } from '@/hooks/useStationLocations';
 import { HubConnection, formatCallsign, formatBytes, formatDuration } from '@/lib/syslogParser';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useMapUrlState, ConnectionColorMode, StationFilter } from '@/hooks/useMapUrlState';
 
 // Fix for default marker icons in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -63,8 +64,7 @@ interface LiveConnection {
   hub: string;
 }
 
-type ConnectionColorMode = 'snr' | 'bitrate' | 'sessions' | 'live';
-type StationFilter = 'hub' | 'all';
+// Types are imported from useMapUrlState
 
 const getSnrColor = (snr: number): string => {
   if (snr >= 20) return '#10b981';
@@ -170,10 +170,34 @@ export function LiveStationMap({
   const liveConnectionsRef = useRef<L.LayerGroup | null>(null);
   const liveLineRendererRef = useRef<L.Canvas | null>(null);
   
-  const [showConnections, setShowConnections] = useState(true);
-  const [colorMode, setColorMode] = useState<ConnectionColorMode>('live');
-  const [stationFilter, setStationFilter] = useState<StationFilter>('hub');
-  const [liveMode, setLiveMode] = useState(true);
+  // Use URL state for fullscreen mode, local state otherwise
+  const urlState = useMapUrlState();
+  
+  // Local state for non-fullscreen mode
+  const [localShowConnections, setLocalShowConnections] = useState(true);
+  const [localColorMode, setLocalColorMode] = useState<ConnectionColorMode>('live');
+  const [localStationFilter, setLocalStationFilter] = useState<StationFilter>('hub');
+  const [localLiveMode, setLocalLiveMode] = useState(true);
+  
+  // Use URL state in fullscreen, local state otherwise
+  const showConnections = isFullscreen ? urlState.showConnections : localShowConnections;
+  const colorMode = isFullscreen ? urlState.colorMode : localColorMode;
+  const stationFilter = isFullscreen ? urlState.stationFilter : localStationFilter;
+  const liveMode = isFullscreen ? urlState.liveMode : localLiveMode;
+  
+  const setShowConnections = isFullscreen 
+    ? (val: boolean) => urlState.setState({ showConnections: val })
+    : setLocalShowConnections;
+  const setColorMode = isFullscreen
+    ? (val: ConnectionColorMode) => urlState.setState({ colorMode: val })
+    : setLocalColorMode;
+  const setStationFilter = isFullscreen
+    ? (val: StationFilter) => urlState.setState({ stationFilter: val })
+    : setLocalStationFilter;
+  const setLiveMode = isFullscreen
+    ? (val: boolean) => urlState.setState({ liveMode: val })
+    : setLocalLiveMode;
+  
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
@@ -878,7 +902,19 @@ export function LiveStationMap({
             </div>
           )}
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {/* Share button - only in fullscreen mode */}
+            {isFullscreen && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={urlState.copyShareableUrl}
+                className="gap-1.5"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share Map
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
