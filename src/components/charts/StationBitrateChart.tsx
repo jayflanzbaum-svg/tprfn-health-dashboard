@@ -212,7 +212,7 @@ export const StationBitrateChart = memo(function StationBitrateChart({ hubConnec
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-mono font-medium text-foreground">{item.station}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatBps(item.avgTx + item.avgRx)} bps avg{item.avgDistance ? ` • ${item.avgDistance} mi avg` : ''}
+                  {formatBps(item.avgTx + item.avgRx)} bps avg{item.avgDistance ? ` • ~${item.avgDistance} mi to peers` : ''}
                 </span>
               </div>
               <div className="flex gap-0.5 h-6 rounded overflow-hidden bg-muted/30">
