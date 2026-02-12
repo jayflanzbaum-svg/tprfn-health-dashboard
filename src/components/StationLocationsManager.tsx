@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,11 +23,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { MapPin, RefreshCw, Edit2, Check, X, Loader2, Clock } from 'lucide-react';
+import { MapPin, RefreshCw, Edit2, Save, X, Loader2, Clock } from 'lucide-react';
 import { StationLocation, useStationLocations } from '@/hooks/useStationLocations';
 import { toast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { format, formatDistanceToNow } from 'date-fns';
+import { gridToLatLng, latLngToGrid, isValidGrid } from '@/lib/gridSquare';
 
 interface StationLocationsManagerProps {
   callsigns: string[];
@@ -65,6 +66,32 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
       grid_square: loc?.grid_square || '',
       latitude: loc?.latitude?.toString() || '',
       longitude: loc?.longitude?.toString() || '',
+    });
+  };
+
+  const handleGridChange = (value: string) => {
+    setEditForm(f => {
+      const updated = { ...f, grid_square: value };
+      if (isValidGrid(value)) {
+        const coords = gridToLatLng(value);
+        if (coords) {
+          updated.latitude = coords.lat.toString();
+          updated.longitude = coords.lng.toString();
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleLatLngChange = (field: 'latitude' | 'longitude', value: string) => {
+    setEditForm(f => {
+      const updated = { ...f, [field]: value };
+      const lat = parseFloat(field === 'latitude' ? value : f.latitude);
+      const lng = parseFloat(field === 'longitude' ? value : f.longitude);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        updated.grid_square = latLngToGrid(lat, lng);
+      }
+      return updated;
     });
   };
 
@@ -183,7 +210,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                     {isEditing ? (
                       <Input
                         value={editForm.grid_square}
-                        onChange={e => setEditForm(f => ({ ...f, grid_square: e.target.value }))}
+                        onChange={e => handleGridChange(e.target.value)}
                         placeholder="e.g., FN42ab"
                         className="w-24 h-8"
                       />
@@ -196,7 +223,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                       <div className="flex gap-1">
                         <Input
                           value={editForm.latitude}
-                          onChange={e => setEditForm(f => ({ ...f, latitude: e.target.value }))}
+                          onChange={e => handleLatLngChange('latitude', e.target.value)}
                           placeholder="Lat"
                           className="w-20 h-8"
                           type="number"
@@ -204,7 +231,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                         />
                         <Input
                           value={editForm.longitude}
-                          onChange={e => setEditForm(f => ({ ...f, longitude: e.target.value }))}
+                          onChange={e => handleLatLngChange('longitude', e.target.value)}
                           placeholder="Long"
                           className="w-20 h-8"
                           type="number"
@@ -315,11 +342,12 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                   <TableCell>
                     {isEditing ? (
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSave}>
-                          <Check className="h-4 w-4 text-green-500" />
+                        <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={handleSave}>
+                          <Save className="h-3.5 w-3.5" />
+                          Save
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                          <X className="h-4 w-4 text-red-500" />
+                          <X className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     ) : (
