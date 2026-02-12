@@ -171,7 +171,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
           Station Locations
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Station Locations</DialogTitle>
           <DialogDescription>
@@ -186,6 +186,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
           </Button>
         </div>
 
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -361,6 +362,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
             })}
           </TableBody>
         </Table>
+        </div>
       </DialogContent>
     </Dialog>
   );
