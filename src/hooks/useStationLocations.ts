@@ -79,7 +79,8 @@ export function useStationLocations(): UseStationLocationsResult {
         
         const { data, error } = await supabase
           .from('station_locations')
-          .select('*');
+          .select('*')
+          .limit(5000);
         
         if (error) throw error;
         
