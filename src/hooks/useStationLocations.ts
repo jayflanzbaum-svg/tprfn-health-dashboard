@@ -77,17 +77,32 @@ export function useStationLocations(): UseStationLocationsResult {
         // First check for expired pauses
         await checkAndResumeExpired();
         
-        const { data, error } = await supabase
-          .from('station_locations')
-          .select('*')
-          .limit(5000);
-        
-        if (error) throw error;
-        
+        // Fetch all rows using pagination to bypass server max_rows limit (1000)
         const locMap = new Map<string, StationLocation>();
-        (data || []).forEach(loc => {
-          locMap.set(loc.callsign, loc as StationLocation);
-        });
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('station_locations')
+            .select('*')
+            .range(offset, offset + PAGE_SIZE - 1);
+          
+          if (error) throw error;
+          
+          (data || []).forEach(loc => {
+            locMap.set(loc.callsign, loc as StationLocation);
+          });
+          
+          if (!data || data.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            offset += PAGE_SIZE;
+          }
+        }
+        
+        console.log(`Loaded ${locMap.size} station locations from database`);
         setLocations(locMap);
       } catch (err) {
         console.error('Error loading cached locations:', err);
