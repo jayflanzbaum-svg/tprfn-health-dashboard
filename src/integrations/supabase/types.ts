@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      hub_callsigns: {
+        Row: {
+          callsign: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          callsign: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          callsign?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       station_locations: {
         Row: {
           address: string | null
