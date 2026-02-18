@@ -57,12 +57,19 @@ export function InactiveHubsAlert({ allowedCallsigns, showSuccessInHeader = fals
         const now = new Date();
         const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         
-        // Fetch all activity in the last 24 hours for allowed callsigns
+        // Build OR filter for callsigns to avoid hitting the 1000-row default limit
+        const callsignFilters = allowedCallsigns.map(c => 
+          `callsign.eq.${c},remote_callsign.eq.${c}`
+        ).join(',');
+        
+        // Fetch activity in the last 24 hours filtered to allowed callsigns
         const { data: entries, error } = await supabase
           .from('syslog_entries')
           .select('callsign, remote_callsign, timestamp')
           .gte('timestamp', twentyFourHoursAgo.toISOString())
-          .in('event_type', ['connect_in', 'connect_out', 'sn_report']);
+          .in('event_type', ['connect_in', 'connect_out', 'sn_report'])
+          .or(callsignFilters)
+          .limit(5000);
 
         if (error) {
           console.error('Error fetching 24h activity:', error);
