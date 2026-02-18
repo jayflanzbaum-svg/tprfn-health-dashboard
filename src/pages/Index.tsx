@@ -32,10 +32,25 @@ const Index = () => {
   // URL-based filter state
   const { filters, setFilters, copyShareableUrl, hasUrlFilters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
   
-  // Initialize state from URL or defaults
-  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>(
-    filters.callsigns || [...DEFAULT_ALLOWED_CALLSIGNS].sort()
-  );
+  // Initialize state from URL, localStorage, or defaults
+  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>(() => {
+    if (filters.callsigns) return filters.callsigns;
+    try {
+      const saved = localStorage.getItem('hub-callsigns');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [...DEFAULT_ALLOWED_CALLSIGNS].sort();
+  });
+
+  // Persist callsigns to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('hub-callsigns', JSON.stringify(allowedCallsigns));
+    } catch {}
+  }, [allowedCallsigns]);
   const [dateRange, setDateRange] = useState<DateRange>(filters.dateRange);
   const [selectedStation, setSelectedStation] = useState<string | null>(filters.selectedStation);
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
