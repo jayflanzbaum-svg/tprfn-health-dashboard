@@ -3,6 +3,7 @@ import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
 import { useKpiStats } from '@/hooks/useKpiStats';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
+import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
@@ -29,28 +30,15 @@ import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
 import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
 
 const Index = () => {
+  // Database-backed hub callsigns
+  const { callsigns: dbCallsigns, updateCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
+  
   // URL-based filter state
   const { filters, setFilters, copyShareableUrl, hasUrlFilters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
   
-  // Initialize state from URL, localStorage, or defaults
-  const [allowedCallsigns, setAllowedCallsigns] = useState<string[]>(() => {
-    if (filters.callsigns) return filters.callsigns;
-    try {
-      const saved = localStorage.getItem('hub-callsigns');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [...DEFAULT_ALLOWED_CALLSIGNS].sort();
-  });
-
-  // Persist callsigns to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('hub-callsigns', JSON.stringify(allowedCallsigns));
-    } catch {}
-  }, [allowedCallsigns]);
+  // Use URL callsigns if present, otherwise use database callsigns
+  const allowedCallsigns = filters.callsigns || dbCallsigns;
+  const setAllowedCallsigns = updateCallsigns;
   const [dateRange, setDateRange] = useState<DateRange>(filters.dateRange);
   const [selectedStation, setSelectedStation] = useState<string | null>(filters.selectedStation);
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
