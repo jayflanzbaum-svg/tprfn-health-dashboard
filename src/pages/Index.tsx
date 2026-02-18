@@ -30,23 +30,20 @@ import { StationBitrateChart } from '@/components/charts/StationBitrateChart';
 import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboard';
 
 const Index = () => {
-  // Database-backed hub callsigns
-  const { callsigns: dbCallsigns, updateCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
+  // Database-backed hub callsigns (single source of truth)
+  const { callsigns: allowedCallsigns, updateCallsigns: setAllowedCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
   
-  // URL-based filter state
+  // URL-based filter state (date range and station only - callsigns come from DB)
   const { filters, setFilters, copyShareableUrl, hasUrlFilters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
   
-  // Use URL callsigns if present, otherwise use database callsigns
-  const allowedCallsigns = filters.callsigns || dbCallsigns;
-  const setAllowedCallsigns = updateCallsigns;
   const [dateRange, setDateRange] = useState<DateRange>(filters.dateRange);
   const [selectedStation, setSelectedStation] = useState<string | null>(filters.selectedStation);
   const [isLoadingLargeRange, setIsLoadingLargeRange] = useState(false);
 
-  // Sync state changes to URL
+  // Sync date/station to URL (but NOT callsigns - those live in the database)
   useEffect(() => {
-    setFilters({ dateRange, selectedStation, callsigns: allowedCallsigns });
-  }, [dateRange, selectedStation, allowedCallsigns, setFilters]);
+    setFilters({ dateRange, selectedStation });
+  }, [dateRange, selectedStation, setFilters]);
 
   const fetchDays = useMemo(() => {
     const msPerDay = 1000 * 60 * 60 * 24;
