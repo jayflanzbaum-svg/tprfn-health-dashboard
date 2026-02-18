@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   SNRecord, 
@@ -83,6 +83,10 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [useAggregation, setUseAggregation] = useState(false);
 
+  // Use a ref for allowedCallsigns to avoid re-creating fetchData when callsigns change
+  const allowedCallsignsRef = useRef(allowedCallsigns);
+  allowedCallsignsRef.current = allowedCallsigns;
+
   const allowedSet = useMemo(() => 
     new Set(allowedCallsigns.map(c => c.toUpperCase().trim())), 
     [allowedCallsigns]
@@ -121,7 +125,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       body: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        callsigns: allowedCallsigns
+        callsigns: allowedCallsignsRef.current
       }
     });
 
@@ -131,7 +135,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
 
     console.log(`Received aggregated data: ${data.totalRecords} records, ${data.dailySNAggregates?.length} daily, ${data.connectionStats?.length} connections`);
     return data as AggregatedData;
-  }, [allowedCallsigns, fetchDays]);
+  }, [fetchDays]);
 
   // Fetch raw data using pagination for smaller date ranges
   const fetchRawData = useCallback(async (startDate: Date, endDate: Date) => {
