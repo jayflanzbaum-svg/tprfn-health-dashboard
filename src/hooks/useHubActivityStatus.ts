@@ -27,11 +27,18 @@ export function useHubActivityStatus(allowedCallsigns: string[]): HubActivitySta
         const now = new Date();
         const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         
+        // Build OR filter for callsigns to avoid hitting the 1000-row default limit
+        const callsignFilters = allowedCallsigns.map(c => 
+          `callsign.eq.${c},remote_callsign.eq.${c}`
+        ).join(',');
+        
         const { data: entries, error } = await supabase
           .from('syslog_entries')
           .select('callsign, remote_callsign')
           .gte('timestamp', twentyFourHoursAgo.toISOString())
-          .in('event_type', ['connect_in', 'connect_out', 'sn_report']);
+          .in('event_type', ['connect_in', 'connect_out', 'sn_report'])
+          .or(callsignFilters)
+          .limit(5000);
 
         if (error) {
           console.error('Error fetching activity status:', error);
