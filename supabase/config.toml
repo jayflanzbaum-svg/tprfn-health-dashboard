@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.aggregate-syslog]
 verify_jwt = false
+
+[functions.analyze-dashboard]
+verify_jwt = false
