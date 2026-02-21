@@ -18,6 +18,7 @@ import { toast } from '@/hooks/use-toast';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { InactiveHubsAlert } from '@/components/InactiveHubsAlert';
 import { DashboardAnalysis } from '@/components/DashboardAnalysis';
+import { NetSessionManager } from '@/components/NetSessionManager';
 
 // Direct imports - memoized at component level
 import { SNByHubChart } from '@/components/charts/SNByHubChart';
@@ -486,11 +487,14 @@ const Index = () => {
         {/* Stats Cards */}
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Key Metrics</span>
-          <DashboardAnalysis
-            dateRange={dateRange}
-            allowedCallsigns={allowedCallsigns}
-            selectedStation={selectedStation}
-          />
+          <div className="flex items-center gap-1.5">
+            <NetSessionManager />
+            <DashboardAnalysis
+              dateRange={dateRange}
+              allowedCallsigns={allowedCallsigns}
+              selectedStation={selectedStation}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <StatsCard

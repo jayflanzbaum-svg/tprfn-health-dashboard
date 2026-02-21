@@ -32,6 +32,36 @@ export type Database = {
         }
         Relationships: []
       }
+      net_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string
+          id: string
+          name: string
+          notes: string | null
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at: string
+          id?: string
+          name?: string
+          notes?: string | null
+          started_at: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       station_locations: {
         Row: {
           address: string | null
