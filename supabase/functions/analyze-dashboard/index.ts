@@ -44,34 +44,64 @@ serve(async (req) => {
     });
     if (e2) throw new Error(e2.message);
 
-    // Get top/bottom stations by S/N for the current period
+    // Get detailed station data for top performers and totals
     const { data: stationBreakdown } = await supabase
       .from("syslog_entries")
-      .select("callsign, remote_callsign, snr")
+      .select("callsign, remote_callsign, snr, event_type, bytes_sent, bytes_received")
       .gte("timestamp", dateRange.start)
       .lte("timestamp", dateRange.end)
-      .eq("event_type", "sn_report")
-      .not("snr", "is", null)
       .not("remote_callsign", "is", null)
-      .limit(5000);
+      .limit(10000);
+
+    const upperCallsigns = callsigns.map((c: string) => c.toUpperCase().trim());
 
     // Aggregate per-station S/N
     const stationSN: Record<string, { sum: number; count: number }> = {};
+    // Count unique stations, station pairs, and connections
+    const uniqueStations = new Set<string>();
+    const uniquePairs = new Set<string>();
+    let totalConnections = 0;
+
+    // Top data transfer stations
+    const stationData: Record<string, number> = {};
+
     for (const row of stationBreakdown || []) {
       const cs = (row.callsign || "").toUpperCase().replace(/-\d+$/, "");
       const rc = (row.remote_callsign || "").toUpperCase().replace(/-\d+$/, "");
-      const upperCallsigns = callsigns.map((c: string) => c.toUpperCase().trim());
-      
-      // Only count hub stations
-      if (upperCallsigns.includes(cs)) {
-        if (!stationSN[cs]) stationSN[cs] = { sum: 0, count: 0 };
-        stationSN[cs].sum += row.snr;
-        stationSN[cs].count++;
+
+      // Track unique stations and pairs
+      if (cs) uniqueStations.add(cs);
+      if (rc) uniqueStations.add(rc);
+      if (cs && rc) {
+        const sorted = [cs, rc].sort();
+        uniquePairs.add(`${sorted[0]}↔${sorted[1]}`);
       }
-      if (rc && upperCallsigns.includes(rc)) {
-        if (!stationSN[rc]) stationSN[rc] = { sum: 0, count: 0 };
-        stationSN[rc].sum += row.snr;
-        stationSN[rc].count++;
+
+      // Count connections
+      if (row.event_type === "connect_in" || row.event_type === "connect_out") {
+        totalConnections++;
+      }
+
+      // S/N aggregation for hub stations
+      if (row.event_type === "sn_report" && row.snr != null) {
+        if (upperCallsigns.includes(cs)) {
+          if (!stationSN[cs]) stationSN[cs] = { sum: 0, count: 0 };
+          stationSN[cs].sum += row.snr;
+          stationSN[cs].count++;
+        }
+        if (rc && upperCallsigns.includes(rc)) {
+          if (!stationSN[rc]) stationSN[rc] = { sum: 0, count: 0 };
+          stationSN[rc].sum += row.snr;
+          stationSN[rc].count++;
+        }
+      }
+
+      // Data transfer for hub stations
+      if (row.event_type === "disconnect" || row.event_type === "disconnect_timeout") {
+        const bytes = (row.bytes_sent || 0) + (row.bytes_received || 0);
+        if (upperCallsigns.includes(cs)) {
+          stationData[cs] = (stationData[cs] || 0) + bytes;
+        }
       }
     }
 
@@ -83,17 +113,31 @@ serve(async (req) => {
       }))
       .sort((a, b) => b.avgSN - a.avgSN);
 
-    // Get disconnect types for failure analysis
-    const { data: disconnects } = await supabase
-      .from("syslog_entries")
-      .select("callsign, event_type")
-      .gte("timestamp", dateRange.start)
-      .lte("timestamp", dateRange.end)
-      .in("event_type", ["disconnect", "disconnect_timeout"])
-      .limit(5000);
+    // Top data movers
+    const topDataStations = Object.entries(stationData)
+      .map(([cs, bytes]) => ({ cs, mb: +(bytes / 1024 / 1024).toFixed(2) }))
+      .sort((a, b) => b.mb - a.mb)
+      .slice(0, 5);
 
+    // Session count per hub station
+    const stationSessions: Record<string, number> = {};
+    for (const row of stationBreakdown || []) {
+      if (row.event_type === "connect_in" || row.event_type === "connect_out") {
+        const cs = (row.callsign || "").toUpperCase().replace(/-\d+$/, "");
+        if (upperCallsigns.includes(cs)) {
+          stationSessions[cs] = (stationSessions[cs] || 0) + 1;
+        }
+      }
+    }
+    const topSessionStations = Object.entries(stationSessions)
+      .map(([cs, count]) => ({ cs, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Get disconnect types for failure analysis
     const stationDisconnects: Record<string, { normal: number; timeout: number }> = {};
-    for (const row of disconnects || []) {
+    for (const row of stationBreakdown || []) {
+      if (row.event_type !== "disconnect" && row.event_type !== "disconnect_timeout") continue;
       const cs = (row.callsign || "").toUpperCase().replace(/-\d+$/, "");
       if (!stationDisconnects[cs]) stationDisconnects[cs] = { normal: 0, timeout: 0 };
       if (row.event_type === "disconnect_timeout") {
@@ -103,12 +147,62 @@ serve(async (req) => {
       }
     }
 
+    // Fetch net sessions that overlap or are near the current period
+    const { data: netSessions } = await supabase
+      .from("net_sessions")
+      .select("*")
+      .order("started_at", { ascending: false })
+      .limit(20);
+
+    // Find nets within current period and the most recent previous nets for comparison
+    const currentNets = (netSessions || []).filter((n: any) => {
+      const ns = new Date(n.started_at).getTime();
+      const ne = new Date(n.ended_at).getTime();
+      return ns >= startMs && ne <= endMs;
+    });
+
+    // Get KPIs for each net in current period (up to 3)
+    const netComparisons: any[] = [];
+    const netsToCompare = (netSessions || []).slice(0, 8); // last 8 nets for trend
+
+    for (const net of netsToCompare) {
+      const { data: netKpi } = await supabase.rpc("syslog_kpis", {
+        start_ts: net.started_at,
+        end_ts: net.ended_at,
+        allowed_callsigns: callsigns,
+        selected_station: selectedStation || null,
+      });
+      const k = netKpi?.[0] || {};
+      netComparisons.push({
+        name: net.name,
+        date: new Date(net.started_at).toISOString().slice(0, 10),
+        avgSN: k.avg_sn || 0,
+        sessions: k.sessions || 0,
+        totalData: k.total_data || 0,
+        successRate: k.success_rate || 0,
+        snReadings: k.sn_readings || 0,
+      });
+    }
+
     const cur = currentKpi?.[0] || {};
     const prev = prevKpi?.[0] || {};
-
     const durationDays = Math.round(durationMs / (1000 * 60 * 60 * 24));
 
-    const prompt = `You are an RF network analyst for the TPRFN (Transcontinental Pacific Radio Frequency Network) which uses VARA HF digital radio. Analyze this dashboard data and provide SHORT, ACTIONABLE insights. Be concise — no more than 5-6 bullet points total.
+    let netSection = "";
+    if (netComparisons.length >= 2) {
+      netSection = `
+NET-TO-NET COMPARISON (most recent ${netComparisons.length} nets):
+${netComparisons.map((n) => `- ${n.name} (${n.date}): Avg S/N ${n.avgSN} dB, ${n.sessions} sessions, ${(n.totalData / 1024).toFixed(1)} KB data, ${n.successRate}% success`).join("\n")}
+
+Compare the most recent net to the previous one AND note any trends across all listed nets.`;
+    } else if (netComparisons.length === 1) {
+      netSection = `
+NET SESSION DATA (1 net logged):
+- ${netComparisons[0].name} (${netComparisons[0].date}): Avg S/N ${netComparisons[0].avgSN} dB, ${netComparisons[0].sessions} sessions, ${netComparisons[0].successRate}% success
+No previous net to compare against yet.`;
+    }
+
+    const prompt = `You are an RF network analyst for the TPRFN (Transcontinental Pacific Radio Frequency Network) which uses VARA HF digital radio. Analyze this dashboard data and provide SHORT, ACTIONABLE insights. Be concise — no more than 8 bullet points total.
 
 CURRENT PERIOD (${durationDays} days ending ${dateRange.end}):
 - Avg S/N: ${cur.avg_sn || 0} dB
@@ -124,8 +218,17 @@ PREVIOUS PERIOD (same duration, immediately before):
 - Total Data: ${prev.total_data || 0} bytes
 - Success Rate: ${prev.success_rate || 0}%
 
-TOP STATIONS BY S/N (best first): ${JSON.stringify(stationStats.slice(0, 5))}
-BOTTOM STATIONS BY S/N (worst first): ${JSON.stringify(stationStats.slice(-5).reverse())}
+TOTALS FOR CURRENT PERIOD:
+- Total Connections: ${totalConnections}
+- Unique Stations: ${uniqueStations.size}
+- Unique Station Pairs: ${uniquePairs.size}
+
+TOP PERFORMERS:
+Best S/N: ${JSON.stringify(stationStats.slice(0, 3))}
+Most Active (sessions): ${JSON.stringify(topSessionStations.slice(0, 3))}
+Most Data Transferred: ${JSON.stringify(topDataStations.slice(0, 3))}
+
+BOTTOM STATIONS BY S/N: ${JSON.stringify(stationStats.slice(-3).reverse())}
 
 DISCONNECT ANALYSIS (stations with highest timeout ratios):
 ${Object.entries(stationDisconnects)
@@ -134,13 +237,16 @@ ${Object.entries(stationDisconnects)
   .slice(0, 5)
   .map((d) => `${d.cs}: ${d.timeout} timeouts / ${d.normal + d.timeout} total (${(d.rate * 100).toFixed(0)}%)`)
   .join("\n")}
+${netSection}
 
 ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` : ""}
 
 Guidelines:
-- Highlight what STANDS OUT positively or negatively vs. previous period
-- Call out specific stations performing notably well or poorly
+- Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
+- Highlight TOP PERFORMERS by category (best S/N, most active, most data)
+- Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
+${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
 - Keep it practical — what should a net operator pay attention to?
 - Use callsigns in your analysis
 - Format as markdown bullet points
