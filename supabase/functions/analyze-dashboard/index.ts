@@ -64,6 +64,8 @@ serve(async (req) => {
 
     // Top data transfer stations
     const stationData: Record<string, number> = {};
+    // Unique partners per station
+    const stationPartners: Record<string, Set<string>> = {};
 
     for (const row of stationBreakdown || []) {
       const cs = (row.callsign || "").toUpperCase().replace(/-\d+$/, "");
@@ -77,9 +79,15 @@ serve(async (req) => {
         uniquePairs.add(`${sorted[0]}↔${sorted[1]}`);
       }
 
-      // Count connections
+      // Count connections and track partners
       if (row.event_type === "connect_in" || row.event_type === "connect_out") {
         totalConnections++;
+        if (cs && rc) {
+          if (!stationPartners[cs]) stationPartners[cs] = new Set();
+          stationPartners[cs].add(rc);
+          if (!stationPartners[rc]) stationPartners[rc] = new Set();
+          stationPartners[rc].add(cs);
+        }
       }
 
       // S/N aggregation for hub stations
@@ -104,6 +112,47 @@ serve(async (req) => {
         }
       }
     }
+
+    // Top partners
+    const topPartnerStations = Object.entries(stationPartners)
+      .map(([cs, partners]) => ({ cs, partners: partners.size }))
+      .sort((a, b) => b.partners - a.partners)
+      .slice(0, 5);
+
+    // Fetch station locations for distance calculation
+    const allStationCallsigns = Array.from(uniqueStations);
+    const { data: locations } = await supabase
+      .from("station_locations")
+      .select("callsign, latitude, longitude")
+      .in("callsign", allStationCallsigns)
+      .not("latitude", "is", null)
+      .not("longitude", "is", null);
+
+    const locMap: Record<string, { lat: number; lon: number }> = {};
+    for (const loc of locations || []) {
+      locMap[loc.callsign.toUpperCase()] = { lat: Number(loc.latitude), lon: Number(loc.longitude) };
+    }
+
+    // Haversine distance in miles
+    function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+      const R = 3959; // miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // Find longest distance pairs
+    const pairDistances: { pair: string; distance: number }[] = [];
+    for (const pairStr of uniquePairs) {
+      const [a, b] = pairStr.split("↔");
+      if (locMap[a] && locMap[b]) {
+        const d = haversine(locMap[a].lat, locMap[a].lon, locMap[b].lat, locMap[b].lon);
+        pairDistances.push({ pair: pairStr, distance: Math.round(d) });
+      }
+    }
+    pairDistances.sort((a, b) => b.distance - a.distance);
+    const topDistancePairs = pairDistances.slice(0, 5);
 
     const stationStats = Object.entries(stationSN)
       .map(([callsign, { sum, count }]) => ({
@@ -224,9 +273,11 @@ TOTALS FOR CURRENT PERIOD:
 - Unique Station Pairs: ${uniquePairs.size}
 
 TOP PERFORMERS:
-Best S/N: ${JSON.stringify(stationStats.slice(0, 3))}
-Most Active (sessions): ${JSON.stringify(topSessionStations.slice(0, 3))}
-Most Data Transferred: ${JSON.stringify(topDataStations.slice(0, 3))}
+Best Signal Quality (S/N): ${JSON.stringify(stationStats.slice(0, 3))}
+Most Station Partners: ${JSON.stringify(topPartnerStations.slice(0, 3))}
+Highest Data Throughput: ${JSON.stringify(topDataStations.slice(0, 3))}
+Most Sessions: ${JSON.stringify(topSessionStations.slice(0, 3))}
+Longest Distance Connections: ${JSON.stringify(topDistancePairs.slice(0, 3).map(p => `${p.pair}: ${p.distance} mi`))}
 
 BOTTOM STATIONS BY S/N: ${JSON.stringify(stationStats.slice(-3).reverse())}
 
@@ -243,7 +294,7 @@ ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` :
 
 Guidelines:
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
-- Highlight TOP PERFORMERS by category (best S/N, most active, most data)
+- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, longest distance)
 - Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
 ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
