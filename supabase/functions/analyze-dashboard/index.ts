@@ -47,7 +47,7 @@ serve(async (req) => {
     // Get detailed station data for top performers and totals
     const { data: stationBreakdown } = await supabase
       .from("syslog_entries")
-      .select("callsign, remote_callsign, snr, event_type, bytes_sent, bytes_received")
+      .select("callsign, remote_callsign, snr, event_type, bytes_sent, bytes_received, bitrate")
       .gte("timestamp", dateRange.start)
       .lte("timestamp", dateRange.end)
       .not("remote_callsign", "is", null)
@@ -64,6 +64,8 @@ serve(async (req) => {
 
     // Top data transfer stations
     const stationData: Record<string, number> = {};
+    // Peak bitrate per station
+    const stationPeakBitrate: Record<string, number> = {};
     // Unique partners per station
     const stationPartners: Record<string, Set<string>> = {};
 
@@ -104,14 +106,27 @@ serve(async (req) => {
         }
       }
 
-      // Data transfer for hub stations
+      // Data transfer and bitrate for hub stations
       if (row.event_type === "disconnect" || row.event_type === "disconnect_timeout") {
         const bytes = (row.bytes_sent || 0) + (row.bytes_received || 0);
         if (upperCallsigns.includes(cs)) {
           stationData[cs] = (stationData[cs] || 0) + bytes;
         }
+        if (row.bitrate && row.bitrate > 0) {
+          if (!stationPeakBitrate[cs]) stationPeakBitrate[cs] = 0;
+          if (row.bitrate > stationPeakBitrate[cs]) stationPeakBitrate[cs] = row.bitrate;
+          if (!stationPeakBitrate[rc]) stationPeakBitrate[rc] = 0;
+          if (row.bitrate > stationPeakBitrate[rc]) stationPeakBitrate[rc] = row.bitrate;
+        }
       }
     }
+
+    // Top bitrate stations
+    const topBitrateStations = Object.entries(stationPeakBitrate)
+      .filter(([_, br]) => br > 0)
+      .map(([cs, br]) => ({ cs, bitrate: br }))
+      .sort((a, b) => b.bitrate - a.bitrate)
+      .slice(0, 5);
 
     // Top partners
     const topPartnerStations = Object.entries(stationPartners)
@@ -277,6 +292,7 @@ Best Signal Quality (S/N): ${stationStats.slice(0, 5).map(s => `${s.callsign}: $
 Most Station Partners: ${topPartnerStations.slice(0, 5).map(s => `${s.cs}: ${s.partners} unique partners`).join(", ")}
 Highest Data Throughput: ${topDataStations.slice(0, 5).map(s => `${s.cs}: ${s.mb} MB`).join(", ")}
 Most Sessions: ${topSessionStations.slice(0, 5).map(s => `${s.cs}: ${s.count} sessions`).join(", ")}
+Best Bitrate: ${topBitrateStations.slice(0, 5).map(s => `${s.cs}: ${s.bitrate} bps`).join(", ")}
 Longest Distance Connections: ${topDistancePairs.slice(0, 5).map(p => `${p.pair}: ${p.distance} mi`).join(", ")}
 
 BOTTOM STATIONS BY S/N: ${JSON.stringify(stationStats.slice(-3).reverse())}
@@ -294,7 +310,7 @@ ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` :
 
 Guidelines:
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
-- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, longest distance) — ALWAYS include the actual data value next to each callsign
+- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, best bitrate, longest distance) — ALWAYS include the actual data value next to each callsign
 - Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
 ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
