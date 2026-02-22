@@ -311,6 +311,7 @@ ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` :
 Guidelines:
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
 - Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, best bitrate, longest distance) — ALWAYS include the actual data value next to each callsign
+- CRITICAL: For each top performer category, ONLY use the FIRST entry in the list above (that is the #1 top value for the period). Do NOT pick values from other sources or other entries. The data is pre-sorted — the first entry IS the top performer.
 - Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
 ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
