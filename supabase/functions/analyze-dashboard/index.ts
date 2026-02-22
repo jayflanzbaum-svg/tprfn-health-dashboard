@@ -287,13 +287,21 @@ TOTALS FOR CURRENT PERIOD:
 - Unique Stations: ${uniqueStations.size}
 - Unique Station Pairs: ${uniquePairs.size}
 
-TOP PERFORMERS (ALWAYS list the callsign AND the data value together):
-Best Signal Quality (S/N): ${stationStats.slice(0, 5).map(s => `${s.callsign}: ${s.avgSN} dB avg (${s.readings} readings)`).join(", ")}
-Most Station Partners: ${topPartnerStations.slice(0, 5).map(s => `${s.cs}: ${s.partners} unique partners`).join(", ")}
-Highest Data Throughput: ${topDataStations.slice(0, 5).map(s => `${s.cs}: ${s.mb} MB`).join(", ")}
-Most Sessions: ${topSessionStations.slice(0, 5).map(s => `${s.cs}: ${s.count} sessions`).join(", ")}
-Best Bitrate: ${topBitrateStations.slice(0, 5).map(s => `${s.cs}: ${s.bitrate} bps`).join(", ")}
-Longest Distance Connections: ${topDistancePairs.slice(0, 5).map(p => `${p.pair}: ${p.distance} mi`).join(", ")}
+TOP PERFORMERS — #1 in each category (use EXACTLY these values, do not change them):
+Best Signal Quality (S/N): ${stationStats[0] ? `${stationStats[0].callsign} = ${stationStats[0].avgSN} dB avg` : "N/A"}
+Most Station Partners: ${topPartnerStations[0] ? `${topPartnerStations[0].cs} = ${topPartnerStations[0].partners} unique partners` : "N/A"}
+Highest Data Throughput: ${topDataStations[0] ? `${topDataStations[0].cs} = ${topDataStations[0].mb} MB` : "N/A"}
+Most Sessions: ${topSessionStations[0] ? `${topSessionStations[0].cs} = ${topSessionStations[0].count} sessions` : "N/A"}
+Best Bitrate: ${topBitrateStations[0] ? `${topBitrateStations[0].cs} = ${topBitrateStations[0].bitrate} bps peak` : "N/A"}
+Longest Distance: ${topDistancePairs[0] ? `${topDistancePairs[0].pair} = ${topDistancePairs[0].distance} mi` : "N/A"}
+
+RUNNERS-UP (for context only, not top performers):
+Signal Quality: ${stationStats.slice(1, 5).map(s => `${s.callsign}: ${s.avgSN} dB`).join(", ")}
+Partners: ${topPartnerStations.slice(1, 5).map(s => `${s.cs}: ${s.partners}`).join(", ")}
+Data: ${topDataStations.slice(1, 5).map(s => `${s.cs}: ${s.mb} MB`).join(", ")}
+Sessions: ${topSessionStations.slice(1, 5).map(s => `${s.cs}: ${s.count}`).join(", ")}
+Bitrate: ${topBitrateStations.slice(1, 5).map(s => `${s.cs}: ${s.bitrate} bps`).join(", ")}
+Distance: ${topDistancePairs.slice(1, 5).map(p => `${p.pair}: ${p.distance} mi`).join(", ")}
 
 BOTTOM STATIONS BY S/N: ${JSON.stringify(stationStats.slice(-3).reverse())}
 
@@ -310,15 +318,14 @@ ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` :
 
 Guidelines:
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
-- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, best bitrate, longest distance) — ALWAYS include the actual data value next to each callsign
-- CRITICAL: For each top performer category, ONLY use the FIRST entry in the list above (that is the #1 top value for the period). Do NOT pick values from other sources or other entries. The data is pre-sorted — the first entry IS the top performer.
+- Highlight TOP PERFORMERS — copy the EXACT callsign and EXACT value from the "#1 in each category" section above. Do NOT substitute, round, or use any other value.
 - Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
 ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
 - Keep it practical — what should a net operator pay attention to?
 - Use callsigns in your analysis
 - Format as markdown bullet points
-- Interpret the numbers but ALWAYS show the value alongside each top performer (e.g. "K1AJD led with 12.3 dB avg S/N")`;
+- Quote top performer values exactly as given (e.g. if Best Bitrate says "KD6MTU = 4025 bps peak", write "KD6MTU led with 4025 bps peak bitrate")`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
