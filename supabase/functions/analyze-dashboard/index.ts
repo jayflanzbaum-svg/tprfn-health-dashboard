@@ -272,12 +272,12 @@ TOTALS FOR CURRENT PERIOD:
 - Unique Stations: ${uniqueStations.size}
 - Unique Station Pairs: ${uniquePairs.size}
 
-TOP PERFORMERS:
-Best Signal Quality (S/N): ${JSON.stringify(stationStats.slice(0, 3))}
-Most Station Partners: ${JSON.stringify(topPartnerStations.slice(0, 3))}
-Highest Data Throughput: ${JSON.stringify(topDataStations.slice(0, 3))}
-Most Sessions: ${JSON.stringify(topSessionStations.slice(0, 3))}
-Longest Distance Connections: ${JSON.stringify(topDistancePairs.slice(0, 3).map(p => `${p.pair}: ${p.distance} mi`))}
+TOP PERFORMERS (ALWAYS list the callsign AND the data value together):
+Best Signal Quality (S/N): ${stationStats.slice(0, 5).map(s => `${s.callsign}: ${s.avgSN} dB avg (${s.readings} readings)`).join(", ")}
+Most Station Partners: ${topPartnerStations.slice(0, 5).map(s => `${s.cs}: ${s.partners} unique partners`).join(", ")}
+Highest Data Throughput: ${topDataStations.slice(0, 5).map(s => `${s.cs}: ${s.mb} MB`).join(", ")}
+Most Sessions: ${topSessionStations.slice(0, 5).map(s => `${s.cs}: ${s.count} sessions`).join(", ")}
+Longest Distance Connections: ${topDistancePairs.slice(0, 5).map(p => `${p.pair}: ${p.distance} mi`).join(", ")}
 
 BOTTOM STATIONS BY S/N: ${JSON.stringify(stationStats.slice(-3).reverse())}
 
@@ -294,14 +294,14 @@ ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` :
 
 Guidelines:
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
-- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, longest distance)
+- Highlight TOP PERFORMERS by category (best signal quality, most station partners, highest data throughput, most sessions, longest distance) — ALWAYS include the actual data value next to each callsign
 - Call out what STANDS OUT positively or negatively vs. previous period
 - Note any concerning timeout/disconnect patterns
 ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and note any trends" : ""}
 - Keep it practical — what should a net operator pay attention to?
 - Use callsigns in your analysis
 - Format as markdown bullet points
-- Do NOT repeat raw numbers verbatim — interpret them`;
+- Interpret the numbers but ALWAYS show the value alongside each top performer (e.g. "K1AJD led with 12.3 dB avg S/N")`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
