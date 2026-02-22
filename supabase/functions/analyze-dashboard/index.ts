@@ -48,7 +48,7 @@ serve(async (req) => {
     // Get detailed station data - fetch ALL rows using pagination
     let stationBreakdown: any[] = [];
     let offset = 0;
-    const PAGE_SIZE = 5000;
+    const PAGE_SIZE = 1000;
     while (true) {
       const { data: page, error: pageErr } = await supabase
         .from("syslog_entries")
@@ -56,7 +56,8 @@ serve(async (req) => {
         .gte("timestamp", dateRange.start)
         .lte("timestamp", dateRange.end)
         .not("remote_callsign", "is", null)
-        .range(offset, offset + PAGE_SIZE - 1);
+        .range(offset, offset + PAGE_SIZE - 1)
+        .limit(PAGE_SIZE);
       if (pageErr) throw new Error(pageErr.message);
       if (!page || page.length === 0) break;
       stationBreakdown = stationBreakdown.concat(page);
@@ -138,6 +139,7 @@ serve(async (req) => {
       .map(([cs, br]) => ({ cs, bitrate: br }))
       .sort((a, b) => b.bitrate - a.bitrate)
       .slice(0, 5);
+    
 
     // Top partners
     const topPartnerStations = Object.entries(stationPartners)
