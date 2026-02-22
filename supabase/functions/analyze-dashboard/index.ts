@@ -45,13 +45,24 @@ serve(async (req) => {
     if (e2) throw new Error(e2.message);
 
     // Get detailed station data for top performers and totals
-    const { data: stationBreakdown } = await supabase
-      .from("syslog_entries")
-      .select("callsign, remote_callsign, snr, event_type, bytes_sent, bytes_received, bitrate")
-      .gte("timestamp", dateRange.start)
-      .lte("timestamp", dateRange.end)
-      .not("remote_callsign", "is", null)
-      .limit(10000);
+    // Get detailed station data - fetch ALL rows using pagination
+    let stationBreakdown: any[] = [];
+    let offset = 0;
+    const PAGE_SIZE = 5000;
+    while (true) {
+      const { data: page, error: pageErr } = await supabase
+        .from("syslog_entries")
+        .select("callsign, remote_callsign, snr, event_type, bytes_sent, bytes_received, bitrate")
+        .gte("timestamp", dateRange.start)
+        .lte("timestamp", dateRange.end)
+        .not("remote_callsign", "is", null)
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (pageErr) throw new Error(pageErr.message);
+      if (!page || page.length === 0) break;
+      stationBreakdown = stationBreakdown.concat(page);
+      if (page.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
 
     const upperCallsigns = callsigns.map((c: string) => c.toUpperCase().trim());
 
