@@ -122,6 +122,33 @@ export type Database = {
         }
         Relationships: []
       }
+      support_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          request_type: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          request_type: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          request_type?: string
+        }
+        Relationships: []
+      }
       syslog_entries: {
         Row: {
           bandwidth: number | null

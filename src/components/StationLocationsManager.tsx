@@ -23,18 +23,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { MapPin, RefreshCw, Edit2, Save, X, Loader2, Clock } from 'lucide-react';
+import { MapPin, RefreshCw, Edit2, Save, X, Loader2, Clock, Lock } from 'lucide-react';
 import { StationLocation, useStationLocations } from '@/hooks/useStationLocations';
 import { toast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { format, formatDistanceToNow } from 'date-fns';
 import { gridToLatLng, latLngToGrid, isValidGrid } from '@/lib/gridSquare';
+import { useAuth } from '@/hooks/useAuth';
+import { SupportForm } from '@/components/SupportForm';
 
 interface StationLocationsManagerProps {
   callsigns: string[];
 }
 
 export function StationLocationsManager({ callsigns }: StationLocationsManagerProps) {
+  const { user } = useAuth();
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
   const [isOpen, setIsOpen] = useState(false);
   const [editingCallsign, setEditingCallsign] = useState<string | null>(null);
@@ -179,11 +182,24 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex justify-end mb-4">
-          <Button onClick={handleLookupAll} disabled={loading} size="sm" className="gap-2">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Fetch All from HamQTH
-          </Button>
+        <div className="flex justify-end gap-2 mb-4">
+          {!user && (
+            <SupportForm
+              defaultType="station_location"
+              trigger={
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  Request Location Change
+                </Button>
+              }
+            />
+          )}
+          {user && (
+            <Button onClick={handleLookupAll} disabled={loading} size="sm" className="gap-2">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Fetch All from HamQTH
+            </Button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -260,6 +276,7 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                     )}
                   </TableCell>
                   <TableCell className="text-center">
+                    {user ? (
                     <div className="flex items-center justify-center gap-2">
                       {togglingPause === callsign ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -339,23 +356,28 @@ export function StationLocationsManager({ callsigns }: StationLocationsManagerPr
                         </Popover>
                       )}
                     </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{loc?.is_paused ? 'Paused' : 'Active'}</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    {isEditing ? (
-                      <div className="flex gap-1">
-                        <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={handleSave}>
-                          <Save className="h-3.5 w-3.5" />
-                          Save
+                    {user ? (
+                      isEditing ? (
+                        <div className="flex gap-1">
+                          <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={handleSave}>
+                            <Save className="h-3.5 w-3.5" />
+                            Save
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(callsign)}>
+                          <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(callsign)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                      )
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );

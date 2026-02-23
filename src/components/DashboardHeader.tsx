@@ -13,8 +13,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StationLocationsManager } from '@/components/StationLocationsManager';
 import { useHubActivityStatus } from '@/hooks/useHubActivityStatus';
-import { LoginButton } from '@/components/AuthGuard';
-import { AuthGuard } from '@/components/AuthGuard';
+import { SupportForm } from '@/components/SupportForm';
 import {
   Tooltip,
   TooltipContent,
@@ -187,13 +186,8 @@ export function DashboardHeader({
             </span>
           </div>
 
-          {/* Station Locations Manager - auth protected */}
-          <AuthGuard>
-            <StationLocationsManager callsigns={allowedCallsigns} />
-          </AuthGuard>
-
-          {/* Login/Logout button */}
-          <LoginButton />
+          {/* Station Locations Manager - visible to all, editing auth-protected */}
+          <StationLocationsManager callsigns={allowedCallsigns} />
 
           {/* Share button */}
           {onShareClick && (
@@ -276,6 +270,9 @@ export function DashboardHeader({
               </div>
             )}
           </div>
+
+          {/* Contact Support */}
+          <SupportForm />
         </div>
       </div>
     </header>
