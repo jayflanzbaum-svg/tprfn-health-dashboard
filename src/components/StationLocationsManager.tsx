@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,6 +53,41 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
   const [activeTab, setActiveTab] = useState('hubs');
   const [newStationCallsign, setNewStationCallsign] = useState('');
   const [addingStation, setAddingStation] = useState(false);
+  const [lastCheckins, setLastCheckins] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchLastCheckins = async () => {
+      try {
+        const { data: hubData } = await supabase
+          .from('syslog_entries')
+          .select('callsign, timestamp')
+          .in('callsign', callsigns.map(c => c.toUpperCase()))
+          .order('timestamp', { ascending: false });
+
+        const { data: pollingData } = await supabase
+          .from('syslog_entries')
+          .select('remote_callsign, timestamp')
+          .in('remote_callsign', pollingCallsigns.map(c => c.toUpperCase()))
+          .order('timestamp', { ascending: false });
+
+        const checkinMap = new Map<string, string>();
+        (hubData || []).forEach(row => {
+          const cs = row.callsign.toUpperCase();
+          if (!checkinMap.has(cs)) checkinMap.set(cs, row.timestamp);
+        });
+        (pollingData || []).forEach(row => {
+          if (!row.remote_callsign) return;
+          const cs = row.remote_callsign.toUpperCase();
+          if (!checkinMap.has(cs)) checkinMap.set(cs, row.timestamp);
+        });
+        setLastCheckins(checkinMap);
+      } catch (err) {
+        console.error('Error fetching last check-ins:', err);
+      }
+    };
+    fetchLastCheckins();
+  }, [isOpen, callsigns, pollingCallsigns]);
 
   const handleAddStation = async () => {
     const callsign = newStationCallsign.toUpperCase().trim();
@@ -198,6 +234,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
             <TableHead>Lat/Long</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Source</TableHead>
+            <TableHead>Last Check-in</TableHead>
             {tabType === 'hub' && <TableHead className="text-center">Active</TableHead>}
             <TableHead className="w-[100px]">Actions</TableHead>
           </TableRow>
@@ -205,7 +242,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
         <TableBody>
           {stationList.length === 0 && (
             <TableRow>
-              <TableCell colSpan={tabType === 'hub' ? 7 : 6} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={tabType === 'hub' ? 8 : 7} className="text-center text-muted-foreground py-8">
                 {tabType === 'polling' && pollingLoading ? 'Loading polling stations...' : 'No stations found'}
               </TableCell>
             </TableRow>
@@ -267,6 +304,15 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                     <span className="text-xs bg-muted px-2 py-0.5 rounded">{loc.source}</span>
                   ) : (
                     <span className="text-muted-foreground text-xs">Not set</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                  {lastCheckins.has(callsign.toUpperCase()) ? (
+                    <span title={new Date(lastCheckins.get(callsign.toUpperCase())!).toUTCString()}>
+                      {formatDistanceToNow(new Date(lastCheckins.get(callsign.toUpperCase())!), { addSuffix: true })}
+                    </span>
+                  ) : (
+                    <span>—</span>
                   )}
                 </TableCell>
                 {tabType === 'hub' && (
