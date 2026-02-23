@@ -447,7 +447,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                 )}
               </div>
             </div>
-            {renderStationTable(callsigns, 'hub')}
+            {renderStationTable([...callsigns].sort(), 'hub')}
           </TabsContent>
 
           <TabsContent value="polling" className="mt-4">
@@ -494,7 +494,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                 Loading polling stations from logs...
               </div>
             ) : (
-              renderStationTable(pollingCallsigns, 'polling')
+              renderStationTable([...pollingCallsigns].sort(), 'polling')
             )}
           </TabsContent>
         </Tabs>
