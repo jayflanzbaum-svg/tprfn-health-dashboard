@@ -63,8 +63,10 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
       toast({ title: 'Invalid callsign format', description: 'Callsign should be 3-7 alphanumeric characters', variant: 'destructive' });
       return;
     }
-    if (locations.has(callsign)) {
-      toast({ title: 'Station already exists', variant: 'destructive' });
+    // Check if already in the current tab's visible list
+    const currentList = activeTab === 'hubs' ? callsigns : pollingCallsigns;
+    if (currentList.includes(callsign)) {
+      toast({ title: 'Station already in this list', variant: 'destructive' });
       return;
     }
     setAddingStation(true);
