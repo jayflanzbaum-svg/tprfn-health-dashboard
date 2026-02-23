@@ -211,6 +211,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      distinct_syslog_callsigns: {
+        Args: never
+        Returns: {
+          callsign: string
+        }[]
+      }
       syslog_kpis: {
         Args: {
           allowed_callsigns: string[]
