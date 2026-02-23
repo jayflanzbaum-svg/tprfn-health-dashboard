@@ -23,7 +23,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, RefreshCw, Edit2, Save, X, Loader2, Clock, Lock } from 'lucide-react';
+import { MapPin, RefreshCw, Edit2, Save, X, Loader2, Clock, Lock, Plus } from 'lucide-react';
 import { StationLocation, useStationLocations } from '@/hooks/useStationLocations';
 import { usePollingCallsigns } from '@/hooks/usePollingCallsigns';
 import { toast } from '@/hooks/use-toast';
@@ -48,6 +48,34 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
   const [togglingPause, setTogglingPause] = useState<string | null>(null);
   const [pausePopoverOpen, setPausePopoverOpen] = useState<string | null>(null);
   const [pauseDays, setPauseDays] = useState<string>('7');
+  const [newStationCallsign, setNewStationCallsign] = useState('');
+  const [addingStation, setAddingStation] = useState(false);
+
+  const handleAddStation = async () => {
+    const callsign = newStationCallsign.toUpperCase().trim();
+    if (!callsign) {
+      toast({ title: 'Please enter a callsign', variant: 'destructive' });
+      return;
+    }
+    if (!/^[A-Z0-9]{3,7}$/.test(callsign)) {
+      toast({ title: 'Invalid callsign format', description: 'Callsign should be 3-7 alphanumeric characters', variant: 'destructive' });
+      return;
+    }
+    if (locations.has(callsign)) {
+      toast({ title: 'Station already exists', variant: 'destructive' });
+      return;
+    }
+    setAddingStation(true);
+    try {
+      await lookupCallsigns([callsign]);
+      setNewStationCallsign('');
+      toast({ title: `Added ${callsign}`, description: 'Station added and location looked up from HamQTH' });
+    } catch (err) {
+      toast({ title: 'Failed to add station', variant: 'destructive' });
+    } finally {
+      setAddingStation(false);
+    }
+  };
 
   const handleLookupAll = async (stationList: string[]) => {
     try {
@@ -369,24 +397,42 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
           </TabsList>
 
           <TabsContent value="hubs" className="mt-4">
-            <div className="flex justify-end gap-2 mb-4">
-              {!user && (
-                <SupportForm
-                  defaultType="station_location"
-                  trigger={
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Lock className="h-3.5 w-3.5" />
-                      Request Location Change
-                    </Button>
-                  }
-                />
-              )}
+            <div className="flex justify-between gap-2 mb-4 flex-wrap">
               {user && (
-                <Button onClick={() => handleLookupAll(callsigns)} disabled={loading} size="sm" className="gap-2">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Fetch All from HamQTH
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add callsign (e.g., W1ABC)"
+                    value={newStationCallsign}
+                    onChange={(e) => setNewStationCallsign(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddStation()}
+                    className="w-48 font-mono uppercase"
+                    maxLength={7}
+                  />
+                  <Button onClick={handleAddStation} disabled={addingStation} size="sm" className="gap-1">
+                    {addingStation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add
+                  </Button>
+                </div>
               )}
+              <div className="flex gap-2">
+                {!user && (
+                  <SupportForm
+                    defaultType="station_location"
+                    trigger={
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        <Lock className="h-3.5 w-3.5" />
+                        Request Location Change
+                      </Button>
+                    }
+                  />
+                )}
+                {user && (
+                  <Button onClick={() => handleLookupAll(callsigns)} disabled={loading} size="sm" className="gap-2">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Fetch All from HamQTH
+                  </Button>
+                )}
+              </div>
             </div>
             {renderStationTable(callsigns, 'hub')}
           </TabsContent>
