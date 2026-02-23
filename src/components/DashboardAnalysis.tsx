@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Sparkles, X, Loader2 } from 'lucide-react';
+import { Sparkles, X, Loader2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from '@/components/DateRangeFilter';
 import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface DashboardAnalysisProps {
   dateRange: DateRange;
@@ -12,8 +12,17 @@ interface DashboardAnalysisProps {
   selectedStation: string | null;
 }
 
+function formatPeriod(start: string, end: string) {
+  const s = new Date(start);
+  const e = new Date(end);
+  const sameYear = s.getFullYear() === e.getFullYear();
+  const startFmt = sameYear ? format(s, 'MMM d') : format(s, 'MMM d, yyyy');
+  return `${startFmt} – ${format(e, 'MMM d, yyyy')}`;
+}
+
 export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation }: DashboardAnalysisProps) {
   const [analysis, setAnalysis] = useState<string | null>(null);
+  const [periods, setPeriods] = useState<{ current: { start: string; end: string }; previous: { start: string; end: string } } | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -38,6 +47,9 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
       if (data?.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
+      if (data.currentPeriod && data.previousPeriod) {
+        setPeriods({ current: data.currentPeriod, previous: data.previousPeriod });
+      }
     } catch (err) {
       console.error('Analysis failed:', err);
       toast({
@@ -92,9 +104,24 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
                 Comparing current and previous periods...
               </div>
             ) : analysis ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&_ul]:space-y-1.5 [&_li]:text-foreground/90">
-                <MarkdownBullets content={analysis} />
-              </div>
+              <>
+                {periods && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3" />
+                      <span className="font-medium text-foreground/80">Current:</span>
+                      <span>{formatPeriod(periods.current.start, periods.current.end)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-foreground/80">vs Previous:</span>
+                      <span>{formatPeriod(periods.previous.start, periods.previous.end)}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&_ul]:space-y-1.5 [&_li]:text-foreground/90">
+                  <MarkdownBullets content={analysis} />
+                </div>
+              </>
             ) : null}
           </div>
         </div>

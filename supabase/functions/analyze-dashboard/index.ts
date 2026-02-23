@@ -375,7 +375,7 @@ ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and no
     const result = await response.json();
     const analysis = result.choices?.[0]?.message?.content || "No insights generated.";
 
-    return new Response(JSON.stringify({ analysis }), {
+    return new Response(JSON.stringify({ analysis, currentPeriod: { start: dateRange.start, end: dateRange.end }, previousPeriod: { start: prevStart, end: prevEnd } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
