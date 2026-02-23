@@ -91,7 +91,7 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
             </button>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-accent" />
-              <h3 className="text-sm font-semibold text-foreground">AI Dashboard Analysis</h3>
+              <h3 className="text-sm font-semibold text-foreground">Dashboard Analysis</h3>
               {selectedStation && (
                 <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-mono">
                   {selectedStation}
