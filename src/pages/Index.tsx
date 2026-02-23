@@ -449,6 +449,7 @@ const Index = () => {
             allowedCallsigns={allowedCallsigns}
             onShareClick={copyShareableUrl}
             activeStations={data.stations}
+            onHubAdded={(callsign) => setAllowedCallsigns([...allowedCallsigns, callsign])}
           />
 
           <main className="mt-8">
@@ -482,6 +483,7 @@ const Index = () => {
           allowedCallsigns={allowedCallsigns}
           onShareClick={copyShareableUrl}
           activeStations={data.stations}
+          onHubAdded={(callsign) => setAllowedCallsigns([...allowedCallsigns, callsign])}
         />
 
         {/* Inactive Hubs Alert */}
