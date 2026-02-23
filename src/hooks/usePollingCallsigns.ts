@@ -42,7 +42,7 @@ export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set
 
   const pollingCallsigns = useMemo(() => {
     if (!activeStations || activeStations.size === 0) return [];
-    return Array.from(activeStations).filter(c => !hubSet.has(c) && validCallsigns.has(c));
+    return Array.from(activeStations).filter(c => !hubSet.has(c) && validCallsigns.has(c)).sort();
   }, [activeStations, hubSet, validCallsigns]);
 
   return { pollingCallsigns, loading };
