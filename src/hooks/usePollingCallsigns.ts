@@ -19,9 +19,16 @@ export function usePollingCallsigns(hubCallsigns: string[]) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch discovered callsigns and validated locations in parallel
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        // Fetch recent callsigns and validated locations in parallel
         const [callsignsResult, locationsResult] = await Promise.all([
-          supabase.rpc('distinct_syslog_callsigns'),
+          // Get unique callsigns seen in last 7 days (both as hub and remote)
+          supabase
+            .from('syslog_entries')
+            .select('callsign, remote_callsign')
+            .gte('timestamp', sevenDaysAgo)
+            .limit(5000),
           supabase
             .from('station_locations')
             .select('callsign')
@@ -32,9 +39,14 @@ export function usePollingCallsigns(hubCallsigns: string[]) {
         if (callsignsResult.error) throw callsignsResult.error;
         if (locationsResult.error) throw locationsResult.error;
 
-        setAllCallsigns(
-          (callsignsResult.data || []).map((r: { callsign: string }) => r.callsign).filter(Boolean)
-        );
+        // Extract unique callsigns from both columns
+        const recentCallsigns = new Set<string>();
+        for (const row of callsignsResult.data || []) {
+          if (row.callsign) recentCallsigns.add(row.callsign.toUpperCase().replace(/-\d+$/, ''));
+          if (row.remote_callsign) recentCallsigns.add(row.remote_callsign.toUpperCase().replace(/-\d+$/, ''));
+        }
+
+        setAllCallsigns(Array.from(recentCallsigns));
         setValidCallsigns(
           new Set((locationsResult.data || []).map(r => r.callsign.toUpperCase()))
         );
