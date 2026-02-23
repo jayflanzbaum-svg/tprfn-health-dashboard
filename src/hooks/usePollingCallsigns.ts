@@ -67,7 +67,11 @@ export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set
   }, []);
 
   const pollingCallsigns = useMemo(() => {
-    const base = activeStations ? new Set(activeStations) : new Set<string>();
+    const base = new Set<string>();
+    // Normalize all active stations to uppercase
+    if (activeStations) {
+      activeStations.forEach(c => base.add(c.toUpperCase()));
+    }
     // Merge in manually added stations (persisted in localStorage)
     manuallyAdded.forEach(c => base.add(c));
     return Array.from(base).filter(c => !hubSet.has(c) && validCallsigns.has(c)).sort();
