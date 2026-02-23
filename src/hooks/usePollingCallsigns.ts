@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Fetches all unique callsigns from syslog_entries that are NOT in the hub callsigns list,
- * AND that have been successfully looked up (exist in station_locations with valid coordinates).
+ * Filters the active stations set (from useDatabaseData) to only include
+ * non-hub callsigns that have valid coordinates in station_locations.
+ * This ensures the polling list matches exactly what the map displays.
  */
-export function usePollingCallsigns(hubCallsigns: string[]) {
-  const [allCallsigns, setAllCallsigns] = useState<string[]>([]);
+export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set<string>) {
   const [validCallsigns, setValidCallsigns] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -16,53 +16,34 @@ export function usePollingCallsigns(hubCallsigns: string[]) {
   );
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchValidLocations = async () => {
       setLoading(true);
       try {
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('station_locations')
+          .select('callsign')
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null);
 
-        // Fetch recent callsigns and validated locations in parallel
-        const [callsignsResult, locationsResult] = await Promise.all([
-          // Get unique callsigns seen in last 7 days (both as hub and remote)
-          supabase
-            .from('syslog_entries')
-            .select('callsign, remote_callsign')
-            .gte('timestamp', sevenDaysAgo)
-            .limit(5000),
-          supabase
-            .from('station_locations')
-            .select('callsign')
-            .not('latitude', 'is', null)
-            .not('longitude', 'is', null),
-        ]);
+        if (error) throw error;
 
-        if (callsignsResult.error) throw callsignsResult.error;
-        if (locationsResult.error) throw locationsResult.error;
-
-        // Extract unique callsigns from both columns
-        const recentCallsigns = new Set<string>();
-        for (const row of callsignsResult.data || []) {
-          if (row.callsign) recentCallsigns.add(row.callsign.toUpperCase().replace(/-\d+$/, ''));
-          if (row.remote_callsign) recentCallsigns.add(row.remote_callsign.toUpperCase().replace(/-\d+$/, ''));
-        }
-
-        setAllCallsigns(Array.from(recentCallsigns));
         setValidCallsigns(
-          new Set((locationsResult.data || []).map(r => r.callsign.toUpperCase()))
+          new Set((data || []).map(r => r.callsign.toUpperCase()))
         );
       } catch (err) {
-        console.error('Error fetching polling callsigns:', err);
+        console.error('Error fetching valid station locations:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchValidLocations();
   }, []);
 
   const pollingCallsigns = useMemo(() => {
-    return allCallsigns.filter(c => !hubSet.has(c) && validCallsigns.has(c));
-  }, [allCallsigns, hubSet, validCallsigns]);
+    if (!activeStations || activeStations.size === 0) return [];
+    return Array.from(activeStations).filter(c => !hubSet.has(c) && validCallsigns.has(c));
+  }, [activeStations, hubSet, validCallsigns]);
 
   return { pollingCallsigns, loading };
 }

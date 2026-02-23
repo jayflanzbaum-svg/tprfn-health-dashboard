@@ -35,12 +35,13 @@ import { SupportForm } from '@/components/SupportForm';
 
 interface StationLocationsManagerProps {
   callsigns: string[];
+  activeStations?: Set<string>;
 }
 
-export function StationLocationsManager({ callsigns }: StationLocationsManagerProps) {
+export function StationLocationsManager({ callsigns, activeStations }: StationLocationsManagerProps) {
   const { user } = useAuth();
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
-  const { pollingCallsigns, loading: pollingLoading } = usePollingCallsigns(callsigns);
+  const { pollingCallsigns, loading: pollingLoading } = usePollingCallsigns(callsigns, activeStations);
   const [isOpen, setIsOpen] = useState(false);
   const [editingCallsign, setEditingCallsign] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ grid_square: '', latitude: '', longitude: '' });

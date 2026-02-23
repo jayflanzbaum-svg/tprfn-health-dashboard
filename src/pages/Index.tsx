@@ -448,6 +448,7 @@ const Index = () => {
             isRefreshing={isRefreshing}
             allowedCallsigns={allowedCallsigns}
             onShareClick={copyShareableUrl}
+            activeStations={data.stations}
           />
 
           <main className="mt-8">
@@ -480,6 +481,7 @@ const Index = () => {
           isRefreshing={isRefreshing}
           allowedCallsigns={allowedCallsigns}
           onShareClick={copyShareableUrl}
+          activeStations={data.stations}
         />
 
         {/* Inactive Hubs Alert */}
