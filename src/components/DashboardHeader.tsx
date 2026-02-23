@@ -35,6 +35,7 @@ interface DashboardHeaderProps {
   allowedCallsigns: string[];
   onShareClick?: () => Promise<boolean>;
   activeStations?: Set<string>;
+  onHubAdded?: (callsign: string) => void;
 }
 
 function useCurrentTime() {
@@ -89,7 +90,8 @@ export function DashboardHeader({
   isRefreshing,
   allowedCallsigns,
   onShareClick,
-  activeStations
+  activeStations,
+  onHubAdded
 }: DashboardHeaderProps) {
   const now = useCurrentTime();
   const tzAbbr = getTimezoneAbbr();
@@ -189,7 +191,7 @@ export function DashboardHeader({
           </div>
 
           {/* Station Locations Manager - visible to all, editing auth-protected */}
-          <StationLocationsManager callsigns={allowedCallsigns} activeStations={activeStations} />
+          <StationLocationsManager callsigns={allowedCallsigns} activeStations={activeStations} onHubAdded={onHubAdded} />
 
           {/* Share button */}
           {onShareClick && (

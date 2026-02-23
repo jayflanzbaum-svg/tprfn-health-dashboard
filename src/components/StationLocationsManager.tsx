@@ -36,9 +36,10 @@ import { SupportForm } from '@/components/SupportForm';
 interface StationLocationsManagerProps {
   callsigns: string[];
   activeStations?: Set<string>;
+  onHubAdded?: (callsign: string) => void;
 }
 
-export function StationLocationsManager({ callsigns, activeStations }: StationLocationsManagerProps) {
+export function StationLocationsManager({ callsigns, activeStations, onHubAdded }: StationLocationsManagerProps) {
   const { user } = useAuth();
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
   const { pollingCallsigns, loading: pollingLoading } = usePollingCallsigns(callsigns, activeStations);
@@ -48,6 +49,7 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
   const [togglingPause, setTogglingPause] = useState<string | null>(null);
   const [pausePopoverOpen, setPausePopoverOpen] = useState<string | null>(null);
   const [pauseDays, setPauseDays] = useState<string>('7');
+  const [activeTab, setActiveTab] = useState('hubs');
   const [newStationCallsign, setNewStationCallsign] = useState('');
   const [addingStation, setAddingStation] = useState(false);
 
@@ -68,8 +70,13 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
     setAddingStation(true);
     try {
       await lookupCallsigns([callsign]);
+      // If on Hubs tab, also add to the hub callsigns whitelist
+      if (activeTab === 'hubs' && onHubAdded) {
+        onHubAdded(callsign);
+      }
       setNewStationCallsign('');
-      toast({ title: `Added ${callsign}`, description: 'Station added and location looked up from HamQTH' });
+      const stationType = activeTab === 'hubs' ? 'hub' : 'polling';
+      toast({ title: `Added ${callsign}`, description: `Station added as ${stationType} and location looked up from HamQTH` });
     } catch (err) {
       toast({ title: 'Failed to add station', variant: 'destructive' });
     } finally {
@@ -386,7 +393,7 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="hubs" className="w-full">
+        <Tabs defaultValue="hubs" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="hubs" className="flex-1">
               Hubs ({callsigns.length})
@@ -438,24 +445,42 @@ export function StationLocationsManager({ callsigns, activeStations }: StationLo
           </TabsContent>
 
           <TabsContent value="polling" className="mt-4">
-            <div className="flex justify-end gap-2 mb-4">
-              {!user && (
-                <SupportForm
-                  defaultType="station_location"
-                  trigger={
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Lock className="h-3.5 w-3.5" />
-                      Request Location Change
-                    </Button>
-                  }
-                />
-              )}
+            <div className="flex justify-between gap-2 mb-4 flex-wrap">
               {user && (
-                <Button onClick={() => handleLookupAll(pollingCallsigns)} disabled={loading || pollingLoading} size="sm" className="gap-2">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Fetch All from HamQTH
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add callsign (e.g., W1ABC)"
+                    value={newStationCallsign}
+                    onChange={(e) => setNewStationCallsign(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddStation()}
+                    className="w-48 font-mono uppercase"
+                    maxLength={7}
+                  />
+                  <Button onClick={handleAddStation} disabled={addingStation} size="sm" className="gap-1">
+                    {addingStation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add
+                  </Button>
+                </div>
               )}
+              <div className="flex gap-2">
+                {!user && (
+                  <SupportForm
+                    defaultType="station_location"
+                    trigger={
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        <Lock className="h-3.5 w-3.5" />
+                        Request Location Change
+                      </Button>
+                    }
+                  />
+                )}
+                {user && (
+                  <Button onClick={() => handleLookupAll(pollingCallsigns)} disabled={loading || pollingLoading} size="sm" className="gap-2">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Fetch All from HamQTH
+                  </Button>
+                )}
+              </div>
             </div>
             {pollingLoading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
