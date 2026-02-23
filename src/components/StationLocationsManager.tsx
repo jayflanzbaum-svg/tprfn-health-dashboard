@@ -42,7 +42,7 @@ interface StationLocationsManagerProps {
 export function StationLocationsManager({ callsigns, activeStations, onHubAdded }: StationLocationsManagerProps) {
   const { user } = useAuth();
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
-  const { pollingCallsigns, loading: pollingLoading } = usePollingCallsigns(callsigns, activeStations);
+  const { pollingCallsigns, loading: pollingLoading, addPollingStation } = usePollingCallsigns(callsigns, activeStations);
   const [isOpen, setIsOpen] = useState(false);
   const [editingCallsign, setEditingCallsign] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ grid_square: '', latitude: '', longitude: '' });
@@ -75,6 +75,10 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
       // If on Hubs tab, also add to the hub callsigns whitelist
       if (activeTab === 'hubs' && onHubAdded) {
         onHubAdded(callsign);
+      }
+      // If on Polling tab, add to the manually-tracked polling list
+      if (activeTab === 'polling') {
+        addPollingStation(callsign);
       }
       setNewStationCallsign('');
       const stationType = activeTab === 'hubs' ? 'hub' : 'polling';
