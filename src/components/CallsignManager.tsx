@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Lock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { SupportForm } from '@/components/SupportForm';
 
 interface CallsignManagerProps {
   callsigns: string[];
@@ -10,6 +12,7 @@ interface CallsignManagerProps {
 }
 
 export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
+  const { user } = useAuth();
   const [newCallsign, setNewCallsign] = useState('');
 
   const handleAdd = () => {
@@ -20,7 +23,6 @@ export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
       return;
     }
     
-    // Basic callsign format validation
     if (!/^[A-Z0-9]{3,7}$/.test(callsign)) {
       toast({ 
         title: 'Invalid callsign format', 
@@ -57,25 +59,43 @@ export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-foreground">Hub Callsigns</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Add or remove hub station callsigns ({callsigns.length} active)
+          {user ? (
+            <>Add or remove hub station callsigns ({callsigns.length} active)</>
+          ) : (
+            <>Active hub station callsigns ({callsigns.length}). Contact support to request changes.</>
+          )}
         </p>
       </div>
       
-      {/* Add callsign input */}
-      <div className="flex gap-2 mb-4">
-        <Input
-          placeholder="Enter callsign (e.g., W1ABC)"
-          value={newCallsign}
-          onChange={(e) => setNewCallsign(e.target.value.toUpperCase())}
-          onKeyDown={handleKeyDown}
-          className="flex-1 font-mono uppercase"
-          maxLength={7}
-        />
-        <Button onClick={handleAdd} size="sm" className="gap-1">
-          <Plus className="h-4 w-4" />
-          Add
-        </Button>
-      </div>
+      {/* Add callsign input - only for authenticated users */}
+      {user ? (
+        <div className="flex gap-2 mb-4">
+          <Input
+            placeholder="Enter callsign (e.g., W1ABC)"
+            value={newCallsign}
+            onChange={(e) => setNewCallsign(e.target.value.toUpperCase())}
+            onKeyDown={handleKeyDown}
+            className="flex-1 font-mono uppercase"
+            maxLength={7}
+          />
+          <Button onClick={handleAdd} size="sm" className="gap-1">
+            <Plus className="h-4 w-4" />
+            Add
+          </Button>
+        </div>
+      ) : (
+        <div className="mb-4">
+          <SupportForm
+            defaultType="hub_callsign"
+            trigger={
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Lock className="h-3.5 w-3.5" />
+                Request Callsign Change
+              </Button>
+            }
+          />
+        </div>
+      )}
       
       {/* Callsign list */}
       <div className="flex flex-wrap gap-2">
@@ -85,13 +105,15 @@ export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary border border-border text-sm font-mono"
           >
             <span>{callsign}</span>
-            <button
-              onClick={() => handleRemove(callsign)}
-              className="p-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive transition-colors"
-              title={`Remove ${callsign}`}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {user && (
+              <button
+                onClick={() => handleRemove(callsign)}
+                className="p-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive transition-colors"
+                title={`Remove ${callsign}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         ))}
       </div>
