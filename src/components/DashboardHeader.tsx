@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StationLocationsManager } from '@/components/StationLocationsManager';
 import { useHubActivityStatus } from '@/hooks/useHubActivityStatus';
+import { LoginButton } from '@/components/AuthGuard';
+import { AuthGuard } from '@/components/AuthGuard';
 import {
   Tooltip,
   TooltipContent,
@@ -185,8 +187,13 @@ export function DashboardHeader({
             </span>
           </div>
 
-          {/* Station Locations Manager - use allowedCallsigns to show ALL hubs including paused ones */}
-          <StationLocationsManager callsigns={allowedCallsigns} />
+          {/* Station Locations Manager - auth protected */}
+          <AuthGuard>
+            <StationLocationsManager callsigns={allowedCallsigns} />
+          </AuthGuard>
+
+          {/* Login/Logout button */}
+          <LoginButton />
 
           {/* Share button */}
           {onShareClick && (
