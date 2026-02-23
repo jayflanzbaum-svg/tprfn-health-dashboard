@@ -1,14 +1,29 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+const MANUAL_POLLING_KEY = 'manual_polling_stations';
+
+function loadManualStations(): Set<string> {
+  try {
+    const stored = localStorage.getItem(MANUAL_POLLING_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveManualStations(stations: Set<string>) {
+  localStorage.setItem(MANUAL_POLLING_KEY, JSON.stringify(Array.from(stations)));
+}
+
 /**
  * Filters the active stations set (from useDatabaseData) to only include
  * non-hub callsigns that have valid coordinates in station_locations.
- * Also supports manually adding stations that aren't in the active set.
+ * Also supports manually adding stations that persist across sessions.
  */
 export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set<string>) {
   const [validCallsigns, setValidCallsigns] = useState<Set<string>>(new Set());
-  const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(new Set());
+  const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(loadManualStations);
   const [loading, setLoading] = useState(true);
 
   const hubSet = useMemo(
@@ -42,14 +57,18 @@ export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set
   }, []);
 
   const addPollingStation = useCallback((callsign: string) => {
-    setManuallyAdded(prev => new Set(prev).add(callsign.toUpperCase()));
-    // Also add to validCallsigns so it passes the filter
-    setValidCallsigns(prev => new Set(prev).add(callsign.toUpperCase()));
+    const upper = callsign.toUpperCase();
+    setManuallyAdded(prev => {
+      const next = new Set(prev).add(upper);
+      saveManualStations(next);
+      return next;
+    });
+    setValidCallsigns(prev => new Set(prev).add(upper));
   }, []);
 
   const pollingCallsigns = useMemo(() => {
     const base = activeStations ? new Set(activeStations) : new Set<string>();
-    // Merge in manually added stations
+    // Merge in manually added stations (persisted in localStorage)
     manuallyAdded.forEach(c => base.add(c));
     return Array.from(base).filter(c => !hubSet.has(c) && validCallsigns.has(c)).sort();
   }, [activeStations, hubSet, validCallsigns, manuallyAdded]);
