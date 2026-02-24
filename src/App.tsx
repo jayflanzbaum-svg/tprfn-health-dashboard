@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import ImportSyslog from "./pages/ImportSyslog";
 import LiveMapPage from "./pages/LiveMapPage";
 import NotFound from "./pages/NotFound";
+import DashboardOverview from "./pages/DashboardOverview";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/import" element={<ImportSyslog />} />
           <Route path="/live-map" element={<LiveMapPage />} />
+          <Route path="/overview" element={<DashboardOverview />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
