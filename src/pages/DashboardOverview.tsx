@@ -47,8 +47,10 @@ export default function DashboardOverview() {
             the performance of the TPRFN (The Packet Radio Forwarding Network) amateur radio network.
             It ingests VARA HF syslog data from over 20 hub stations across the United States and
             transforms raw connection logs into actionable insights—tracking signal quality, session
-            reliability, data throughput, and station activity. Network operators use it to identify
-            underperforming links, detect inactive hubs, and understand propagation patterns over time.
+            reliability, data throughput, and station activity. The entire dashboard can be filtered
+            by hub station callsign and by date or date range, allowing operators to drill into
+            specific stations or time periods. Network operators use it to identify underperforming
+            links, detect inactive hubs, and understand propagation patterns over time.
           </p>
         </section>
 
