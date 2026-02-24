@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.submit-support]
 verify_jwt = false
+
+[functions.inactive-hubs]
+verify_jwt = false
