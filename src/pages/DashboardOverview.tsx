@@ -44,7 +44,7 @@ export default function DashboardOverview() {
           <h2 className="text-lg font-semibold mb-2">What is the TPRFN Health Dashboard?</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             The TPRFN Health Dashboard is a real-time analytics platform built to monitor and analyze
-            the performance of the TPRFN (The Preparedness Radio Frequency Network) amateur radio network.
+            the performance of the TPRFN (The Packet Radio Forwarding Network) amateur radio network.
             It ingests VARA HF syslog data from over 20 hub stations across the United States and
             transforms raw connection logs into actionable insights—tracking signal quality, session
             reliability, data throughput, and station activity. Network operators use it to identify
