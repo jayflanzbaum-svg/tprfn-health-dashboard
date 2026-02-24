@@ -35,17 +35,26 @@ export function usePollingCallsigns(hubCallsigns: string[], activeStations?: Set
     const fetchValidLocations = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('station_locations')
-          .select('callsign')
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null);
+        // Fetch all station locations with valid coordinates (paginate to avoid 1000-row limit)
+        const allCallsigns: string[] = [];
+        let offset = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data, error: pageError } = await supabase
+            .from('station_locations')
+            .select('callsign')
+            .not('latitude', 'is', null)
+            .not('longitude', 'is', null)
+            .range(offset, offset + pageSize - 1);
 
-        if (error) throw error;
+          if (pageError) throw pageError;
+          if (!data || data.length === 0) break;
+          allCallsigns.push(...data.map(r => r.callsign.toUpperCase()));
+          if (data.length < pageSize) break;
+          offset += pageSize;
+        }
 
-        setValidCallsigns(
-          new Set((data || []).map(r => r.callsign.toUpperCase()))
-        );
+        setValidCallsigns(new Set(allCallsigns));
       } catch (err) {
         console.error('Error fetching valid station locations:', err);
       } finally {
