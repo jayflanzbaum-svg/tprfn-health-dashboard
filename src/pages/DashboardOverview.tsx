@@ -1,7 +1,9 @@
-import overviewKpi from '@/assets/overview-kpi-cards.jpg';
-import overviewMap from '@/assets/overview-station-map.jpg';
-import overviewCharts from '@/assets/overview-charts.jpg';
-import overviewTables from '@/assets/overview-tables.jpg';
+import overviewKpi from '@/assets/overview-kpi-cards.png';
+import overviewMap from '@/assets/overview-station-map.png';
+import overviewChartsSn from '@/assets/overview-charts-sn.png';
+import overviewChartsSession from '@/assets/overview-charts-session.png';
+import overviewChartsBitrate from '@/assets/overview-charts-bitrate.png';
+import overviewTables from '@/assets/overview-tables.png';
 import { Radio } from 'lucide-react';
 
 export default function DashboardOverview() {
@@ -22,7 +24,7 @@ export default function DashboardOverview() {
 
       {/* ============ PAGE 1 ============ */}
       <div className="pdf-page px-6 md:px-12 py-8 max-w-[900px] mx-auto">
-        {/* Header - matches dashboard header */}
+        {/* Header */}
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
             <Radio className="w-6 h-6 text-accent" />
@@ -63,7 +65,7 @@ export default function DashboardOverview() {
             against the previous time period to show trends.
           </p>
           <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-            <img src={overviewKpi} alt="KPI cards showing signal ratio, connect events, data transfer and S/N readings" className="w-full" />
+            <img src={overviewKpi} alt="Dashboard header with KPI cards showing signal ratio, connect events, data transfer and S/N readings" className="w-full" />
           </div>
         </section>
 
@@ -79,7 +81,7 @@ export default function DashboardOverview() {
             plus overlay modes to color stations by S/N ratio, bitrate, or session count.
           </p>
           <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-            <img src={overviewMap} alt="Live station map showing hub and polling stations across the US with connection lines" className="w-full" />
+            <img src={overviewMap} alt="Live station map showing hub and polling stations across the US with activity feed" className="w-full" />
           </div>
         </section>
       </div>
@@ -95,46 +97,46 @@ export default function DashboardOverview() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-muted-foreground mb-4">
             <div className="bg-card rounded-lg p-3 border border-border">
               <p className="font-semibold text-foreground mb-0.5">S/N by Hub Connection</p>
-              <p className="text-xs">Horizontal bar chart ranking each hub pair by average signal-to-noise ratio with color-coded quality badges.</p>
+              <p className="text-xs">Horizontal bar chart ranking each hub pair by average signal-to-noise ratio with color-coded quality badges (Excellent, Good, Fair, Poor, Bad). Includes distance estimates between stations.</p>
             </div>
             <div className="bg-card rounded-lg p-3 border border-border">
-              <p className="font-semibold text-foreground mb-0.5">Signal Quality Distribution</p>
-              <p className="text-xs">Donut chart breaking down all S/N readings into five tiers: Excellent, Good, Fair, Poor, and Bad.</p>
+              <p className="font-semibold text-foreground mb-0.5">Data Transfer by Connection</p>
+              <p className="text-xs">Stacked bar chart showing total bytes sent (TX) and received (RX) per hub pair, with distance and total KB displayed for each connection.</p>
             </div>
             <div className="bg-card rounded-lg p-3 border border-border">
-              <p className="font-semibold text-foreground mb-0.5">S/N Heatmap</p>
-              <p className="text-xs">Time-of-day vs. date heatmap revealing propagation patterns and optimal operating windows.</p>
+              <p className="font-semibold text-foreground mb-0.5">Partner Session Quality</p>
+              <p className="text-xs">Categorizes sessions into Data Exchanged, No Data (Probe), and Timeout—showing overall network health percentage and reliability per station pair.</p>
             </div>
             <div className="bg-card rounded-lg p-3 border border-border">
               <p className="font-semibold text-foreground mb-0.5">Bitrate Analysis</p>
-              <p className="text-xs">Station-level bitrate distributions and a peak bitrate leaderboard for top performers.</p>
-            </div>
-            <div className="bg-card rounded-lg p-3 border border-border">
-              <p className="font-semibold text-foreground mb-0.5">Connection Success Rate</p>
-              <p className="text-xs">Tracks session reliability per hub pair over the selected date range.</p>
-            </div>
-            <div className="bg-card rounded-lg p-3 border border-border">
-              <p className="font-semibold text-foreground mb-0.5">Disconnect Analysis</p>
-              <p className="text-xs">Identifies patterns in session terminations to diagnose link instability.</p>
+              <p className="text-xs">Average bitrate by connection (TX/RX), S/N vs max bitrate correlation scatter plot, per-station bitrate breakdown, and a peak bitrate leaderboard ranking top sessions.</p>
             </div>
           </div>
-          <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-            <img src={overviewCharts} alt="Signal quality charts including bar chart, pie chart, and heatmap" className="w-full" />
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+              <img src={overviewChartsSn} alt="S/N by hub connection and data transfer charts" className="w-full" />
+            </div>
+            <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+              <img src={overviewChartsSession} alt="Partner session quality chart showing data exchanged, probes, and timeouts" className="w-full" />
+            </div>
+            <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+              <img src={overviewChartsBitrate} alt="Bitrate analysis, station bitrate, and peak bitrate leaderboard" className="w-full" />
+            </div>
           </div>
         </section>
 
-        {/* Hub Connections & Log Table */}
+        {/* Hub Connections Table */}
         <section className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-bold tracking-widest uppercase text-accent">Data Tables</span>
             <div className="flex-1 h-px bg-border" />
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            The <strong className="text-foreground">Hub Connections Table</strong> ranks every station pair by average S/N with min/max ranges, session counts, and data transfer totals.
-            Below it, the <strong className="text-foreground">Log Entries Table</strong> shows every raw syslog event with filterable columns for timestamp, event type, station, partner, S/N, TX, and RX.
+            The <strong className="text-foreground">Hub Connection Details</strong> table ranks every station pair by average S/N with sortable columns for min/max S/N ranges, session counts, TX/RX data transfer totals, and S/N reading counts.
+            Below it, the <strong className="text-foreground">Log Entries Table</strong> shows every raw syslog event with filterable columns for timestamp, event type, station, partner, S/N, TX, and RX bytes.
           </p>
           <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-            <img src={overviewTables} alt="Hub connections table and log entries showing station pair data" className="w-full" />
+            <img src={overviewTables} alt="Hub connection details table showing station pair metrics" className="w-full" />
           </div>
         </section>
 
@@ -146,12 +148,12 @@ export default function DashboardOverview() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
             {[
-              { icon: '🔔', title: 'Inactive Hub Alerts', desc: 'Auto-detects hubs with no 24h activity' },
-              { icon: '📅', title: 'Flexible Date Filtering', desc: 'Quick presets + custom ranges with comparison periods' },
-              { icon: '🤖', title: 'AI Dashboard Analysis', desc: 'One-click AI summary of network health' },
-              { icon: '📋', title: 'Net Session Logging', desc: 'Record scheduled nets with start/end times' },
-              { icon: '📡', title: 'Station Location Polling', desc: 'Auto grid-square lookups via QRZ/HamQTH' },
-              { icon: '📤', title: 'Syslog Import Pipeline', desc: 'Bulk import + deduplication of VARA HF logs' },
+              { icon: '🔔', title: 'Inactive Hub Alerts', desc: 'Automatically detects hub stations that have not connected to any other hub in the last 24 hours, displayed as a prominent banner with time-since-last-seen badges.' },
+              { icon: '📅', title: 'Flexible Date Filtering', desc: 'Quick presets (Today, 7 days, 30 days, All Time) plus a custom date range picker. All charts and KPIs update with comparison metrics against the equivalent previous period.' },
+              { icon: '✨', title: 'Analysis', desc: 'One-click analysis of overall network health, generating a natural-language summary with key findings, trends, and actionable recommendations based on current data.' },
+              { icon: '📋', title: 'Net Session Logging', desc: 'Record and manage scheduled net sessions with start/end times, names, and notes. Sessions provide context for when organized activity occurred on the network.' },
+              { icon: '📡', title: 'Station Location Polling', desc: 'Automated grid-square lookups via QRZ and HamQTH APIs for every callsign seen in logs. Supports manual coordinate overrides and pause/resume controls per station.' },
+              { icon: '📤', title: 'Syslog Import Pipeline', desc: 'Bulk import of VARA HF syslog files with automatic parsing, deduplication, and storage. Supports both direct file upload and scheduled fetching from remote endpoints.' },
             ].map((f) => (
               <div key={f.title} className="bg-card rounded-lg p-2.5 border border-border">
                 <p className="font-semibold text-foreground mb-0.5">{f.icon} {f.title}</p>
