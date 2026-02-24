@@ -1,7 +1,7 @@
 import overviewKpi from '@/assets/overview-kpi-cards.png';
 import overviewMap from '@/assets/overview-station-map.png';
 import overviewChartsSn from '@/assets/overview-charts-sn.png';
-import overviewChartsSession from '@/assets/overview-charts-session.png';
+
 import overviewChartsBitrate from '@/assets/overview-charts-bitrate.png';
 import overviewTables from '@/assets/overview-tables.png';
 import { Radio } from 'lucide-react';
@@ -115,9 +115,6 @@ export default function DashboardOverview() {
           <div className="space-y-3">
             <div className="rounded-xl border border-border overflow-hidden shadow-sm">
               <img src={overviewChartsSn} alt="S/N by hub connection and data transfer charts" className="w-full" />
-            </div>
-            <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-              <img src={overviewChartsSession} alt="Partner session quality chart showing data exchanged, probes, and timeouts" className="w-full" />
             </div>
             <div className="rounded-xl border border-border overflow-hidden shadow-sm">
               <img src={overviewChartsBitrate} alt="Bitrate analysis, station bitrate, and peak bitrate leaderboard" className="w-full" />
