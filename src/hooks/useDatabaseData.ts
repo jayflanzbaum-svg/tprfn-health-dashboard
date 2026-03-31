@@ -191,8 +191,11 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
         setLoading(true);
       }
       
-      console.log('Refreshing from live syslog URL...');
-      await fetchLiveData();
+      // Fire live import in background — don't block dashboard loading
+      console.log('Triggering live syslog refresh (non-blocking)...');
+      fetchLiveData().then(ok => {
+        if (ok) console.log('Background live import completed');
+      });
       
       console.log('Fetching syslog data from database...');
 
