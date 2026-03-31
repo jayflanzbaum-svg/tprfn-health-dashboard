@@ -16,11 +16,27 @@ serve(async (req) => {
   try {
     console.log('Fetching syslog data from:', SYSLOG_URL);
     
-    const response = await fetch(SYSLOG_URL);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
+    let response: Response;
+    try {
+      response = await fetch(SYSLOG_URL, { signal: controller.signal });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      const msg = fetchErr instanceof Error ? fetchErr.message : 'Fetch failed';
+      console.warn('Syslog fetch failed (external server may be down):', msg);
+      return new Response(JSON.stringify({ content: '', error: msg, partial: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.error('Failed to fetch syslog:', response.status, response.statusText);
-      throw new Error(`Failed to fetch syslog data: ${response.status}`);
+      return new Response(JSON.stringify({ content: '', error: `HTTP ${response.status}`, partial: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const content = await response.text();
