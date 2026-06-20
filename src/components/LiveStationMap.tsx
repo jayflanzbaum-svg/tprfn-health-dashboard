@@ -1088,6 +1088,35 @@ export function LiveStationMap({
           </div>
         </div>
 
+        {/* Replay panel */}
+        {mode === 'replay' && (
+          <div className="mt-3">
+            <ReplayControls
+              startISO={replayStart}
+              endISO={replayEnd}
+              speed={replaySpeed}
+              playing={replay.playing}
+              loading={replay.loading}
+              eventCount={replay.events.length}
+              cursorMs={replay.cursorMs}
+              progress={replay.progress}
+              onChangeRange={(s, e) => { replay.reset(); setReplayRange(s, e); }}
+              onChangeSpeed={setReplaySpeed}
+              onPlay={replay.play}
+              onPause={replay.pause}
+              onReset={() => {
+                replay.reset();
+                replayLayerRef.current?.clearLayers();
+                mapRef.current?.closePopup();
+              }}
+            />
+            {replay.error && (
+              <p className="text-xs text-destructive mt-2">{replay.error}</p>
+            )}
+          </div>
+        )}
+
+
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
