@@ -194,24 +194,32 @@ export function LiveStationMap({
   const markersRef = useRef<L.LayerGroup | null>(null);
   const connectionsRef = useRef<L.LayerGroup | null>(null);
   const liveConnectionsRef = useRef<L.LayerGroup | null>(null);
+  const replayLayerRef = useRef<L.LayerGroup | null>(null);
   const liveLineRendererRef = useRef<L.Canvas | null>(null);
-  
+
   // Use URL state for fullscreen mode, local state otherwise
   const urlState = useMapUrlState();
-  
+
   // Local state for non-fullscreen mode
   const [localShowConnections, setLocalShowConnections] = useState(true);
   const [localColorMode, setLocalColorMode] = useState<ConnectionColorMode>('live');
   const [localStationFilter, setLocalStationFilter] = useState<StationFilter>('hub');
-  const [localLiveMode, setLocalLiveMode] = useState(true);
-  
+  const [localMode, setLocalMode] = useState<MapMode>('live');
+  const [localReplayStart, setLocalReplayStart] = useState<string | null>(null);
+  const [localReplayEnd, setLocalReplayEnd] = useState<string | null>(null);
+  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(60);
+
   // Use URL state in fullscreen, local state otherwise
   const showConnections = isFullscreen ? urlState.showConnections : localShowConnections;
   const colorMode = isFullscreen ? urlState.colorMode : localColorMode;
   const stationFilter = isFullscreen ? urlState.stationFilter : localStationFilter;
-  const liveMode = isFullscreen ? urlState.liveMode : localLiveMode;
-  
-  const setShowConnections = isFullscreen 
+  const mode: MapMode = isFullscreen ? urlState.mode : localMode;
+  const liveMode = mode === 'live';
+  const replayStart = isFullscreen ? urlState.replayStart : localReplayStart;
+  const replayEnd = isFullscreen ? urlState.replayEnd : localReplayEnd;
+  const replaySpeed = isFullscreen ? urlState.replaySpeed : localReplaySpeed;
+
+  const setShowConnections = isFullscreen
     ? (val: boolean) => urlState.setState({ showConnections: val })
     : setLocalShowConnections;
   const setColorMode = isFullscreen
@@ -220,10 +228,18 @@ export function LiveStationMap({
   const setStationFilter = isFullscreen
     ? (val: StationFilter) => urlState.setState({ stationFilter: val })
     : setLocalStationFilter;
-  const setLiveMode = isFullscreen
-    ? (val: boolean) => urlState.setState({ liveMode: val })
-    : setLocalLiveMode;
-  
+  const setMode = isFullscreen
+    ? (val: MapMode) => urlState.setState({ mode: val })
+    : setLocalMode;
+  const setReplayRange = (s: string | null, e: string | null) => {
+    if (isFullscreen) urlState.setState({ replayStart: s, replayEnd: e });
+    else { setLocalReplayStart(s); setLocalReplayEnd(e); }
+  };
+  const setReplaySpeed = (s: number) => {
+    if (isFullscreen) urlState.setState({ replaySpeed: s });
+    else setLocalReplaySpeed(s);
+  };
+
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
