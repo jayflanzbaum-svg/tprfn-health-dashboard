@@ -97,8 +97,8 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
     return () => { cancelled = true; };
   }, [start?.getTime(), end?.getTime()]);
 
-  // Compute hold duration based on speed multiplier (base = 6 seconds per event)
-  const holdDurationMs = Math.max(1500, Math.round(6000 / Math.max(0.1, eventsPerSecond)));
+  // Compute hold duration based on speed multiplier (base = 4 seconds per event)
+  const holdDurationMs = Math.max(1200, Math.round(4000 / Math.max(0.1, eventsPerSecond)));
 
   // Sequential playback — emit one event, wait, then emit the next
   const scheduleNext = useCallback(() => {
