@@ -22,7 +22,7 @@ const DEFAULTS = {
   stationFilter: 'hub' as StationFilter,
   showConnections: true,
   colorMode: 'live' as ConnectionColorMode,
-  replaySpeed: 4,
+  replaySpeed: 1,
 };
 
 export function useMapUrlState() {
