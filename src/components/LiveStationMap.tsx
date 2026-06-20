@@ -11,7 +11,9 @@ import { HubConnection, formatCallsign, formatBytes, formatDuration } from '@/li
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { useMapUrlState, ConnectionColorMode, StationFilter } from '@/hooks/useMapUrlState';
+import { useMapUrlState, ConnectionColorMode, StationFilter, MapMode } from '@/hooks/useMapUrlState';
+import { useReplayPlayer, ReplayEvent } from '@/hooks/useReplayPlayer';
+import { ReplayControls } from '@/components/ReplayControls';
 
 // Fix for default marker icons in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -106,6 +108,30 @@ const animationStyles = `
   
   .activity-item {
     animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes replayPopupFade {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.92); }
+    18%  { opacity: 1; transform: translateY(0) scale(1); }
+    82%  { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  }
+  .replay-popup .leaflet-popup-content-wrapper {
+    animation: replayPopupFade 3600ms ease-in-out forwards;
+    background: rgba(17, 24, 39, 0.92);
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.55);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+    border-radius: 8px;
+  }
+  .replay-popup .leaflet-popup-tip { background: rgba(17, 24, 39, 0.92); }
+  .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
+
+  @keyframes replayArcFade {
+    0%   { opacity: 0; }
+    15%  { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { opacity: 0; }
   }
 `;
 
