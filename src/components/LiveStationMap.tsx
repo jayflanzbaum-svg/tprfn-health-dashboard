@@ -116,6 +116,12 @@ const animationStyles = `
     82%  { opacity: 1; transform: translateY(0) scale(1); }
     100% { opacity: 0; transform: translateY(-6px) scale(0.96); }
   }
+  @keyframes replayTipFade {
+    0%   { opacity: 0; }
+    18%  { opacity: 1; }
+    82%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
   .replay-popup .leaflet-popup-content-wrapper {
     animation: replayPopupFade 3600ms ease-in-out forwards;
     background: rgba(17, 24, 39, 0.92);
@@ -124,7 +130,12 @@ const animationStyles = `
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
     border-radius: 8px;
   }
-  .replay-popup .leaflet-popup-tip { background: rgba(17, 24, 39, 0.92); }
+  .replay-popup .leaflet-popup-tip {
+    animation: replayTipFade 3600ms ease-in-out forwards;
+    background: rgba(17, 24, 39, 0.92);
+    border: 1px solid rgba(168, 85, 247, 0.55);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+  }
   .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
 
   @keyframes replayArcFade {
