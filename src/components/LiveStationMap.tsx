@@ -634,6 +634,7 @@ export function LiveStationMap({
       markersRef.current = L.layerGroup().addTo(mapRef.current);
       connectionsRef.current = L.layerGroup().addTo(mapRef.current);
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
+      replayLayerRef.current = L.layerGroup().addTo(mapRef.current);
 
       // Use Canvas renderer for live lines so dash lengths stay consistent in screen pixels
       // across zoom levels (SVG is scaled via transforms, which scales dash patterns).
@@ -859,16 +860,27 @@ export function LiveStationMap({
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {/* Live Mode Toggle */}
-          <Button
-            variant={liveMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setLiveMode(!liveMode)}
-            className={`gap-1.5 ${liveMode ? 'bg-green-500 hover:bg-green-600' : ''}`}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Live Mode
-          </Button>
+          {/* Mode toggle: Live vs Replay */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant={mode === 'live' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode('live')}
+              className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : ''}`}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Live Mode
+            </Button>
+            <Button
+              variant={mode === 'replay' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode('replay')}
+              className={`gap-1.5 ${mode === 'replay' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Replay Mode
+            </Button>
+          </div>
 
           <div className="h-4 w-px bg-border mx-1" />
 
