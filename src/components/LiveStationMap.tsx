@@ -207,7 +207,7 @@ export function LiveStationMap({
   const [localMode, setLocalMode] = useState<MapMode>('live');
   const [localReplayStart, setLocalReplayStart] = useState<string | null>(null);
   const [localReplayEnd, setLocalReplayEnd] = useState<string | null>(null);
-  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(4);
+  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(1);
 
   // Use URL state in fullscreen, local state otherwise
   const showConnections = isFullscreen ? urlState.showConnections : localShowConnections;
