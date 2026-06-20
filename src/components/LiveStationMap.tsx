@@ -610,6 +610,113 @@ export function LiveStationMap({
     };
   }, [liveMode, fetchLiveSyslog]);
 
+  // ============================================================
+  // REPLAY MODE: animate connections from DB as a time-lapse
+  // ============================================================
+  const handleReplayEvent = useCallback((ev: ReplayEvent) => {
+    if (!mapReady || !mapRef.current || !replayLayerRef.current) return;
+    const loc1 = allStationsLookup[ev.station1];
+    const loc2 = allStationsLookup[ev.station2];
+    if (!loc1 || !loc2) {
+      // Trigger background lookup for unknown stations
+      if (lookupCallsigns) {
+        const missing = [ev.station1, ev.station2].filter(c => !locations.has(c));
+        if (missing.length) lookupCallsigns(missing);
+      }
+      return;
+    }
+
+    const lineColor = ev.snr !== null ? getSnrColor(ev.snr) : '#a855f7';
+    const arc = getGreatCirclePoints(
+      loc1.latitude!, loc1.longitude!,
+      loc2.latitude!, loc2.longitude!,
+      40
+    );
+
+    const polyline = L.polyline(arc, {
+      color: lineColor,
+      weight: 3,
+      opacity: 0.95,
+      lineCap: 'round',
+      className: 'replay-arc',
+    });
+    replayLayerRef.current.addLayer(polyline);
+
+    // Animate the polyline stroke with CSS via SVG attribute
+    const el = (polyline as any).getElement?.() as SVGPathElement | null;
+    if (el) {
+      el.style.animation = 'replayArcFade 4000ms ease-in-out forwards';
+    }
+
+    // Build the midpoint popup
+    const key = [ev.station1, ev.station2].sort().join('↔');
+    const distance = distances.get(key);
+    const midLat = (loc1.latitude! + loc2.latitude!) / 2;
+    const midLon = (loc1.longitude! + loc2.longitude!) / 2;
+
+    const snrLine = ev.snr !== null
+      ? `<div>S/N: <b style="color:${lineColor}">${ev.snr.toFixed(1)} dB</b></div>`
+      : '';
+    const distLine = distance
+      ? `<div>Distance: <b>${distance.toLocaleString()} mi</b></div>`
+      : '';
+
+    const popup = L.popup({
+      closeButton: false,
+      autoClose: false,
+      closeOnClick: false,
+      autoPan: false,
+      className: 'replay-popup',
+      offset: [0, -4],
+    })
+      .setLatLng([midLat, midLon])
+      .setContent(`
+        <div style="min-width:160px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px;">
+            ${ev.station1} ↔ ${ev.station2}
+          </div>
+          ${distLine}
+          ${snrLine}
+          <div style="opacity:0.75;font-size:10px;margin-top:3px;">
+            ${format(ev.timestamp, 'MMM d HH:mm:ss')}Z
+          </div>
+        </div>
+      `);
+
+    popup.openOn(mapRef.current);
+    const popupEl = (popup as any)._container as HTMLElement | undefined;
+
+    // Auto-remove after fade completes
+    window.setTimeout(() => {
+      if (popupEl?.parentNode) mapRef.current?.closePopup(popup);
+    }, 3500);
+    window.setTimeout(() => {
+      if (replayLayerRef.current?.hasLayer(polyline)) {
+        replayLayerRef.current.removeLayer(polyline);
+      }
+    }, 4000);
+  }, [mapReady, allStationsLookup, distances, lookupCallsigns, locations]);
+
+  const replayStartDate = replayStart ? new Date(replayStart) : null;
+  const replayEndDate = replayEnd ? new Date(replayEnd) : null;
+
+  const replay = useReplayPlayer({
+    start: mode === 'replay' ? replayStartDate : null,
+    end: mode === 'replay' ? replayEndDate : null,
+    speed: replaySpeed,
+    onEvent: handleReplayEvent,
+  });
+
+  // Clear replay layer when leaving replay mode
+  useEffect(() => {
+    if (mode !== 'replay' && replayLayerRef.current) {
+      replayLayerRef.current.clearLayers();
+      mapRef.current?.closePopup();
+    }
+  }, [mode]);
+
+
+
   // Initialize map with delay to prevent blocking
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
