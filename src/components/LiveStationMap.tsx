@@ -993,27 +993,27 @@ export function LiveStationMap({
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {/* Mode toggle: Live vs Replay */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant={mode === 'live' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode('live')}
-              className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : ''}`}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              Live Mode
-            </Button>
-            <Button
-              variant={mode === 'replay' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode('replay')}
-              className={`gap-1.5 ${mode === 'replay' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Replay Mode
-            </Button>
-          </div>
+          {/* Mode toggle: single button switches between Live and Replay */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setMode(mode === 'live' ? 'replay' : 'live')}
+            className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : 'bg-purple-500 hover:bg-purple-600'} text-white`}
+            title={mode === 'live' ? 'Click to switch to Replay Mode' : 'Click to switch to Live Mode'}
+          >
+            {mode === 'live' ? (
+              <>
+                <Zap className="h-3.5 w-3.5" />
+                Live Mode
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" />
+                Replay Mode
+              </>
+            )}
+          </Button>
+
 
           <div className="h-4 w-px bg-border mx-1" />
 
