@@ -338,8 +338,13 @@ export function LiveStationMap({
   }, [liveConnections]);
 
   // Get stations to display based on filter
-  // When HUB ONLY filter is active, still show polling stations that are connected to a hub
+  // In replay mode, "All" means every mapped station so replay lines never point
+  // to an endpoint without a visible marker.
   const displayedStations = useMemo(() => {
+    if (mode === 'replay' && stationFilter === 'all') {
+      return Array.from(locations.values()).filter(station => station.latitude && station.longitude);
+    }
+
     if (stationFilter === 'hub') {
       // Show all hubs, plus any polling stations that are actively connected
       const connectedPolling = pollingStations.filter(station => 
@@ -348,7 +353,7 @@ export function LiveStationMap({
       return [...hubStations, ...connectedPolling];
     }
     return [...hubStations, ...pollingStations];
-  }, [stationFilter, hubStations, pollingStations, liveConnectedCallsigns]);
+  }, [mode, stationFilter, locations, hubStations, pollingStations, liveConnectedCallsigns]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
   const allStationsLookup = useMemo(() => {
