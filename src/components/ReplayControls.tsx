@@ -30,13 +30,12 @@ interface ReplayControlsProps {
   onReset: () => void;
 }
 
-// Events per second
+// Speed multipliers: base hold = 6s per event
 const SPEEDS: { value: number; label: string }[] = [
+  { value: 0.5, label: '0.5×' },
   { value: 1, label: '1×' },
   { value: 2, label: '2×' },
   { value: 4, label: '4×' },
-  { value: 8, label: '8×' },
-  { value: 16, label: '16×' },
 ];
 
 const toLocalInput = (iso: string | null): string => {
