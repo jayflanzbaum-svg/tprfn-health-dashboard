@@ -1124,18 +1124,20 @@ export function LiveStationMap({
               playing={replay.playing}
               loading={replay.loading}
               eventCount={replay.events.length}
-              cursorMs={replay.cursorMs}
+              emittedCount={replay.emittedCount}
               progress={replay.progress}
-              onChangeRange={(s, e) => { replay.reset(); setReplayRange(s, e); }}
+              onChangeRange={(s, e) => { replay.reset(); resetReplayStats(); setReplayRange(s, e); }}
               onChangeSpeed={setReplaySpeed}
-              onPlay={replay.play}
+              onPlay={() => { resetReplayStats(); replayLayerRef.current?.clearLayers(); mapRef.current?.closePopup(); replay.play(); }}
               onPause={replay.pause}
               onReset={() => {
                 replay.reset();
                 replayLayerRef.current?.clearLayers();
                 mapRef.current?.closePopup();
+                resetReplayStats();
               }}
             />
+
             {replay.error && (
               <p className="text-xs text-destructive mt-2">{replay.error}</p>
             )}
