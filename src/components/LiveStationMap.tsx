@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Map, Radio, Wifi, Signal, Eye, EyeOff, Building2, Users, Maximize2, Activity, Clock, ArrowRightLeft, Zap, Share2 } from 'lucide-react';
+import { Map, Radio, Wifi, Signal, Eye, EyeOff, Building2, Users, Maximize2, Activity, Clock, ArrowRightLeft, Zap, Share2, Plus, Minus } from 'lucide-react';
 import { StationLocation } from '@/hooks/useStationLocations';
 import { HubConnection, formatCallsign, formatBytes, formatDuration } from '@/lib/syslogParser';
 import { supabase } from '@/integrations/supabase/client';
