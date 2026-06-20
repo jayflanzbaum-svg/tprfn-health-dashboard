@@ -664,10 +664,7 @@ export function LiveStationMap({
       avgDistance: s.distCount ? s.distSum / s.distCount : null,
     });
 
-
     // Build the midpoint popup
-    const key = [ev.station1, ev.station2].sort().join('↔');
-    const distance = distances.get(key);
     const midLat = (loc1.latitude! + loc2.latitude!) / 2;
     const midLon = (loc1.longitude! + loc2.longitude!) / 2;
 
@@ -720,17 +717,29 @@ export function LiveStationMap({
   const replay = useReplayPlayer({
     start: mode === 'replay' ? replayStartDate : null,
     end: mode === 'replay' ? replayEndDate : null,
-    speed: replaySpeed,
+    eventsPerSecond: replaySpeed,
     onEvent: handleReplayEvent,
   });
 
-  // Clear replay layer when leaving replay mode
+  // Clear replay layer when leaving replay mode; reset stats
   useEffect(() => {
     if (mode !== 'replay' && replayLayerRef.current) {
       replayLayerRef.current.clearLayers();
       mapRef.current?.closePopup();
+      resetReplayStats();
     }
-  }, [mode]);
+  }, [mode, resetReplayStats]);
+
+  // When entering replay mode, default to showing all stations so the whole
+  // network is visible during playback.
+  const lastModeRef = useRef<MapMode>(mode);
+  useEffect(() => {
+    if (lastModeRef.current !== mode && mode === 'replay' && stationFilter !== 'all') {
+      setStationFilter('all');
+    }
+    lastModeRef.current = mode;
+  }, [mode, stationFilter, setStationFilter]);
+
 
 
 
