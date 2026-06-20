@@ -53,7 +53,7 @@ export function useMapUrlState() {
         : DEFAULTS.colorMode),
       replayStart: rStart,
       replayEnd: rEnd,
-      replaySpeed: rSpeed ? Math.max(1, parseInt(rSpeed, 10) || DEFAULTS.replaySpeed) : DEFAULTS.replaySpeed,
+      replaySpeed: rSpeed ? Math.max(0.5, parseFloat(rSpeed) || DEFAULTS.replaySpeed) : DEFAULTS.replaySpeed,
     };
   }, [searchParams]);
 
