@@ -15,7 +15,7 @@ export interface ReplayEvent {
 interface UseReplayPlayerOptions {
   start: Date | null;
   end: Date | null;
-  /** Playback speed in events per second. */
+  /** Playback speed multiplier. Base hold per event = 6s. */
   eventsPerSecond: number;
   onEvent: (event: ReplayEvent) => void;
 }
@@ -97,10 +97,27 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
     return () => { cancelled = true; };
   }, [start?.getTime(), end?.getTime()]);
 
-  // Playback loop — emit events successively at fixed interval
+  // Compute hold duration based on speed multiplier (base = 6 seconds per event)
+  const holdDurationMs = Math.max(1500, Math.round(6000 / Math.max(0.1, eventsPerSecond)));
+
+  // Sequential playback — emit one event, wait, then emit the next
+  const scheduleNext = useCallback(() => {
+    if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+    const i = indexRef.current;
+    if (i >= events.length) {
+      setPlaying(false);
+      setDone(true);
+      return;
+    }
+    onEventRef.current(events[i]);
+    indexRef.current = i + 1;
+    setEmittedCount(i + 1);
+    timerRef.current = window.setTimeout(scheduleNext, holdDurationMs);
+  }, [events, holdDurationMs]);
+
   useEffect(() => {
     if (!playing) {
-      if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+      if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
       if (tickerRef.current) { window.clearInterval(tickerRef.current); tickerRef.current = null; }
       if (playStartRef.current !== null) {
         baseElapsedRef.current += performance.now() - playStartRef.current;
@@ -111,36 +128,25 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
     if (events.length === 0) return;
 
     playStartRef.current = performance.now();
-    const intervalMs = Math.max(30, Math.round(1000 / Math.max(0.1, eventsPerSecond)));
 
-    timerRef.current = window.setInterval(() => {
-      const i = indexRef.current;
-      if (i >= events.length) {
-        if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
-        setPlaying(false);
-        setDone(true);
-        return;
-      }
-      onEventRef.current(events[i]);
-      indexRef.current = i + 1;
-      setEmittedCount(i + 1);
-    }, intervalMs);
+    // Kick off the sequential chain
+    scheduleNext();
 
-    // Elapsed timer ticker (10 fps is plenty for mm:ss)
+    // Elapsed timer ticker
     tickerRef.current = window.setInterval(() => {
       const live = playStartRef.current !== null ? performance.now() - playStartRef.current : 0;
       setElapsedMs(baseElapsedRef.current + live);
     }, 100);
 
     return () => {
-      if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+      if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
       if (tickerRef.current) { window.clearInterval(tickerRef.current); tickerRef.current = null; }
       if (playStartRef.current !== null) {
         baseElapsedRef.current += performance.now() - playStartRef.current;
         playStartRef.current = null;
       }
     };
-  }, [playing, events, eventsPerSecond]);
+  }, [playing, events, scheduleNext]);
 
   const play = useCallback(() => {
     if (events.length === 0) return;
