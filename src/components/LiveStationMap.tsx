@@ -634,6 +634,10 @@ export function LiveStationMap({
       return;
     }
 
+    // Only one event visible at a time — clear previous replay layers first
+    replayLayerRef.current?.clearLayers();
+    mapRef.current?.closePopup();
+
     const lineColor = ev.snr !== null ? getSnrColor(ev.snr) : '#a855f7';
     const arc = getGreatCirclePoints(
       loc1.latitude!, loc1.longitude!,
@@ -649,7 +653,7 @@ export function LiveStationMap({
       dashArray: '8, 8',
       className: 'replay-arc',
     });
-    replayLayerRef.current.addLayer(polyline);
+    replayLayerRef.current!.addLayer(polyline);
 
     // Accumulate stats
     const key = [ev.station1, ev.station2].sort().join('↔');
@@ -697,18 +701,7 @@ export function LiveStationMap({
         </div>
       `);
 
-    popup.openOn(mapRef.current);
-    const popupEl = (popup as any)._container as HTMLElement | undefined;
-
-    // Auto-remove after fade completes
-    window.setTimeout(() => {
-      if (popupEl?.parentNode) mapRef.current?.closePopup(popup);
-    }, 3500);
-    window.setTimeout(() => {
-      if (replayLayerRef.current?.hasLayer(polyline)) {
-        replayLayerRef.current.removeLayer(polyline);
-      }
-    }, 4000);
+    popup.openOn(mapRef.current!);
   }, [mapReady, allStationsLookup, distances, lookupCallsigns, locations]);
 
   const replayStartDate = replayStart ? new Date(replayStart) : null;
