@@ -246,6 +246,14 @@ export function LiveStationMap({
   const [mapReady, setMapReady] = useState(false);
   const stylesInjectedRef = useRef(false);
 
+  // Replay stats accumulated as events are emitted
+  const replayStatsRef = useRef({ count: 0, snrSum: 0, snrCount: 0, distSum: 0, distCount: 0 });
+  const [replayStats, setReplayStats] = useState({ count: 0, avgSnr: null as number | null, avgDistance: null as number | null });
+  const resetReplayStats = useCallback(() => {
+    replayStatsRef.current = { count: 0, snrSum: 0, snrCount: 0, distSum: 0, distCount: 0 };
+    setReplayStats({ count: 0, avgSnr: null, avgDistance: null });
+  }, []);
+
   // Inject animation styles only once
   useEffect(() => {
     if (stylesInjectedRef.current) return;
