@@ -207,7 +207,7 @@ export function LiveStationMap({
   const [localMode, setLocalMode] = useState<MapMode>('live');
   const [localReplayStart, setLocalReplayStart] = useState<string | null>(null);
   const [localReplayEnd, setLocalReplayEnd] = useState<string | null>(null);
-  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(60);
+  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(4);
 
   // Use URL state in fullscreen, local state otherwise
   const showConnections = isFullscreen ? urlState.showConnections : localShowConnections;
@@ -245,6 +245,14 @@ export function LiveStationMap({
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const stylesInjectedRef = useRef(false);
+
+  // Replay stats accumulated as events are emitted
+  const replayStatsRef = useRef({ count: 0, snrSum: 0, snrCount: 0, distSum: 0, distCount: 0 });
+  const [replayStats, setReplayStats] = useState({ count: 0, avgSnr: null as number | null, avgDistance: null as number | null });
+  const resetReplayStats = useCallback(() => {
+    replayStatsRef.current = { count: 0, snrSum: 0, snrCount: 0, distSum: 0, distCount: 0 };
+    setReplayStats({ count: 0, avgSnr: null, avgDistance: null });
+  }, []);
 
   // Inject animation styles only once
   useEffect(() => {
@@ -638,14 +646,25 @@ export function LiveStationMap({
       weight: 3,
       opacity: 0.95,
       lineCap: 'round',
+      dashArray: '8, 8',
       className: 'replay-arc',
     });
     replayLayerRef.current.addLayer(polyline);
 
-
-    // Build the midpoint popup
+    // Accumulate stats
     const key = [ev.station1, ev.station2].sort().join('↔');
     const distance = distances.get(key);
+    const s = replayStatsRef.current;
+    s.count += 1;
+    if (ev.snr !== null && !isNaN(ev.snr)) { s.snrSum += ev.snr; s.snrCount += 1; }
+    if (distance !== undefined && distance !== null) { s.distSum += distance; s.distCount += 1; }
+    setReplayStats({
+      count: s.count,
+      avgSnr: s.snrCount ? s.snrSum / s.snrCount : null,
+      avgDistance: s.distCount ? s.distSum / s.distCount : null,
+    });
+
+    // Build the midpoint popup
     const midLat = (loc1.latitude! + loc2.latitude!) / 2;
     const midLon = (loc1.longitude! + loc2.longitude!) / 2;
 
@@ -698,17 +717,29 @@ export function LiveStationMap({
   const replay = useReplayPlayer({
     start: mode === 'replay' ? replayStartDate : null,
     end: mode === 'replay' ? replayEndDate : null,
-    speed: replaySpeed,
+    eventsPerSecond: replaySpeed,
     onEvent: handleReplayEvent,
   });
 
-  // Clear replay layer when leaving replay mode
+  // Clear replay layer when leaving replay mode; reset stats
   useEffect(() => {
     if (mode !== 'replay' && replayLayerRef.current) {
       replayLayerRef.current.clearLayers();
       mapRef.current?.closePopup();
+      resetReplayStats();
     }
-  }, [mode]);
+  }, [mode, resetReplayStats]);
+
+  // When entering replay mode, default to showing all stations so the whole
+  // network is visible during playback.
+  const lastModeRef = useRef<MapMode>(mode);
+  useEffect(() => {
+    if (lastModeRef.current !== mode && mode === 'replay' && stationFilter !== 'all') {
+      setStationFilter('all');
+    }
+    lastModeRef.current = mode;
+  }, [mode, stationFilter, setStationFilter]);
+
 
 
 
@@ -962,27 +993,27 @@ export function LiveStationMap({
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {/* Mode toggle: Live vs Replay */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant={mode === 'live' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode('live')}
-              className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : ''}`}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              Live Mode
-            </Button>
-            <Button
-              variant={mode === 'replay' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode('replay')}
-              className={`gap-1.5 ${mode === 'replay' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Replay Mode
-            </Button>
-          </div>
+          {/* Mode toggle: single button switches between Live and Replay */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setMode(mode === 'live' ? 'replay' : 'live')}
+            className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : 'bg-purple-500 hover:bg-purple-600'} text-white`}
+            title={mode === 'live' ? 'Click to switch to Replay Mode' : 'Click to switch to Live Mode'}
+          >
+            {mode === 'live' ? (
+              <>
+                <Zap className="h-3.5 w-3.5" />
+                Live Mode
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" />
+                Replay Mode
+              </>
+            )}
+          </Button>
+
 
           <div className="h-4 w-px bg-border mx-1" />
 
@@ -1093,18 +1124,20 @@ export function LiveStationMap({
               playing={replay.playing}
               loading={replay.loading}
               eventCount={replay.events.length}
-              cursorMs={replay.cursorMs}
+              emittedCount={replay.emittedCount}
               progress={replay.progress}
-              onChangeRange={(s, e) => { replay.reset(); setReplayRange(s, e); }}
+              onChangeRange={(s, e) => { replay.reset(); resetReplayStats(); setReplayRange(s, e); }}
               onChangeSpeed={setReplaySpeed}
-              onPlay={replay.play}
+              onPlay={() => { resetReplayStats(); replayLayerRef.current?.clearLayers(); mapRef.current?.closePopup(); replay.play(); }}
               onPause={replay.pause}
               onReset={() => {
                 replay.reset();
                 replayLayerRef.current?.clearLayers();
                 mapRef.current?.closePopup();
+                resetReplayStats();
               }}
             />
+
             {replay.error && (
               <p className="text-xs text-destructive mt-2">{replay.error}</p>
             )}
@@ -1175,7 +1208,70 @@ export function LiveStationMap({
                 </div>
               </div>
             )}
+
+            {/* Replay elapsed timer overlay (upper-right) */}
+            {mode === 'replay' && (replay.playing || replay.elapsedMs > 0) && (
+              <div className="absolute top-3 right-3 z-[500] pointer-events-none">
+                <div className="bg-black/75 text-white rounded-md px-3 py-1.5 font-mono text-sm shadow-lg border border-purple-500/50 flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-purple-300" />
+                  <span>
+                    {(() => {
+                      const total = Math.floor(replay.elapsedMs / 1000);
+                      const m = Math.floor(total / 60);
+                      const s = total % 60;
+                      const ms = Math.floor((replay.elapsedMs % 1000) / 100);
+                      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
+                    })()}
+                  </span>
+                  <span className="text-[10px] text-purple-200 opacity-80">
+                    {replay.emittedCount}/{replay.events.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Replay end-of-playback stats summary */}
+            {mode === 'replay' && replay.done && replayStats.count > 0 && (
+              <div className="absolute top-14 right-3 z-[500] max-w-xs animate-fade-in">
+                <div className="bg-black/85 text-white rounded-lg px-4 py-3 shadow-xl border border-purple-500/60">
+                  <div className="text-xs font-semibold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5" />
+                    Replay Complete
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Total connections</span>
+                      <span className="font-mono font-semibold">{replayStats.count.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Avg S/N</span>
+                      <span className="font-mono font-semibold">
+                        {replayStats.avgSnr !== null ? `${replayStats.avgSnr.toFixed(1)} dB` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Avg distance</span>
+                      <span className="font-mono font-semibold">
+                        {replayStats.avgDistance !== null ? `${Math.round(replayStats.avgDistance).toLocaleString()} mi` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-6 pt-1 border-t border-white/15 mt-1">
+                      <span className="text-white/70">Elapsed</span>
+                      <span className="font-mono font-semibold">
+                        {(() => {
+                          const total = Math.floor(replay.elapsedMs / 1000);
+                          const m = Math.floor(total / 60);
+                          const s = total % 60;
+                          return `${m}m ${s}s`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
           
           {/* Activity Feed */}
           {liveMode && (

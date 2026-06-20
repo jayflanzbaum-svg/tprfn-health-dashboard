@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ReplayEvent {
   id: string;
   timestamp: Date;
-  station1: string; // hub-side normalized
-  station2: string; // remote normalized
+  station1: string;
+  station2: string;
   eventType: string;
   snr: number | null;
   bitrate: number | null;
@@ -15,24 +15,28 @@ export interface ReplayEvent {
 interface UseReplayPlayerOptions {
   start: Date | null;
   end: Date | null;
-  speed: number; // playback multiplier (e.g. 60 = 1 minute of log per real second)
+  /** Playback speed in events per second. */
+  eventsPerSecond: number;
   onEvent: (event: ReplayEvent) => void;
 }
 
 const normalize = (cs: string | null | undefined): string =>
   (cs || '').replace(/-[0-9A-Z]+$/i, '').toUpperCase().trim();
 
-export function useReplayPlayer({ start, end, speed, onEvent }: UseReplayPlayerOptions) {
+export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseReplayPlayerOptions) {
   const [events, setEvents] = useState<ReplayEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [cursorMs, setCursorMs] = useState<number | null>(null); // current replay timestamp
-  const [progress, setProgress] = useState(0); // 0..1
+  const [done, setDone] = useState(false);
+  const [emittedCount, setEmittedCount] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
-  const cursorIndexRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number | null>(null);
+  const indexRef = useRef(0);
+  const timerRef = useRef<number | null>(null);
+  const tickerRef = useRef<number | null>(null);
+  const playStartRef = useRef<number | null>(null);
+  const baseElapsedRef = useRef(0);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -40,14 +44,19 @@ export function useReplayPlayer({ start, end, speed, onEvent }: UseReplayPlayerO
   useEffect(() => {
     if (!start || !end) {
       setEvents([]);
-      setCursorMs(null);
-      cursorIndexRef.current = 0;
-      setProgress(0);
+      setEmittedCount(0);
+      setElapsedMs(0);
+      setDone(false);
+      indexRef.current = 0;
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setDone(false);
+    setEmittedCount(0);
+    setElapsedMs(0);
+    indexRef.current = 0;
     (async () => {
       try {
         const { data, error: qErr } = await supabase
@@ -79,9 +88,6 @@ export function useReplayPlayer({ start, end, speed, onEvent }: UseReplayPlayerO
           })
           .filter(Boolean) as ReplayEvent[];
         setEvents(parsed);
-        cursorIndexRef.current = 0;
-        setCursorMs(start.getTime());
-        setProgress(0);
       } catch (e: any) {
         if (!cancelled) setError(e.message || 'Failed to load replay events');
       } finally {
@@ -91,80 +97,85 @@ export function useReplayPlayer({ start, end, speed, onEvent }: UseReplayPlayerO
     return () => { cancelled = true; };
   }, [start?.getTime(), end?.getTime()]);
 
-  // Playback loop
+  // Playback loop — emit events successively at fixed interval
   useEffect(() => {
-    if (!playing || !start || !end || events.length === 0) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      lastTickRef.current = null;
+    if (!playing) {
+      if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+      if (tickerRef.current) { window.clearInterval(tickerRef.current); tickerRef.current = null; }
+      if (playStartRef.current !== null) {
+        baseElapsedRef.current += performance.now() - playStartRef.current;
+        playStartRef.current = null;
+      }
       return;
     }
-    const startMs = start.getTime();
-    const endMs = end.getTime();
+    if (events.length === 0) return;
 
-    const tick = (now: number) => {
-      if (lastTickRef.current === null) lastTickRef.current = now;
-      const dtReal = now - lastTickRef.current;
-      lastTickRef.current = now;
+    playStartRef.current = performance.now();
+    const intervalMs = Math.max(30, Math.round(1000 / Math.max(0.1, eventsPerSecond)));
 
-      setCursorMs(prev => {
-        const base = prev ?? startMs;
-        const next = Math.min(endMs, base + dtReal * speed);
+    timerRef.current = window.setInterval(() => {
+      const i = indexRef.current;
+      if (i >= events.length) {
+        if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+        setPlaying(false);
+        setDone(true);
+        return;
+      }
+      onEventRef.current(events[i]);
+      indexRef.current = i + 1;
+      setEmittedCount(i + 1);
+    }, intervalMs);
 
-        // Emit events whose timestamps fall in (base, next]
-        while (
-          cursorIndexRef.current < events.length &&
-          events[cursorIndexRef.current].timestamp.getTime() <= next
-        ) {
-          const ev = events[cursorIndexRef.current];
-          if (ev.timestamp.getTime() >= startMs) onEventRef.current(ev);
-          cursorIndexRef.current++;
-        }
+    // Elapsed timer ticker (10 fps is plenty for mm:ss)
+    tickerRef.current = window.setInterval(() => {
+      const live = playStartRef.current !== null ? performance.now() - playStartRef.current : 0;
+      setElapsedMs(baseElapsedRef.current + live);
+    }, 100);
 
-        setProgress((next - startMs) / Math.max(1, endMs - startMs));
-
-        if (next >= endMs) {
-          setPlaying(false);
-        }
-        return next;
-      });
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      lastTickRef.current = null;
+      if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+      if (tickerRef.current) { window.clearInterval(tickerRef.current); tickerRef.current = null; }
+      if (playStartRef.current !== null) {
+        baseElapsedRef.current += performance.now() - playStartRef.current;
+        playStartRef.current = null;
+      }
     };
-  }, [playing, speed, events, start?.getTime(), end?.getTime()]);
+  }, [playing, events, eventsPerSecond]);
 
   const play = useCallback(() => {
-    if (!start || !end || events.length === 0) return;
-    // If at end, restart
-    if (cursorMs !== null && end && cursorMs >= end.getTime()) {
-      cursorIndexRef.current = 0;
-      setCursorMs(start.getTime());
-      setProgress(0);
+    if (events.length === 0) return;
+    if (done || indexRef.current >= events.length) {
+      indexRef.current = 0;
+      baseElapsedRef.current = 0;
+      setEmittedCount(0);
+      setElapsedMs(0);
+      setDone(false);
     }
     setPlaying(true);
-  }, [start, end, events.length, cursorMs]);
+  }, [events.length, done]);
 
   const pause = useCallback(() => setPlaying(false), []);
 
   const reset = useCallback(() => {
     setPlaying(false);
-    cursorIndexRef.current = 0;
-    setCursorMs(start ? start.getTime() : null);
-    setProgress(0);
-  }, [start]);
+    setDone(false);
+    indexRef.current = 0;
+    baseElapsedRef.current = 0;
+    setEmittedCount(0);
+    setElapsedMs(0);
+  }, []);
+
+  const total = events.length;
+  const progress = total > 0 ? emittedCount / total : 0;
 
   return {
     events,
     loading,
     error,
     playing,
-    cursorMs,
+    done,
+    emittedCount,
+    elapsedMs,
     progress,
     play,
     pause,
