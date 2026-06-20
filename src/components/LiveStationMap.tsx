@@ -1231,9 +1231,9 @@ export function LiveStationMap({
               </div>
             )}
 
-            {/* Replay elapsed timer overlay (upper-right) */}
+            {/* Replay elapsed timer + speed overlay (upper-right) */}
             {mode === 'replay' && (replay.playing || replay.elapsedMs > 0) && (
-              <div className="absolute top-3 right-3 z-[500] pointer-events-none">
+              <div className="absolute top-3 right-3 z-[500] pointer-events-auto">
                 <div className="bg-black/75 text-white rounded-md px-3 py-1.5 font-mono text-sm shadow-lg border border-purple-500/50 flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 text-purple-300" />
                   <span>
@@ -1248,6 +1248,32 @@ export function LiveStationMap({
                   <span className="text-[10px] text-purple-200 opacity-80">
                     {replay.emittedCount}/{replay.events.length}
                   </span>
+                  <div className="w-px h-4 bg-white/20 mx-1" />
+                  <button
+                    onClick={() => {
+                      const speeds = [0.5, 1, 2, 4];
+                      const idx = speeds.indexOf(replaySpeed);
+                      if (idx > 0) setReplaySpeed(speeds[idx - 1]);
+                    }}
+                    disabled={replaySpeed <= 0.5}
+                    className="pointer-events-auto p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Slower"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="text-xs text-purple-200 min-w-[2ch] text-center">{replaySpeed}×</span>
+                  <button
+                    onClick={() => {
+                      const speeds = [0.5, 1, 2, 4];
+                      const idx = speeds.indexOf(replaySpeed);
+                      if (idx < speeds.length - 1) setReplaySpeed(speeds[idx + 1]);
+                    }}
+                    disabled={replaySpeed >= 4}
+                    className="pointer-events-auto p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Faster"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
             )}
