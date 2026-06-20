@@ -11,7 +11,9 @@ import { HubConnection, formatCallsign, formatBytes, formatDuration } from '@/li
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { useMapUrlState, ConnectionColorMode, StationFilter } from '@/hooks/useMapUrlState';
+import { useMapUrlState, ConnectionColorMode, StationFilter, MapMode } from '@/hooks/useMapUrlState';
+import { useReplayPlayer, ReplayEvent } from '@/hooks/useReplayPlayer';
+import { ReplayControls } from '@/components/ReplayControls';
 
 // Fix for default marker icons in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -107,6 +109,30 @@ const animationStyles = `
   .activity-item {
     animation: fadeIn 0.3s ease-out;
   }
+
+  @keyframes replayPopupFade {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.92); }
+    18%  { opacity: 1; transform: translateY(0) scale(1); }
+    82%  { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  }
+  .replay-popup .leaflet-popup-content-wrapper {
+    animation: replayPopupFade 3600ms ease-in-out forwards;
+    background: rgba(17, 24, 39, 0.92);
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.55);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+    border-radius: 8px;
+  }
+  .replay-popup .leaflet-popup-tip { background: rgba(17, 24, 39, 0.92); }
+  .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
+
+  @keyframes replayArcFade {
+    0%   { opacity: 0; }
+    15%  { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
 `;
 
 // Calculate great circle arc points between two coordinates
@@ -168,24 +194,32 @@ export function LiveStationMap({
   const markersRef = useRef<L.LayerGroup | null>(null);
   const connectionsRef = useRef<L.LayerGroup | null>(null);
   const liveConnectionsRef = useRef<L.LayerGroup | null>(null);
+  const replayLayerRef = useRef<L.LayerGroup | null>(null);
   const liveLineRendererRef = useRef<L.Canvas | null>(null);
-  
+
   // Use URL state for fullscreen mode, local state otherwise
   const urlState = useMapUrlState();
-  
+
   // Local state for non-fullscreen mode
   const [localShowConnections, setLocalShowConnections] = useState(true);
   const [localColorMode, setLocalColorMode] = useState<ConnectionColorMode>('live');
   const [localStationFilter, setLocalStationFilter] = useState<StationFilter>('hub');
-  const [localLiveMode, setLocalLiveMode] = useState(true);
-  
+  const [localMode, setLocalMode] = useState<MapMode>('live');
+  const [localReplayStart, setLocalReplayStart] = useState<string | null>(null);
+  const [localReplayEnd, setLocalReplayEnd] = useState<string | null>(null);
+  const [localReplaySpeed, setLocalReplaySpeed] = useState<number>(60);
+
   // Use URL state in fullscreen, local state otherwise
   const showConnections = isFullscreen ? urlState.showConnections : localShowConnections;
   const colorMode = isFullscreen ? urlState.colorMode : localColorMode;
   const stationFilter = isFullscreen ? urlState.stationFilter : localStationFilter;
-  const liveMode = isFullscreen ? urlState.liveMode : localLiveMode;
-  
-  const setShowConnections = isFullscreen 
+  const mode: MapMode = isFullscreen ? urlState.mode : localMode;
+  const liveMode = mode === 'live';
+  const replayStart = isFullscreen ? urlState.replayStart : localReplayStart;
+  const replayEnd = isFullscreen ? urlState.replayEnd : localReplayEnd;
+  const replaySpeed = isFullscreen ? urlState.replaySpeed : localReplaySpeed;
+
+  const setShowConnections = isFullscreen
     ? (val: boolean) => urlState.setState({ showConnections: val })
     : setLocalShowConnections;
   const setColorMode = isFullscreen
@@ -194,10 +228,18 @@ export function LiveStationMap({
   const setStationFilter = isFullscreen
     ? (val: StationFilter) => urlState.setState({ stationFilter: val })
     : setLocalStationFilter;
-  const setLiveMode = isFullscreen
-    ? (val: boolean) => urlState.setState({ liveMode: val })
-    : setLocalLiveMode;
-  
+  const setMode = isFullscreen
+    ? (val: MapMode) => urlState.setState({ mode: val })
+    : setLocalMode;
+  const setReplayRange = (s: string | null, e: string | null) => {
+    if (isFullscreen) urlState.setState({ replayStart: s, replayEnd: e });
+    else { setLocalReplayStart(s); setLocalReplayEnd(e); }
+  };
+  const setReplaySpeed = (s: number) => {
+    if (isFullscreen) urlState.setState({ replaySpeed: s });
+    else setLocalReplaySpeed(s);
+  };
+
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
@@ -568,6 +610,108 @@ export function LiveStationMap({
     };
   }, [liveMode, fetchLiveSyslog]);
 
+  // ============================================================
+  // REPLAY MODE: animate connections from DB as a time-lapse
+  // ============================================================
+  const handleReplayEvent = useCallback((ev: ReplayEvent) => {
+    if (!mapReady || !mapRef.current || !replayLayerRef.current) return;
+    const loc1 = allStationsLookup[ev.station1];
+    const loc2 = allStationsLookup[ev.station2];
+    if (!loc1 || !loc2) {
+      // Trigger background lookup for unknown stations
+      if (lookupCallsigns) {
+        const missing = [ev.station1, ev.station2].filter(c => !locations.has(c));
+        if (missing.length) lookupCallsigns(missing);
+      }
+      return;
+    }
+
+    const lineColor = ev.snr !== null ? getSnrColor(ev.snr) : '#a855f7';
+    const arc = getGreatCirclePoints(
+      loc1.latitude!, loc1.longitude!,
+      loc2.latitude!, loc2.longitude!,
+      40
+    );
+
+    const polyline = L.polyline(arc, {
+      color: lineColor,
+      weight: 3,
+      opacity: 0.95,
+      lineCap: 'round',
+      className: 'replay-arc',
+    });
+    replayLayerRef.current.addLayer(polyline);
+
+
+    // Build the midpoint popup
+    const key = [ev.station1, ev.station2].sort().join('↔');
+    const distance = distances.get(key);
+    const midLat = (loc1.latitude! + loc2.latitude!) / 2;
+    const midLon = (loc1.longitude! + loc2.longitude!) / 2;
+
+    const snrLine = ev.snr !== null
+      ? `<div>S/N: <b style="color:${lineColor}">${ev.snr.toFixed(1)} dB</b></div>`
+      : '';
+    const distLine = distance
+      ? `<div>Distance: <b>${distance.toLocaleString()} mi</b></div>`
+      : '';
+
+    const popup = L.popup({
+      closeButton: false,
+      autoClose: false,
+      closeOnClick: false,
+      autoPan: false,
+      className: 'replay-popup',
+      offset: [0, -4],
+    })
+      .setLatLng([midLat, midLon])
+      .setContent(`
+        <div style="min-width:160px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px;">
+            ${ev.station1} ↔ ${ev.station2}
+          </div>
+          ${distLine}
+          ${snrLine}
+          <div style="opacity:0.75;font-size:10px;margin-top:3px;">
+            ${format(ev.timestamp, 'MMM d HH:mm:ss')}Z
+          </div>
+        </div>
+      `);
+
+    popup.openOn(mapRef.current);
+    const popupEl = (popup as any)._container as HTMLElement | undefined;
+
+    // Auto-remove after fade completes
+    window.setTimeout(() => {
+      if (popupEl?.parentNode) mapRef.current?.closePopup(popup);
+    }, 3500);
+    window.setTimeout(() => {
+      if (replayLayerRef.current?.hasLayer(polyline)) {
+        replayLayerRef.current.removeLayer(polyline);
+      }
+    }, 4000);
+  }, [mapReady, allStationsLookup, distances, lookupCallsigns, locations]);
+
+  const replayStartDate = replayStart ? new Date(replayStart) : null;
+  const replayEndDate = replayEnd ? new Date(replayEnd) : null;
+
+  const replay = useReplayPlayer({
+    start: mode === 'replay' ? replayStartDate : null,
+    end: mode === 'replay' ? replayEndDate : null,
+    speed: replaySpeed,
+    onEvent: handleReplayEvent,
+  });
+
+  // Clear replay layer when leaving replay mode
+  useEffect(() => {
+    if (mode !== 'replay' && replayLayerRef.current) {
+      replayLayerRef.current.clearLayers();
+      mapRef.current?.closePopup();
+    }
+  }, [mode]);
+
+
+
   // Initialize map with delay to prevent blocking
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -592,6 +736,7 @@ export function LiveStationMap({
       markersRef.current = L.layerGroup().addTo(mapRef.current);
       connectionsRef.current = L.layerGroup().addTo(mapRef.current);
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
+      replayLayerRef.current = L.layerGroup().addTo(mapRef.current);
 
       // Use Canvas renderer for live lines so dash lengths stay consistent in screen pixels
       // across zoom levels (SVG is scaled via transforms, which scales dash patterns).
@@ -817,16 +962,27 @@ export function LiveStationMap({
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {/* Live Mode Toggle */}
-          <Button
-            variant={liveMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setLiveMode(!liveMode)}
-            className={`gap-1.5 ${liveMode ? 'bg-green-500 hover:bg-green-600' : ''}`}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Live Mode
-          </Button>
+          {/* Mode toggle: Live vs Replay */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant={mode === 'live' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode('live')}
+              className={`gap-1.5 ${mode === 'live' ? 'bg-green-500 hover:bg-green-600' : ''}`}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Live Mode
+            </Button>
+            <Button
+              variant={mode === 'replay' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode('replay')}
+              className={`gap-1.5 ${mode === 'replay' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Replay Mode
+            </Button>
+          </div>
 
           <div className="h-4 w-px bg-border mx-1" />
 
@@ -926,6 +1082,35 @@ export function LiveStationMap({
             </Button>
           </div>
         </div>
+
+        {/* Replay panel */}
+        {mode === 'replay' && (
+          <div className="mt-3">
+            <ReplayControls
+              startISO={replayStart}
+              endISO={replayEnd}
+              speed={replaySpeed}
+              playing={replay.playing}
+              loading={replay.loading}
+              eventCount={replay.events.length}
+              cursorMs={replay.cursorMs}
+              progress={replay.progress}
+              onChangeRange={(s, e) => { replay.reset(); setReplayRange(s, e); }}
+              onChangeSpeed={setReplaySpeed}
+              onPlay={replay.play}
+              onPause={replay.pause}
+              onReset={() => {
+                replay.reset();
+                replayLayerRef.current?.clearLayers();
+                mapRef.current?.closePopup();
+              }}
+            />
+            {replay.error && (
+              <p className="text-xs text-destructive mt-2">{replay.error}</p>
+            )}
+          </div>
+        )}
+
 
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
