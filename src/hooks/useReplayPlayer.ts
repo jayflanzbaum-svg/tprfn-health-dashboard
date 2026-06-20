@@ -70,7 +70,8 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           .limit(20000);
         if (qErr) throw qErr;
         if (cancelled) return;
-        const parsed: ReplayEvent[] = (data || [])
+        const DEDUP_WINDOW_MS = 45000; // 45s window to catch both sides of a connection
+        const rawEvents: ReplayEvent[] = (data || [])
           .map((r: any) => {
             const s1 = normalize(r.callsign);
             const s2 = normalize(r.remote_callsign);
@@ -87,6 +88,20 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
             } as ReplayEvent;
           })
           .filter(Boolean) as ReplayEvent[];
+
+        // Deduplicate: same station pair within a short window = one connection
+        const lastSeen = new Map<string, number>();
+        const parsed = rawEvents.filter((ev) => {
+          const pairKey = [ev.station1, ev.station2].sort().join('<>')
+          const ts = ev.timestamp.getTime();
+          const prev = lastSeen.get(pairKey);
+          if (prev !== undefined && ts - prev < DEDUP_WINDOW_MS) {
+            return false;
+          }
+          lastSeen.set(pairKey, ts);
+          return true;
+        });
+
         setEvents(parsed);
       } catch (e: any) {
         if (!cancelled) setError(e.message || 'Failed to load replay events');
