@@ -646,9 +646,23 @@ export function LiveStationMap({
       weight: 3,
       opacity: 0.95,
       lineCap: 'round',
+      dashArray: '8, 8',
       className: 'replay-arc',
     });
     replayLayerRef.current.addLayer(polyline);
+
+    // Accumulate stats
+    const key = [ev.station1, ev.station2].sort().join('↔');
+    const distance = distances.get(key);
+    const s = replayStatsRef.current;
+    s.count += 1;
+    if (ev.snr !== null && !isNaN(ev.snr)) { s.snrSum += ev.snr; s.snrCount += 1; }
+    if (distance !== undefined && distance !== null) { s.distSum += distance; s.distCount += 1; }
+    setReplayStats({
+      count: s.count,
+      avgSnr: s.snrCount ? s.snrSum / s.snrCount : null,
+      avgDistance: s.distCount ? s.distSum / s.distCount : null,
+    });
 
 
     // Build the midpoint popup
