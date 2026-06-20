@@ -1208,7 +1208,70 @@ export function LiveStationMap({
                 </div>
               </div>
             )}
+
+            {/* Replay elapsed timer overlay (upper-right) */}
+            {mode === 'replay' && (replay.playing || replay.elapsedMs > 0) && (
+              <div className="absolute top-3 right-3 z-[500] pointer-events-none">
+                <div className="bg-black/75 text-white rounded-md px-3 py-1.5 font-mono text-sm shadow-lg border border-purple-500/50 flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-purple-300" />
+                  <span>
+                    {(() => {
+                      const total = Math.floor(replay.elapsedMs / 1000);
+                      const m = Math.floor(total / 60);
+                      const s = total % 60;
+                      const ms = Math.floor((replay.elapsedMs % 1000) / 100);
+                      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
+                    })()}
+                  </span>
+                  <span className="text-[10px] text-purple-200 opacity-80">
+                    {replay.emittedCount}/{replay.events.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Replay end-of-playback stats summary */}
+            {mode === 'replay' && replay.done && replayStats.count > 0 && (
+              <div className="absolute top-14 right-3 z-[500] max-w-xs animate-fade-in">
+                <div className="bg-black/85 text-white rounded-lg px-4 py-3 shadow-xl border border-purple-500/60">
+                  <div className="text-xs font-semibold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5" />
+                    Replay Complete
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Total connections</span>
+                      <span className="font-mono font-semibold">{replayStats.count.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Avg S/N</span>
+                      <span className="font-mono font-semibold">
+                        {replayStats.avgSnr !== null ? `${replayStats.avgSnr.toFixed(1)} dB` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-6">
+                      <span className="text-white/70">Avg distance</span>
+                      <span className="font-mono font-semibold">
+                        {replayStats.avgDistance !== null ? `${Math.round(replayStats.avgDistance).toLocaleString()} mi` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-6 pt-1 border-t border-white/15 mt-1">
+                      <span className="text-white/70">Elapsed</span>
+                      <span className="font-mono font-semibold">
+                        {(() => {
+                          const total = Math.floor(replay.elapsedMs / 1000);
+                          const m = Math.floor(total / 60);
+                          const s = total % 60;
+                          return `${m}m ${s}s`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
           
           {/* Activity Feed */}
           {liveMode && (
