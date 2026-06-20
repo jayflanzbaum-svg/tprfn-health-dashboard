@@ -111,30 +111,43 @@ const animationStyles = `
   }
 
   @keyframes replayPopupFade {
-    0%   { opacity: 0; transform: translateY(8px) scale(0.92); }
-    18%  { opacity: 1; transform: translateY(0) scale(1); }
-    82%  { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  }
-  @keyframes replayTipFade {
     0%   { opacity: 0; }
     18%  { opacity: 1; }
     82%  { opacity: 1; }
     100% { opacity: 0; }
   }
-  .replay-popup .leaflet-popup-content-wrapper {
+  @keyframes replayPopupSettle {
+    0%   { transform: translateY(8px) scale(0.94); }
+    18%  { transform: translateY(0) scale(1); }
+    82%  { transform: translateY(0) scale(1); }
+    100% { transform: translateY(-6px) scale(0.97); }
+  }
+  .replay-popup {
     animation: replayPopupFade 3600ms ease-in-out forwards;
+  }
+  .replay-popup .leaflet-popup-content-wrapper {
+    animation: replayPopupSettle 3600ms ease-in-out forwards;
     background: rgba(17, 24, 39, 0.92);
     color: #fff;
     border: 1px solid rgba(168, 85, 247, 0.55);
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
     border-radius: 8px;
+    position: relative;
   }
-  .replay-popup .leaflet-popup-tip {
-    animation: replayTipFade 3600ms ease-in-out forwards;
+  .replay-popup .leaflet-popup-tip-container {
+    display: none;
+  }
+  .replay-popup .leaflet-popup-content-wrapper::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    width: 14px;
+    height: 14px;
+    transform: translateX(-50%) rotate(45deg);
     background: rgba(17, 24, 39, 0.92);
-    border: 1px solid rgba(168, 85, 247, 0.55);
-    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+    border-right: 1px solid rgba(168, 85, 247, 0.55);
+    border-bottom: 1px solid rgba(168, 85, 247, 0.55);
   }
   .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
 
