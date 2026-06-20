@@ -17,11 +17,11 @@ interface NetSession {
 interface ReplayControlsProps {
   startISO: string | null;
   endISO: string | null;
-  speed: number;
+  speed: number; // events per second
   playing: boolean;
   loading: boolean;
   eventCount: number;
-  cursorMs: number | null;
+  emittedCount: number;
   progress: number;
   onChangeRange: (startISO: string | null, endISO: string | null) => void;
   onChangeSpeed: (speed: number) => void;
@@ -30,7 +30,14 @@ interface ReplayControlsProps {
   onReset: () => void;
 }
 
-const SPEEDS = [10, 30, 60, 120, 300, 600];
+// Events per second
+const SPEEDS: { value: number; label: string }[] = [
+  { value: 1, label: '1×' },
+  { value: 2, label: '2×' },
+  { value: 4, label: '4×' },
+  { value: 8, label: '8×' },
+  { value: 16, label: '16×' },
+];
 
 const toLocalInput = (iso: string | null): string => {
   if (!iso) return '';
@@ -42,13 +49,12 @@ const toLocalInput = (iso: string | null): string => {
 
 const fromLocalInput = (val: string): string | null => {
   if (!val) return null;
-  // treat input as UTC
   const d = new Date(val + ':00Z');
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
 export function ReplayControls({
-  startISO, endISO, speed, playing, loading, eventCount, cursorMs, progress,
+  startISO, endISO, speed, playing, loading, eventCount, emittedCount, progress,
   onChangeRange, onChangeSpeed, onPlay, onPause, onReset,
 }: ReplayControlsProps) {
   const [nets, setNets] = useState<NetSession[]>([]);
@@ -83,7 +89,9 @@ export function ReplayControls({
             </span>
           )}
           {!loading && eventCount > 0 && (
-            <span className="text-xs text-muted-foreground">{eventCount.toLocaleString()} events</span>
+            <span className="text-xs text-muted-foreground">
+              {emittedCount.toLocaleString()} / {eventCount.toLocaleString()} events
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -129,13 +137,13 @@ export function ReplayControls({
         <span className="text-xs text-muted-foreground">Speed:</span>
         {SPEEDS.map(s => (
           <Button
-            key={s}
+            key={s.value}
             size="sm"
-            variant={speed === s ? 'default' : 'outline'}
-            onClick={() => onChangeSpeed(s)}
+            variant={speed === s.value ? 'default' : 'outline'}
+            onClick={() => onChangeSpeed(s.value)}
             className="h-7 px-2 text-xs"
           >
-            {s}×
+            {s.label}
           </Button>
         ))}
         {nets.length > 0 && (
@@ -166,9 +174,6 @@ export function ReplayControls({
         </div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
           <span>{startISO ? format(new Date(startISO), "MMM d HH:mm:ss") + 'Z' : '—'}</span>
-          <span className="text-foreground">
-            {cursorMs ? format(new Date(cursorMs), "MMM d HH:mm:ss") + 'Z' : '—'}
-          </span>
           <span>{endISO ? format(new Date(endISO), "MMM d HH:mm:ss") + 'Z' : '—'}</span>
         </div>
       </div>
