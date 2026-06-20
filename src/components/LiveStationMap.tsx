@@ -642,11 +642,6 @@ export function LiveStationMap({
     });
     replayLayerRef.current.addLayer(polyline);
 
-    // Animate the polyline stroke with CSS via SVG attribute
-    const el = (polyline as any).getElement?.() as SVGPathElement | null;
-    if (el) {
-      el.style.animation = 'replayArcFade 4000ms ease-in-out forwards';
-    }
 
     // Build the midpoint popup
     const key = [ev.station1, ev.station2].sort().join('↔');
