@@ -711,9 +711,28 @@ export function LiveStationMap({
       avgDistance: s.distCount ? s.distSum / s.distCount : null,
     });
 
-    // Build the midpoint popup
+    // Build the midpoint popup, offset perpendicular to the connection line
+    // so it doesn't cover the path between the two stations.
     const midLat = (loc1.latitude! + loc2.latitude!) / 2;
     const midLon = (loc1.longitude! + loc2.longitude!) / 2;
+
+    let perpOffset: [number, number] = [0, -4];
+    const map = mapRef.current!;
+    try {
+      const p1 = map.latLngToContainerPoint([loc1.latitude!, loc1.longitude!]);
+      const p2 = map.latLngToContainerPoint([loc2.latitude!, loc2.longitude!]);
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy);
+      if (len > 0.001) {
+        // Perpendicular unit vector; prefer pushing the popup upward on screen.
+        let nx = -dy / len;
+        let ny = dx / len;
+        if (ny > 0) { nx = -nx; ny = -ny; }
+        const dist = 48;
+        perpOffset = [Math.round(nx * dist), Math.round(ny * dist)];
+      }
+    } catch {}
 
     const snrLine = ev.snr !== null
       ? `<div>S/N: <b style="color:${lineColor}">${ev.snr.toFixed(1)} dB</b></div>`
@@ -728,7 +747,7 @@ export function LiveStationMap({
       closeOnClick: false,
       autoPan: false,
       className: 'replay-popup',
-      offset: [0, -4],
+      offset: perpOffset,
     })
       .setLatLng([midLat, midLon])
       .setContent(`
