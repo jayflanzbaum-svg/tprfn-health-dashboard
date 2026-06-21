@@ -70,7 +70,7 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           .limit(20000);
         if (qErr) throw qErr;
         if (cancelled) return;
-        const DEDUP_WINDOW_MS = 45000; // 45s window to catch both sides of a connection
+        const DEDUP_WINDOW_MS = 5 * 60 * 1000; // collapse both sides/retries of the same connection
         const rawEvents: ReplayEvent[] = (data || [])
           .map((r: any) => {
             const s1 = normalize(r.callsign);
@@ -112,9 +112,11 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           return bestDiff <= 10 * 60 * 1000 ? best.snr : null;
         };
 
-        // Deduplicate: same station pair within a short window = one connection
+        // Deduplicate replay callouts: S/N rows are used only to backfill signal
+        // values, while connect rows drive what gets displayed. This prevents a
+        // connect followed by its S/N report from looking like two connections.
         const lastSeen = new Map<string, number>();
-        const parsed = rawEvents.filter((ev) => {
+        const parsed = rawEvents.filter((ev) => ev.eventType === 'connect_in' || ev.eventType === 'connect_out').filter((ev) => {
           const pairKey = [ev.station1, ev.station2].sort().join('<>')
           const ts = ev.timestamp.getTime();
           const prev = lastSeen.get(pairKey);
