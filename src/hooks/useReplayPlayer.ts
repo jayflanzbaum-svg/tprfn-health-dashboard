@@ -89,6 +89,29 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           })
           .filter(Boolean) as ReplayEvent[];
 
+        // Build per-pair list of S/N readings so we can backfill connect events
+        // that don't carry an snr value themselves.
+        const snrByPair = new Map<string, { t: number; snr: number }[]>();
+        for (const ev of rawEvents) {
+          if (ev.eventType !== 'sn_report' || ev.snr === null || isNaN(ev.snr)) continue;
+          const k = [ev.station1, ev.station2].sort().join('<>');
+          const arr = snrByPair.get(k) || [];
+          arr.push({ t: ev.timestamp.getTime(), snr: ev.snr });
+          snrByPair.set(k, arr);
+        }
+        const nearestSnr = (pairKey: string, ts: number): number | null => {
+          const arr = snrByPair.get(pairKey);
+          if (!arr || arr.length === 0) return null;
+          let best = arr[0];
+          let bestDiff = Math.abs(arr[0].t - ts);
+          for (let i = 1; i < arr.length; i++) {
+            const d = Math.abs(arr[i].t - ts);
+            if (d < bestDiff) { bestDiff = d; best = arr[i]; }
+          }
+          // Only use if within 10 minutes of the event
+          return bestDiff <= 10 * 60 * 1000 ? best.snr : null;
+        };
+
         // Deduplicate: same station pair within a short window = one connection
         const lastSeen = new Map<string, number>();
         const parsed = rawEvents.filter((ev) => {
@@ -100,9 +123,14 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           }
           lastSeen.set(pairKey, ts);
           return true;
+        }).map((ev) => {
+          if (ev.snr !== null && !isNaN(ev.snr)) return ev;
+          const pairKey = [ev.station1, ev.station2].sort().join('<>');
+          return { ...ev, snr: nearestSnr(pairKey, ev.timestamp.getTime()) };
         });
 
         setEvents(parsed);
+
       } catch (e: any) {
         if (!cancelled) setError(e.message || 'Failed to load replay events');
       } finally {
