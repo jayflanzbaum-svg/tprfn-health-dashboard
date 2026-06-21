@@ -266,6 +266,7 @@ export function LiveStationMap({
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
+  const [visibleReplayStations, setVisibleReplayStations] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const stylesInjectedRef = useRef(false);
 
@@ -340,12 +341,16 @@ export function LiveStationMap({
     return callsigns;
   }, [liveConnections]);
 
-  // Get stations to display based on filter
-  // In replay mode, "All" means every mapped station so replay lines never point
-  // to an endpoint without a visible marker.
+  // Get stations to display based on filter.
+  // In replay mode, reveal only endpoints that have appeared in the time-lapse,
+  // not every cached station location from the database.
   const displayedStations = useMemo(() => {
     if (mode === 'replay' && stationFilter === 'all') {
-      return Array.from(locations.values()).filter(station => station.latitude && station.longitude);
+      return Array.from(locations.values()).filter(station => {
+        if (!station.latitude || !station.longitude) return false;
+        const callsign = station.callsign.toUpperCase();
+        return normalizedHubCallsigns.has(callsign) || visibleReplayStations.has(callsign);
+      });
     }
 
     if (stationFilter === 'hub') {
@@ -356,7 +361,7 @@ export function LiveStationMap({
       return [...hubStations, ...connectedPolling];
     }
     return [...hubStations, ...pollingStations];
-  }, [mode, stationFilter, locations, hubStations, pollingStations, liveConnectedCallsigns]);
+  }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
   const allStationsLookup = useMemo(() => {
@@ -655,6 +660,12 @@ export function LiveStationMap({
   // ============================================================
   const handleReplayEvent = useCallback((ev: ReplayEvent) => {
     if (!mapReady || !mapRef.current || !replayLayerRef.current) return;
+    setVisibleReplayStations(prev => {
+      const next = new Set(prev);
+      next.add(ev.station1.toUpperCase());
+      next.add(ev.station2.toUpperCase());
+      return next;
+    });
     const loc1 = allStationsLookup[ev.station1];
     const loc2 = allStationsLookup[ev.station2];
     if (!loc1 || !loc2) {
@@ -752,8 +763,13 @@ export function LiveStationMap({
       replayLayerRef.current.clearLayers();
       mapRef.current?.closePopup();
       resetReplayStats();
+      setVisibleReplayStations(new Set());
     }
   }, [mode, resetReplayStats]);
+
+  useEffect(() => {
+    setVisibleReplayStations(new Set());
+  }, [replayStart, replayEnd]);
 
   // When entering replay mode, default to showing all stations so the whole
   // network is visible during playback.
