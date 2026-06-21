@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
+import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 
 const LiveMapPage = () => {
   const navigate = useNavigate();
-  const [allowedCallsigns] = useState<string[]>([...DEFAULT_ALLOWED_CALLSIGNS].sort());
+  const { callsigns: allowedCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
   const { data, loading, error } = useDatabaseData(allowedCallsigns);
   const { locations, distances, lookupCallsigns } = useStationLocations();
 
@@ -22,7 +22,7 @@ const LiveMapPage = () => {
     }
   }, [data?.stations.size]);
 
-  if (loading) {
+  if (!callsignsLoaded || loading) {
     return <LoadingState message="Loading map data..." />;
   }
 
