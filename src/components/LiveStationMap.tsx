@@ -763,8 +763,13 @@ export function LiveStationMap({
       replayLayerRef.current.clearLayers();
       mapRef.current?.closePopup();
       resetReplayStats();
+      setVisibleReplayStations(new Set());
     }
   }, [mode, resetReplayStats]);
+
+  useEffect(() => {
+    setVisibleReplayStations(new Set());
+  }, [replayStart, replayEnd]);
 
   // When entering replay mode, default to showing all stations so the whole
   // network is visible during playback.
