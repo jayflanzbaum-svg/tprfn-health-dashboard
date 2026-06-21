@@ -122,10 +122,12 @@ const animationStyles = `
     82%  { transform: translateY(0) scale(1); }
     100% { transform: translateY(-6px) scale(0.97); }
   }
-  .replay-popup {
+  .replay-popup,
+  .replay-callout {
     animation: replayPopupFade 3600ms ease-in-out forwards;
   }
-  .replay-popup .leaflet-popup-content-wrapper {
+  .replay-popup .leaflet-popup-content-wrapper,
+  .replay-callout-box {
     animation: replayPopupSettle 3600ms ease-in-out forwards;
     background: rgba(17, 24, 39, 0.92);
     color: #fff;
@@ -133,6 +135,14 @@ const animationStyles = `
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
     border-radius: 8px;
     position: relative;
+  }
+  .replay-callout-box {
+    box-sizing: border-box;
+    width: 190px;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
   }
   .replay-popup .leaflet-popup-tip-container {
     display: none;
@@ -150,6 +160,40 @@ const animationStyles = `
     border-bottom: 1px solid rgba(168, 85, 247, 0.55);
   }
   .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
+  .replay-callout-box::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: rgba(17, 24, 39, 0.92);
+    border-color: rgba(168, 85, 247, 0.55);
+    border-style: solid;
+    transform: rotate(45deg);
+  }
+  .replay-callout-point-right::after {
+    right: -8px;
+    top: 50%;
+    margin-top: -7px;
+    border-width: 1px 1px 0 0;
+  }
+  .replay-callout-point-left::after {
+    left: -8px;
+    top: 50%;
+    margin-top: -7px;
+    border-width: 0 0 1px 1px;
+  }
+  .replay-callout-point-down::after {
+    left: 50%;
+    bottom: -8px;
+    margin-left: -7px;
+    border-width: 0 1px 1px 0;
+  }
+  .replay-callout-point-up::after {
+    left: 50%;
+    top: -8px;
+    margin-left: -7px;
+    border-width: 1px 0 0 1px;
+  }
 
   @keyframes replayArcFade {
     0%   { opacity: 0; }
@@ -711,29 +755,6 @@ export function LiveStationMap({
       avgDistance: s.distCount ? s.distSum / s.distCount : null,
     });
 
-    // Build the midpoint popup, offset perpendicular to the connection line
-    // so it doesn't cover the path between the two stations.
-    const midLat = (loc1.latitude! + loc2.latitude!) / 2;
-    const midLon = (loc1.longitude! + loc2.longitude!) / 2;
-
-    let perpOffset: [number, number] = [0, -4];
-    const map = mapRef.current!;
-    try {
-      const p1 = map.latLngToContainerPoint([loc1.latitude!, loc1.longitude!]);
-      const p2 = map.latLngToContainerPoint([loc2.latitude!, loc2.longitude!]);
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy);
-      if (len > 0.001) {
-        // Perpendicular unit vector; prefer pushing the popup upward on screen.
-        let nx = -dy / len;
-        let ny = dx / len;
-        if (ny > 0) { nx = -nx; ny = -ny; }
-        const dist = 48;
-        perpOffset = [Math.round(nx * dist), Math.round(ny * dist)];
-      }
-    } catch {}
-
     const snrLine = ev.snr !== null
       ? `<div>S/N: <b style="color:${lineColor}">${ev.snr.toFixed(1)} dB</b></div>`
       : '';
@@ -741,17 +762,52 @@ export function LiveStationMap({
       ? `<div>Distance: <b>${distance.toLocaleString()} mi</b></div>`
       : '';
 
-    const popup = L.popup({
-      closeButton: false,
-      autoClose: false,
-      closeOnClick: false,
-      autoPan: false,
-      className: 'replay-popup',
-      offset: perpOffset,
-    })
-      .setLatLng([midLat, midLon])
-      .setContent(`
-        <div style="min-width:160px">
+    let calloutLatLng: L.LatLngExpression = [loc1.latitude!, loc1.longitude!];
+    let calloutAnchor: L.PointExpression = [0, 0];
+    let calloutDirection = 'right';
+    const map = mapRef.current!;
+    try {
+      const p1 = map.latLngToContainerPoint([loc1.latitude!, loc1.longitude!]);
+      const p2 = map.latLngToContainerPoint([loc2.latitude!, loc2.longitude!]);
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const boxWidth = 190;
+      const boxHeight = 92;
+      const gap = 22;
+      let chosenPoint = p1;
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        const leftPoint = p1.x <= p2.x ? p1 : p2;
+        const rightPoint = p1.x <= p2.x ? p2 : p1;
+        const mapWidth = map.getSize().x;
+        const useLeftPoint = leftPoint.x >= boxWidth + gap + 12 || rightPoint.x > mapWidth - boxWidth - gap - 12;
+        chosenPoint = useLeftPoint ? leftPoint : rightPoint;
+        calloutDirection = useLeftPoint ? 'right' : 'left';
+        calloutAnchor = calloutDirection === 'right'
+          ? [boxWidth + gap, boxHeight / 2]
+          : [-gap, boxHeight / 2];
+      } else {
+        const topPoint = p1.y <= p2.y ? p1 : p2;
+        const bottomPoint = p1.y <= p2.y ? p2 : p1;
+        const mapHeight = map.getSize().y;
+        const useTopPoint = topPoint.y >= boxHeight + gap + 12 || bottomPoint.y > mapHeight - boxHeight - gap - 12;
+        chosenPoint = useTopPoint ? topPoint : bottomPoint;
+        calloutDirection = useTopPoint ? 'down' : 'up';
+        calloutAnchor = calloutDirection === 'down'
+          ? [boxWidth / 2, boxHeight + gap]
+          : [boxWidth / 2, -gap];
+      }
+      calloutLatLng = map.containerPointToLatLng(chosenPoint);
+    } catch {}
+
+    const callout = L.marker(calloutLatLng, {
+      interactive: false,
+      icon: L.divIcon({
+        className: 'replay-callout',
+        iconSize: [190, 92],
+        iconAnchor: calloutAnchor,
+        html: `
+        <div class="replay-callout-box replay-callout-point-${calloutDirection}">
           <div style="font-weight:600;font-size:13px;margin-bottom:2px;">
             ${ev.station1} ↔ ${ev.station2}
           </div>
@@ -761,9 +817,11 @@ export function LiveStationMap({
             ${format(ev.timestamp, 'MMM d HH:mm:ss')}Z
           </div>
         </div>
-      `);
+      `,
+      }),
+    });
 
-    popup.openOn(mapRef.current!);
+    replayLayerRef.current!.addLayer(callout);
   }, [mapReady, allStationsLookup, distances, lookupCallsigns, locations]);
 
   const replayStartDate = replayStart ? new Date(replayStart) : null;
