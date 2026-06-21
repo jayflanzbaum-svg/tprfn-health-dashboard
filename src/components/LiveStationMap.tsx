@@ -795,7 +795,7 @@ export function LiveStationMap({
     const callout = L.marker(calloutLatLng, {
       interactive: false,
       icon: L.divIcon({
-        className: `replay-callout replay-callout-point-${calloutDirection}`,
+        className: 'replay-callout',
         iconSize: [190, 92],
         iconAnchor: calloutAnchor,
         html: `
