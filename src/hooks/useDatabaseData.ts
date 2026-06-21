@@ -92,6 +92,11 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
     [allowedCallsigns]
   );
 
+  const allowedCallsignsKey = useMemo(
+    () => allowedCallsigns.map(c => c.toUpperCase().trim()).sort().join('|'),
+    [allowedCallsigns]
+  );
+
   // Fetch fresh data from the live URL and import into database
   const fetchLiveData = useCallback(async () => {
     try {
@@ -247,7 +252,7 @@ export function useDatabaseData(allowedCallsigns: string[], fetchDays: number = 
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [fetchLiveData, fetchDays, fetchAggregatedData, fetchRawData]);
+  }, [fetchLiveData, fetchDays, fetchAggregatedData, fetchRawData, allowedCallsignsKey]);
 
   // Initial fetch and set up polling
   useEffect(() => {
