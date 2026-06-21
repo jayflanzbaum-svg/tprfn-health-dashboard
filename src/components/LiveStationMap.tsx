@@ -802,6 +802,7 @@ export function LiveStationMap({
 
     const callout = L.marker(calloutLatLng, {
       interactive: false,
+      pane: 'popupPane',
       icon: L.divIcon({
         className: 'replay-callout',
         iconSize: [190, 92],
