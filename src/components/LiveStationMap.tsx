@@ -755,29 +755,6 @@ export function LiveStationMap({
       avgDistance: s.distCount ? s.distSum / s.distCount : null,
     });
 
-    // Build the midpoint popup, offset perpendicular to the connection line
-    // so it doesn't cover the path between the two stations.
-    const midLat = (loc1.latitude! + loc2.latitude!) / 2;
-    const midLon = (loc1.longitude! + loc2.longitude!) / 2;
-
-    let perpOffset: [number, number] = [0, -4];
-    const map = mapRef.current!;
-    try {
-      const p1 = map.latLngToContainerPoint([loc1.latitude!, loc1.longitude!]);
-      const p2 = map.latLngToContainerPoint([loc2.latitude!, loc2.longitude!]);
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy);
-      if (len > 0.001) {
-        // Perpendicular unit vector; prefer pushing the popup upward on screen.
-        let nx = -dy / len;
-        let ny = dx / len;
-        if (ny > 0) { nx = -nx; ny = -ny; }
-        const dist = 48;
-        perpOffset = [Math.round(nx * dist), Math.round(ny * dist)];
-      }
-    } catch {}
-
     const snrLine = ev.snr !== null
       ? `<div>S/N: <b style="color:${lineColor}">${ev.snr.toFixed(1)} dB</b></div>`
       : '';
@@ -785,17 +762,44 @@ export function LiveStationMap({
       ? `<div>Distance: <b>${distance.toLocaleString()} mi</b></div>`
       : '';
 
-    const popup = L.popup({
-      closeButton: false,
-      autoClose: false,
-      closeOnClick: false,
-      autoPan: false,
-      className: 'replay-popup',
-      offset: perpOffset,
-    })
-      .setLatLng([midLat, midLon])
-      .setContent(`
-        <div style="min-width:160px">
+    let calloutLatLng: L.LatLngExpression = [loc1.latitude!, loc1.longitude!];
+    let calloutAnchor: L.PointExpression = [0, 0];
+    let calloutDirection = 'right';
+    const map = mapRef.current!;
+    try {
+      const p1 = map.latLngToContainerPoint([loc1.latitude!, loc1.longitude!]);
+      const p2 = map.latLngToContainerPoint([loc2.latitude!, loc2.longitude!]);
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const boxWidth = 190;
+      const boxHeight = 92;
+      const gap = 22;
+      const chosenPoint = Math.abs(dx) >= Math.abs(dy)
+        ? (p1.x <= p2.x ? p1 : p2)
+        : (p1.y <= p2.y ? p1 : p2);
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        calloutDirection = p1.x <= p2.x ? 'right' : 'left';
+        calloutAnchor = calloutDirection === 'right'
+          ? [-boxWidth - gap, -boxHeight / 2]
+          : [gap, -boxHeight / 2];
+      } else {
+        calloutDirection = p1.y <= p2.y ? 'down' : 'up';
+        calloutAnchor = calloutDirection === 'down'
+          ? [-boxWidth / 2, -boxHeight - gap]
+          : [-boxWidth / 2, gap];
+      }
+      calloutLatLng = map.containerPointToLatLng(chosenPoint);
+    } catch {}
+
+    const callout = L.marker(calloutLatLng, {
+      interactive: false,
+      icon: L.divIcon({
+        className: `replay-callout replay-callout-point-${calloutDirection}`,
+        iconSize: [190, 92],
+        iconAnchor: calloutAnchor,
+        html: `
+        <div class="replay-callout-box replay-callout-point-${calloutDirection}">
           <div style="font-weight:600;font-size:13px;margin-bottom:2px;">
             ${ev.station1} ↔ ${ev.station2}
           </div>
@@ -805,9 +809,11 @@ export function LiveStationMap({
             ${format(ev.timestamp, 'MMM d HH:mm:ss')}Z
           </div>
         </div>
-      `);
+      `,
+      }),
+    });
 
-    popup.openOn(mapRef.current!);
+    replayLayerRef.current!.addLayer(callout);
   }, [mapReady, allStationsLookup, distances, lookupCallsigns, locations]);
 
   const replayStartDate = replayStart ? new Date(replayStart) : null;
