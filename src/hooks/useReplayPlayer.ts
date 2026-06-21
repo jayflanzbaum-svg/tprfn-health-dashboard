@@ -121,6 +121,7 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           const ts = ev.timestamp.getTime();
           const prev = lastSeen.get(pairKey);
           if (prev !== undefined && ts - prev < DEDUP_WINDOW_MS) {
+            lastSeen.set(pairKey, ts);
             return false;
           }
           lastSeen.set(pairKey, ts);
