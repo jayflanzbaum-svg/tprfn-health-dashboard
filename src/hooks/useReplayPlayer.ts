@@ -20,6 +20,17 @@ interface UseReplayPlayerOptions {
   onEvent: (event: ReplayEvent) => void;
 }
 
+interface ReplayRow {
+  id: string;
+  timestamp: string;
+  hub: string;
+  callsign: string | null;
+  remote_callsign: string | null;
+  event_type: string;
+  snr: number | null;
+  bitrate: number | null;
+}
+
 const normalize = (cs: string | null | undefined): string =>
   (cs || '').replace(/-[0-9A-Z]+$/i, '').toUpperCase().trim();
 
@@ -72,7 +83,7 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
         if (cancelled) return;
         const DEDUP_WINDOW_MS = 15 * 60 * 1000; // collapse both sides/retries of the same connection
         const rawEvents: ReplayEvent[] = (data || [])
-          .map((r: any) => {
+          .map((r: ReplayRow) => {
             const s1 = normalize(r.callsign);
             const s2 = normalize(r.remote_callsign);
             if (!s1 || !s2) return null;
@@ -134,8 +145,9 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
 
         setEvents(parsed);
 
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to load replay events');
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Failed to load replay events';
+        if (!cancelled) setError(message);
       } finally {
         if (!cancelled) setLoading(false);
       }
