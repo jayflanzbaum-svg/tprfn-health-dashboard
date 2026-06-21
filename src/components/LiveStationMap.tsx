@@ -122,10 +122,12 @@ const animationStyles = `
     82%  { transform: translateY(0) scale(1); }
     100% { transform: translateY(-6px) scale(0.97); }
   }
-  .replay-popup {
+  .replay-popup,
+  .replay-callout {
     animation: replayPopupFade 3600ms ease-in-out forwards;
   }
-  .replay-popup .leaflet-popup-content-wrapper {
+  .replay-popup .leaflet-popup-content-wrapper,
+  .replay-callout-box {
     animation: replayPopupSettle 3600ms ease-in-out forwards;
     background: rgba(17, 24, 39, 0.92);
     color: #fff;
@@ -133,6 +135,14 @@ const animationStyles = `
     box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
     border-radius: 8px;
     position: relative;
+  }
+  .replay-callout-box {
+    box-sizing: border-box;
+    width: 190px;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
   }
   .replay-popup .leaflet-popup-tip-container {
     display: none;
@@ -150,6 +160,40 @@ const animationStyles = `
     border-bottom: 1px solid rgba(168, 85, 247, 0.55);
   }
   .replay-popup .leaflet-popup-content { margin: 8px 12px; font-size: 12px; line-height: 1.4; }
+  .replay-callout-box::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: rgba(17, 24, 39, 0.92);
+    border-color: rgba(168, 85, 247, 0.55);
+    border-style: solid;
+    transform: rotate(45deg);
+  }
+  .replay-callout-point-right::after {
+    right: -8px;
+    top: 50%;
+    margin-top: -7px;
+    border-width: 1px 1px 0 0;
+  }
+  .replay-callout-point-left::after {
+    left: -8px;
+    top: 50%;
+    margin-top: -7px;
+    border-width: 0 0 1px 1px;
+  }
+  .replay-callout-point-down::after {
+    left: 50%;
+    bottom: -8px;
+    margin-left: -7px;
+    border-width: 0 1px 1px 0;
+  }
+  .replay-callout-point-up::after {
+    left: 50%;
+    top: -8px;
+    margin-left: -7px;
+    border-width: 1px 0 0 1px;
+  }
 
   @keyframes replayArcFade {
     0%   { opacity: 0; }
