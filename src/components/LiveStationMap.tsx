@@ -781,13 +781,13 @@ export function LiveStationMap({
       if (Math.abs(dx) >= Math.abs(dy)) {
         calloutDirection = p1.x <= p2.x ? 'right' : 'left';
         calloutAnchor = calloutDirection === 'right'
-          ? [-boxWidth - gap, -boxHeight / 2]
-          : [gap, -boxHeight / 2];
+          ? [boxWidth + gap, boxHeight / 2]
+          : [-gap, boxHeight / 2];
       } else {
         calloutDirection = p1.y <= p2.y ? 'down' : 'up';
         calloutAnchor = calloutDirection === 'down'
-          ? [-boxWidth / 2, -boxHeight - gap]
-          : [-boxWidth / 2, gap];
+          ? [boxWidth / 2, boxHeight + gap]
+          : [boxWidth / 2, -gap];
       }
       calloutLatLng = map.containerPointToLatLng(chosenPoint);
     } catch {}
