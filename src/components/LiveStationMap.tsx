@@ -306,24 +306,28 @@ export function LiveStationMap({
     return callsigns;
   }, [hubConnections]);
 
-  // Categorize stations
+  // Categorize stations.
+  // Polling stations are limited to callsigns seen in the recent live syslog
+  // (activeStations) so the map only shows currently-participating stations
+  // rather than every station that touched a hub within the dashboard date
+  // range (which can be hundreds on a long preset like "today").
   const { hubStations, pollingStations } = useMemo(() => {
     const hub: StationLocation[] = [];
     const polling: StationLocation[] = [];
-    
+
     locations.forEach(loc => {
       if (loc.latitude && loc.longitude) {
         const upperCallsign = loc.callsign.toUpperCase();
         if (normalizedHubCallsigns.has(upperCallsign)) {
           hub.push(loc);
-        } else if (allConnectedCallsigns.has(upperCallsign)) {
+        } else if (activeStations.has(upperCallsign)) {
           polling.push(loc);
         }
       }
     });
-    
+
     return { hubStations: hub, pollingStations: polling };
-  }, [locations, normalizedHubCallsigns, allConnectedCallsigns]);
+  }, [locations, normalizedHubCallsigns, activeStations]);
 
   // Get callsigns of stations that have active live connections
   const liveConnectedCallsigns = useMemo(() => {
