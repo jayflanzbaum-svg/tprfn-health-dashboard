@@ -20,6 +20,17 @@ interface UseReplayPlayerOptions {
   onEvent: (event: ReplayEvent) => void;
 }
 
+interface ReplayRow {
+  id: string;
+  timestamp: string;
+  hub: string;
+  callsign: string | null;
+  remote_callsign: string | null;
+  event_type: string;
+  snr: number | null;
+  bitrate: number | null;
+}
+
 const normalize = (cs: string | null | undefined): string =>
   (cs || '').replace(/-[0-9A-Z]+$/i, '').toUpperCase().trim();
 
@@ -70,9 +81,9 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           .limit(20000);
         if (qErr) throw qErr;
         if (cancelled) return;
-        const DEDUP_WINDOW_MS = 45000; // 45s window to catch both sides of a connection
+        const DEDUP_WINDOW_MS = 15 * 60 * 1000; // collapse both sides/retries of the same connection
         const rawEvents: ReplayEvent[] = (data || [])
-          .map((r: any) => {
+          .map((r: ReplayRow) => {
             const s1 = normalize(r.callsign);
             const s2 = normalize(r.remote_callsign);
             if (!s1 || !s2) return null;
@@ -112,13 +123,16 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           return bestDiff <= 10 * 60 * 1000 ? best.snr : null;
         };
 
-        // Deduplicate: same station pair within a short window = one connection
+        // Deduplicate replay callouts: S/N rows are used only to backfill signal
+        // values, while connect rows drive what gets displayed. This prevents a
+        // connect followed by its S/N report from looking like two connections.
         const lastSeen = new Map<string, number>();
-        const parsed = rawEvents.filter((ev) => {
+        const parsed = rawEvents.filter((ev) => ev.eventType === 'connect_in' || ev.eventType === 'connect_out').filter((ev) => {
           const pairKey = [ev.station1, ev.station2].sort().join('<>')
           const ts = ev.timestamp.getTime();
           const prev = lastSeen.get(pairKey);
           if (prev !== undefined && ts - prev < DEDUP_WINDOW_MS) {
+            lastSeen.set(pairKey, ts);
             return false;
           }
           lastSeen.set(pairKey, ts);
@@ -131,8 +145,9 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
 
         setEvents(parsed);
 
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to load replay events');
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Failed to load replay events';
+        if (!cancelled) setError(message);
       } finally {
         if (!cancelled) setLoading(false);
       }
