@@ -70,7 +70,7 @@ export function useReplayPlayer({ start, end, eventsPerSecond, onEvent }: UseRep
           .limit(20000);
         if (qErr) throw qErr;
         if (cancelled) return;
-        const DEDUP_WINDOW_MS = 5 * 60 * 1000; // collapse both sides/retries of the same connection
+        const DEDUP_WINDOW_MS = 15 * 60 * 1000; // collapse both sides/retries of the same connection
         const rawEvents: ReplayEvent[] = (data || [])
           .map((r: any) => {
             const s1 = normalize(r.callsign);
