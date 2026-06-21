@@ -119,7 +119,7 @@ export function useStationLocations(): UseStationLocationsResult {
     setError(null);
     
     try {
-      const newLocations = new Map(locations);
+      const fetchedLocations = new Map<string, StationLocation>();
       
       // Batch requests into chunks of 50 (edge function limit)
       const BATCH_SIZE = 50;
@@ -139,42 +139,47 @@ export function useStationLocations(): UseStationLocationsResult {
 
         // Update locations from this batch
         Object.entries(data.locations || {}).forEach(([callsign, loc]) => {
-          newLocations.set(callsign, loc as StationLocation);
+          fetchedLocations.set(callsign, loc as StationLocation);
         });
       }
-      
-      setLocations(newLocations);
-      
-      // Calculate ALL distances client-side after all locations are fetched
-      // This ensures we get distances between callsigns from different batches
-      const newDistances = new Map<string, number>();
-      const locationEntries = Array.from(newLocations.entries());
-      
-      for (let i = 0; i < locationEntries.length; i++) {
-        for (let j = i + 1; j < locationEntries.length; j++) {
-          const [callsign1, loc1] = locationEntries[i];
-          const [callsign2, loc2] = locationEntries[j];
-          
-          if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
-            const dist = calculateDistance(
-              loc1.latitude, loc1.longitude,
-              loc2.latitude, loc2.longitude
-            );
-            const key = [callsign1, callsign2].sort().join('↔');
-            newDistances.set(key, Math.round(dist));
+
+      setLocations(prevLocations => {
+        const mergedLocations = new Map(prevLocations);
+        fetchedLocations.forEach((loc, callsign) => {
+          mergedLocations.set(callsign, loc);
+        });
+
+        // Calculate ALL distances client-side after all locations are merged.
+        const newDistances = new Map<string, number>();
+        const locationEntries = Array.from(mergedLocations.entries());
+        
+        for (let i = 0; i < locationEntries.length; i++) {
+          for (let j = i + 1; j < locationEntries.length; j++) {
+            const [callsign1, loc1] = locationEntries[i];
+            const [callsign2, loc2] = locationEntries[j];
+            
+            if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
+              const dist = calculateDistance(
+                loc1.latitude, loc1.longitude,
+                loc2.latitude, loc2.longitude
+              );
+              const key = [callsign1, callsign2].sort().join('↔');
+              newDistances.set(key, Math.round(dist));
+            }
           }
         }
-      }
-      
-      console.log(`Calculated ${newDistances.size} distances for ${newLocations.size} locations`);
-      setDistances(newDistances);
+        
+        console.log(`Calculated ${newDistances.size} distances for ${mergedLocations.size} locations`);
+        setDistances(newDistances);
+        return mergedLocations;
+      });
     } catch (err: any) {
       console.error('Error looking up callsigns:', err);
       setError(err.message || 'Failed to lookup callsigns');
     } finally {
       setLoading(false);
     }
-  }, [locations, distances]);
+  }, []);
 
   const updateLocation = useCallback(async (callsign: string, data: Partial<StationLocation>) => {
     try {
