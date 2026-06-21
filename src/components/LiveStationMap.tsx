@@ -774,17 +774,25 @@ export function LiveStationMap({
       const boxWidth = 190;
       const boxHeight = 92;
       const gap = 22;
-      const chosenPoint = Math.abs(dx) >= Math.abs(dy)
-        ? (p1.x <= p2.x ? p1 : p2)
-        : (p1.y <= p2.y ? p1 : p2);
+      let chosenPoint = p1;
 
       if (Math.abs(dx) >= Math.abs(dy)) {
-        calloutDirection = p1.x <= p2.x ? 'right' : 'left';
+        const leftPoint = p1.x <= p2.x ? p1 : p2;
+        const rightPoint = p1.x <= p2.x ? p2 : p1;
+        const mapWidth = map.getSize().x;
+        const useLeftPoint = leftPoint.x >= boxWidth + gap + 12 || rightPoint.x > mapWidth - boxWidth - gap - 12;
+        chosenPoint = useLeftPoint ? leftPoint : rightPoint;
+        calloutDirection = useLeftPoint ? 'right' : 'left';
         calloutAnchor = calloutDirection === 'right'
           ? [boxWidth + gap, boxHeight / 2]
           : [-gap, boxHeight / 2];
       } else {
-        calloutDirection = p1.y <= p2.y ? 'down' : 'up';
+        const topPoint = p1.y <= p2.y ? p1 : p2;
+        const bottomPoint = p1.y <= p2.y ? p2 : p1;
+        const mapHeight = map.getSize().y;
+        const useTopPoint = topPoint.y >= boxHeight + gap + 12 || bottomPoint.y > mapHeight - boxHeight - gap - 12;
+        chosenPoint = useTopPoint ? topPoint : bottomPoint;
+        calloutDirection = useTopPoint ? 'down' : 'up';
         calloutAnchor = calloutDirection === 'down'
           ? [boxWidth / 2, boxHeight + gap]
           : [boxWidth / 2, -gap];
