@@ -219,7 +219,6 @@ export function LiveStationMap({
   const connectionsRef = useRef<L.LayerGroup | null>(null);
   const liveConnectionsRef = useRef<L.LayerGroup | null>(null);
   const replayLayerRef = useRef<L.LayerGroup | null>(null);
-  const liveLineRendererRef = useRef<L.Canvas | null>(null);
 
   // Use URL state for fullscreen mode, local state otherwise
   const urlState = useMapUrlState();
@@ -781,7 +780,6 @@ export function LiveStationMap({
         center: [39.8283, -98.5795],
         zoom: 4,
         zoomControl: true,
-        preferCanvas: true, // Better performance for many elements
         scrollWheelZoom: false, // Disable scroll wheel zoom to prevent accidental zooming
       });
 
@@ -794,11 +792,6 @@ export function LiveStationMap({
       connectionsRef.current = L.layerGroup().addTo(mapRef.current);
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
       replayLayerRef.current = L.layerGroup().addTo(mapRef.current);
-
-      // Use Canvas renderer for live lines so dash lengths stay consistent in screen pixels
-      // across zoom levels (SVG is scaled via transforms, which scales dash patterns).
-      liveLineRendererRef.current = L.canvas({ padding: 0.5 });
-      liveLineRendererRef.current.addTo(mapRef.current);
 
       setMapReady(true);
     }, 100);
@@ -932,10 +925,6 @@ export function LiveStationMap({
         30
       );
 
-      // GridTracker-style dashed line - GREEN to match live station markers
-      // Must use Canvas renderer so dash pattern stays consistent across zoom levels
-      if (!liveLineRendererRef.current) return;
-      
       const dashedLine = L.polyline(arcCoords, { 
         color: '#22c55e', // Green to match live station color
         weight: 2,
@@ -943,7 +932,7 @@ export function LiveStationMap({
         dashArray: '6, 6',
         lineCap: 'butt',
         lineJoin: 'round',
-        renderer: liveLineRendererRef.current,
+        className: 'live-connection-dash',
       });
 
       const tooltipContent = `
