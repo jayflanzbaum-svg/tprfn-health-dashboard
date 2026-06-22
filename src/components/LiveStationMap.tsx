@@ -888,6 +888,7 @@ export function LiveStationMap({
       replayLayerRef.current = L.layerGroup().addTo(mapRef.current);
 
       setMapReady(true);
+      (window as any).__map__ = mapRef.current;
 
 
 
