@@ -887,8 +887,8 @@ export function LiveStationMap({
       liveConnectionsRef.current = L.layerGroup().addTo(mapRef.current);
       replayLayerRef.current = L.layerGroup().addTo(mapRef.current);
 
-      (window as any).__map__ = mapRef.current;
       setMapReady(true);
+
 
 
 
