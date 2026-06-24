@@ -709,6 +709,47 @@ export function LiveStationMap({
     };
   }, [liveMode, fetchLiveSyslog]);
 
+  // Fetch polling stations that have been active in the last 7 days
+  const fetchWeekActiveStations = useCallback(async () => {
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('syslog_entries')
+        .select('callsign, remote_callsign')
+        .gte('timestamp', since)
+        .limit(1000);
+
+      if (error) {
+        console.error('Error fetching week-active stations:', error);
+        return;
+      }
+
+      const active = new Set<string>();
+      const normalize = (c: string | null) => {
+        if (!c) return null;
+        return c.replace(/-\d+$/, '').toUpperCase();
+      };
+
+      data?.forEach(row => {
+        const cs1 = normalize(row.callsign);
+        const cs2 = normalize(row.remote_callsign);
+        if (cs1) active.add(cs1);
+        if (cs2) active.add(cs2);
+      });
+
+      setWeekActiveStations(active);
+    } catch (err) {
+      console.error('Error fetching week-active stations:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!liveMode) return;
+    fetchWeekActiveStations();
+    const interval = setInterval(fetchWeekActiveStations, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [liveMode, fetchWeekActiveStations]);
+
   // ============================================================
   // REPLAY MODE: animate connections from DB as a time-lapse
   // ============================================================
