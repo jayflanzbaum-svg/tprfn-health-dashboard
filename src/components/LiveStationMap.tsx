@@ -399,12 +399,21 @@ export function LiveStationMap({
 
     if (stationFilter === 'hub') {
       // Show all hubs, plus any polling stations that are actively connected
-      const connectedPolling = pollingStations.filter(station => 
+      const connectedPolling = pollingStations.filter(station =>
         liveConnectedCallsigns.has(station.callsign.toUpperCase())
       );
       return [...hubStations, ...connectedPolling];
     }
-    return [...hubStations, ...pollingStations];
+
+    // 'all' in live mode: show every known polling station with coordinates,
+    // not just those seen in the last 15 minutes of live syslog.
+    const allPolling: StationLocation[] = [];
+    locations.forEach(loc => {
+      if (!loc.latitude || !loc.longitude) return;
+      if (normalizedHubCallsigns.has(loc.callsign.toUpperCase())) return;
+      allPolling.push(loc);
+    });
+    return [...hubStations, ...allPolling];
   }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
