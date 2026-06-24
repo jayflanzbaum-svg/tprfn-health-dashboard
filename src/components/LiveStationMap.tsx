@@ -310,6 +310,7 @@ export function LiveStationMap({
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
+  const [weekActiveStations, setWeekActiveStations] = useState<Set<string>>(new Set());
   const [visibleReplayStations, setVisibleReplayStations] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const stylesInjectedRef = useRef(false);
@@ -405,16 +406,18 @@ export function LiveStationMap({
       return [...hubStations, ...connectedPolling];
     }
 
-    // 'all' in live mode: show every known polling station with coordinates,
-    // not just those seen in the last 15 minutes of live syslog.
+    // 'all' in live mode: only show polling stations that have been active in
+    // the last 7 days, not every known station with coordinates.
     const allPolling: StationLocation[] = [];
     locations.forEach(loc => {
       if (!loc.latitude || !loc.longitude) return;
       if (normalizedHubCallsigns.has(loc.callsign.toUpperCase())) return;
-      allPolling.push(loc);
+      if (weekActiveStations.has(loc.callsign.toUpperCase())) {
+        allPolling.push(loc);
+      }
     });
     return [...hubStations, ...allPolling];
-  }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns]);
+  }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns, weekActiveStations]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
   const allStationsLookup = useMemo(() => {
@@ -707,6 +710,47 @@ export function LiveStationMap({
       clearInterval(pollInterval);
     };
   }, [liveMode, fetchLiveSyslog]);
+
+  // Fetch polling stations that have been active in the last 7 days
+  const fetchWeekActiveStations = useCallback(async () => {
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('syslog_entries')
+        .select('callsign, remote_callsign')
+        .gte('timestamp', since)
+        .limit(1000);
+
+      if (error) {
+        console.error('Error fetching week-active stations:', error);
+        return;
+      }
+
+      const active = new Set<string>();
+      const normalize = (c: string | null) => {
+        if (!c) return null;
+        return c.replace(/-\d+$/, '').toUpperCase();
+      };
+
+      data?.forEach(row => {
+        const cs1 = normalize(row.callsign);
+        const cs2 = normalize(row.remote_callsign);
+        if (cs1) active.add(cs1);
+        if (cs2) active.add(cs2);
+      });
+
+      setWeekActiveStations(active);
+    } catch (err) {
+      console.error('Error fetching week-active stations:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!liveMode) return;
+    fetchWeekActiveStations();
+    const interval = setInterval(fetchWeekActiveStations, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [liveMode, fetchWeekActiveStations]);
 
   // ============================================================
   // REPLAY MODE: animate connections from DB as a time-lapse
