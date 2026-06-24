@@ -406,16 +406,18 @@ export function LiveStationMap({
       return [...hubStations, ...connectedPolling];
     }
 
-    // 'all' in live mode: show every known polling station with coordinates,
-    // not just those seen in the last 15 minutes of live syslog.
+    // 'all' in live mode: only show polling stations that have been active in
+    // the last 7 days, not every known station with coordinates.
     const allPolling: StationLocation[] = [];
     locations.forEach(loc => {
       if (!loc.latitude || !loc.longitude) return;
       if (normalizedHubCallsigns.has(loc.callsign.toUpperCase())) return;
-      allPolling.push(loc);
+      if (weekActiveStations.has(loc.callsign.toUpperCase())) {
+        allPolling.push(loc);
+      }
     });
     return [...hubStations, ...allPolling];
-  }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns]);
+  }, [mode, stationFilter, locations, normalizedHubCallsigns, visibleReplayStations, hubStations, pollingStations, liveConnectedCallsigns, weekActiveStations]);
 
   // Create a lookup object for ALL stations (needed for drawing live connection lines)
   const allStationsLookup = useMemo(() => {
