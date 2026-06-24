@@ -310,6 +310,7 @@ export function LiveStationMap({
   const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
   const [activityFeed, setActivityFeed] = useState<LiveConnection[]>([]);
   const [activeStations, setActiveStations] = useState<Set<string>>(new Set());
+  const [weekActiveStations, setWeekActiveStations] = useState<Set<string>>(new Set());
   const [visibleReplayStations, setVisibleReplayStations] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const stylesInjectedRef = useRef(false);
