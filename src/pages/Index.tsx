@@ -636,6 +636,18 @@ const Index = () => {
         </div>
 
         {/* Detailed Table */}
+        {/* Hub Uptime */}
+        <div className="mb-8">
+          <HubUptimeCard
+            allowedCallsigns={allowedCallsigns}
+            dateRange={dateRange}
+            snRecords={filteredData.snRecords}
+            connectRecords={filteredData.connectRecords}
+            disconnectRecords={filteredData.disconnectRecords}
+          />
+        </div>
+
+        {/* Detailed Table */}
         <HubConnectionsTable hubConnections={filteredData.hubConnections} />
 
         {/* Log Entries Table */}
