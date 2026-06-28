@@ -7,6 +7,7 @@ import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
+import { HubUptimeCard } from '@/components/HubUptimeCard';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
