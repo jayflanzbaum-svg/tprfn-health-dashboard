@@ -32,6 +32,60 @@ export type Database = {
         }
         Relationships: []
       }
+      hub_profiles: {
+        Row: {
+          base_callsign: string
+          city: string | null
+          country: string | null
+          created_at: string
+          frequencies: Json
+          full_callsign: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          network: string | null
+          notes: string | null
+          operator: string | null
+          ssid: string | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_callsign: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          frequencies?: Json
+          full_callsign: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          network?: string | null
+          notes?: string | null
+          operator?: string | null
+          ssid?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_callsign?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          frequencies?: Json
+          full_callsign?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          network?: string | null
+          notes?: string | null
+          operator?: string | null
+          ssid?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       net_sessions: {
         Row: {
           created_at: string
