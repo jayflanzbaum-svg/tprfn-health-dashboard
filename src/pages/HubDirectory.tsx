@@ -72,7 +72,7 @@ export default function HubDirectory() {
       if (error) {
         toast({ title: 'Failed to load hub directory', description: error.message, variant: 'destructive' });
       } else {
-        setProfiles((data || []) as HubProfile[]);
+        setProfiles(((data || []) as unknown) as HubProfile[]);
       }
       setLoading(false);
     };
