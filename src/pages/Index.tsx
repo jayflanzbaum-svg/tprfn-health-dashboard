@@ -638,13 +638,7 @@ const Index = () => {
         {/* Detailed Table */}
         {/* Hub Uptime */}
         <div className="mb-8">
-          <HubUptimeCard
-            allowedCallsigns={allowedCallsigns}
-            dateRange={dateRange}
-            snRecords={filteredData.snRecords}
-            connectRecords={filteredData.connectRecords}
-            disconnectRecords={filteredData.disconnectRecords}
-          />
+          <HubUptimeCard allowedCallsigns={allowedCallsigns} />
         </div>
 
         {/* Detailed Table */}

@@ -1,80 +1,104 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import type { SNRecord, ConnectRecord, DisconnectRecord } from '@/lib/syslogParser';
-import type { DateRange } from '@/components/DateRangeFilter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   allowedCallsigns: string[];
-  dateRange: DateRange;
-  snRecords: SNRecord[];
-  connectRecords: ConnectRecord[];
-  disconnectRecords: DisconnectRecord[];
 }
 
-function utcDayKey(d: Date): string {
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
-}
+type RangeKey = 'all' | '7d' | '30d' | '90d' | '1y';
 
-export function HubUptimeCard({
-  allowedCallsigns,
-  dateRange,
-  snRecords,
-  connectRecords,
-  disconnectRecords,
-}: Props) {
-  const { rows, totalDays } = useMemo(() => {
-    // Build set of UTC day keys in range
-    const dayKeys = new Set<string>();
-    const startUTC = Date.UTC(
-      dateRange.start.getUTCFullYear(),
-      dateRange.start.getUTCMonth(),
-      dateRange.start.getUTCDate()
-    );
-    const endUTC = Date.UTC(
-      dateRange.end.getUTCFullYear(),
-      dateRange.end.getUTCMonth(),
-      dateRange.end.getUTCDate()
-    );
-    const msDay = 86400000;
-    for (let t = startUTC; t <= endUTC; t += msDay) {
-      const d = new Date(t);
-      dayKeys.add(`${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`);
-    }
-    const totalDays = dayKeys.size;
+const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
+  { key: 'all', label: 'All Time' },
+  { key: '1y', label: 'Last 365 days' },
+  { key: '90d', label: 'Last 90 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: '7d', label: 'Last 7 days' },
+];
 
-    const hubSet = new Set(allowedCallsigns.map(c => c.toUpperCase()));
-    const seen = new Map<string, Set<string>>();
-    hubSet.forEach(h => seen.set(h, new Set()));
-    const lastSeen = new Map<string, Date>();
+const MS_DAY = 86400000;
 
-    const consider = (ts: Date, station: string, partner: string) => {
-      const key = utcDayKey(ts);
-      if (!dayKeys.has(key)) return;
-      for (const cs of [station, partner]) {
-        const up = (cs || '').toUpperCase();
-        if (hubSet.has(up)) {
-          seen.get(up)!.add(key);
-          const prev = lastSeen.get(up);
-          if (!prev || ts > prev) lastSeen.set(up, ts);
-        }
+export function HubUptimeCard({ allowedCallsigns }: Props) {
+  const [range, setRange] = useState<RangeKey>('all');
+  const [rows, setRows] = useState<{ callsign: string; days: number; lastSeen: Date | null }[]>([]);
+  const [totalDays, setTotalDays] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const hubKey = useMemo(
+    () => allowedCallsigns.map(c => c.toUpperCase()).sort().join(','),
+    [allowedCallsigns]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (allowedCallsigns.length === 0) {
+        setRows([]);
+        setTotalDays(0);
+        return;
       }
-    };
+      setLoading(true);
+      try {
+        // Resolve range bounds. For "all" use the syslog min/max.
+        let startDate: Date;
+        let endDate: Date = new Date();
 
-    snRecords.forEach(r => consider(r.timestamp, r.station, r.partner));
-    connectRecords.forEach(r => consider(r.timestamp, r.station, r.partner));
-    disconnectRecords.forEach(r => consider(r.timestamp, r.station, r.partner));
+        if (range === 'all') {
+          const [{ data: minRow }, { data: maxRow }] = await Promise.all([
+            supabase.from('syslog_entries').select('timestamp').order('timestamp', { ascending: true }).limit(1),
+            supabase.from('syslog_entries').select('timestamp').order('timestamp', { ascending: false }).limit(1),
+          ]);
+          if (!minRow?.length || !maxRow?.length) {
+            if (!cancelled) { setRows([]); setTotalDays(0); }
+            return;
+          }
+          startDate = new Date(minRow[0].timestamp);
+          endDate = new Date(maxRow[0].timestamp);
+        } else {
+          const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365;
+          endDate = new Date();
+          startDate = new Date(endDate.getTime() - (days - 1) * MS_DAY);
+        }
 
-    const rows = Array.from(hubSet).map(callsign => {
-      const days = seen.get(callsign)!.size;
-      const pct = totalDays > 0 ? (days / totalDays) * 100 : 0;
-      return { callsign, days, pct, lastSeen: lastSeen.get(callsign) || null };
-    });
-    rows.sort((a, b) => b.pct - a.pct || a.callsign.localeCompare(b.callsign));
+        const hubs = allowedCallsigns.map(c => c.toUpperCase());
+        const { data, error } = await supabase.rpc('hub_uptime_days', {
+          p_hubs: hubs,
+          p_start: startDate.toISOString(),
+          p_end: endDate.toISOString(),
+        });
+        if (error) throw error;
 
-    return { rows, totalDays };
-  }, [allowedCallsigns, dateRange, snRecords, connectRecords, disconnectRecords]);
+        // Total UTC days inclusive
+        const startUTC = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
+        const endUTC = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
+        const total = Math.floor((endUTC - startUTC) / MS_DAY) + 1;
+
+        const next = (data ?? []).map((r: any) => ({
+          callsign: r.callsign as string,
+          days: Number(r.days) || 0,
+          lastSeen: r.last_seen ? new Date(r.last_seen) : null,
+        }));
+        next.sort((a, b) => {
+          const pa = total > 0 ? a.days / total : 0;
+          const pb = total > 0 ? b.days / total : 0;
+          return pb - pa || a.callsign.localeCompare(b.callsign);
+        });
+        if (!cancelled) {
+          setRows(next);
+          setTotalDays(total);
+        }
+      } catch (e) {
+        console.error('Hub uptime load failed', e);
+        if (!cancelled) { setRows([]); setTotalDays(0); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [hubKey, range, allowedCallsigns]);
 
   const formatLastSeen = (d: Date | null) => {
     if (!d) return '—';
@@ -91,13 +115,27 @@ export function HubUptimeCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="h-5 w-5" />
-          Hub Uptime
-        </CardTitle>
-        <CardDescription>
-          Distinct UTC days each hub was heard in the syslog over the selected range ({totalDays} day{totalDays === 1 ? '' : 's'}).
-        </CardDescription>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Hub Uptime
+            </CardTitle>
+            <CardDescription>
+              Distinct UTC days each hub was heard in the syslog over the selected period ({totalDays} day{totalDays === 1 ? '' : 's'}).
+            </CardDescription>
+          </div>
+          <Select value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+            <SelectTrigger className="w-[170px] bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-background z-50">
+              {RANGE_OPTIONS.map(o => (
+                <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -111,34 +149,37 @@ export function HubUptimeCard({
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => (
-                <tr key={row.callsign} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="py-2 pr-4 font-mono font-medium">{row.callsign}</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full ${colorFor(row.pct)} transition-all`}
-                          style={{ width: `${row.pct}%` }}
-                        />
+              {rows.map(row => {
+                const pct = totalDays > 0 ? (row.days / totalDays) * 100 : 0;
+                return (
+                  <tr key={row.callsign} className="border-b last:border-0 hover:bg-muted/40">
+                    <td className="py-2 pr-4 font-mono font-medium">{row.callsign}</td>
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full ${colorFor(pct)} transition-all`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="tabular-nums text-xs w-12 text-right">
+                          {pct.toFixed(0)}%
+                        </span>
                       </div>
-                      <span className="tabular-nums text-xs w-12 text-right">
-                        {row.pct.toFixed(0)}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {row.days} / {totalDays}
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-muted-foreground text-xs">
-                    {formatLastSeen(row.lastSeen)}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {row.days} / {totalDays}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground text-xs">
+                      {formatLastSeen(row.lastSeen)}
+                    </td>
+                  </tr>
+                );
+              })}
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                    No hub callsigns configured.
+                    {loading ? 'Loading…' : 'No hub callsigns configured.'}
                   </td>
                 </tr>
               )}
