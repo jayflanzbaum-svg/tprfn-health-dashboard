@@ -124,6 +124,21 @@ export function CallsignManager({ callsigns, onChange }: CallsignManagerProps) {
           No callsigns configured. Add some callsigns to filter the data.
         </p>
       )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link to="/hubs">
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
+            Hub Directory
+          </Button>
+        </Link>
+        <Link to="/hubs">
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <Radio className="h-3.5 w-3.5" />
+            Live Feed
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }
