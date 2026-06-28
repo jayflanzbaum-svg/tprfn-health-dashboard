@@ -152,7 +152,15 @@ export default function HubDirectory() {
               <p className="text-xs text-muted-foreground">Live feed of hub stations, SSIDs, frequencies, and modes</p>
             </div>
           </div>
-          <LoginButton />
+          <div className="flex items-center gap-2">
+            <Link to="/hubs">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Wifi className="h-3.5 w-3.5" />
+                Live Feed
+              </Button>
+            </Link>
+            <LoginButton />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
