@@ -21,7 +21,7 @@ const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
 const MS_DAY = 86400000;
 
 export function HubUptimeCard({ allowedCallsigns }: Props) {
-  const [range, setRange] = useState<RangeKey>('all');
+  const [range, setRange] = useState<RangeKey>('90d');
   const [rows, setRows] = useState<{ callsign: string; days: number; lastSeen: Date | null }[]>([]);
   const [totalDays, setTotalDays] = useState(0);
   const [loading, setLoading] = useState(false);
