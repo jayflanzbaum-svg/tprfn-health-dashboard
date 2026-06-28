@@ -7,6 +7,7 @@ import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatsCard } from '@/components/StatsCard';
 import { HubConnectionsTable } from '@/components/HubConnectionsTable';
+import { HubUptimeCard } from '@/components/HubUptimeCard';
 import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
@@ -632,6 +633,18 @@ const Index = () => {
           <LazySection fallback={<LeaderboardSkeleton />}>
             <PeakBitrateLeaderboard hubConnections={deferredFilteredData?.hubConnections ?? new Map()} dateRangeKey={dateRangeKey} />
           </LazySection>
+        </div>
+
+        {/* Detailed Table */}
+        {/* Hub Uptime */}
+        <div className="mb-8">
+          <HubUptimeCard
+            allowedCallsigns={allowedCallsigns}
+            dateRange={dateRange}
+            snRecords={filteredData.snRecords}
+            connectRecords={filteredData.connectRecords}
+            disconnectRecords={filteredData.disconnectRecords}
+          />
         </div>
 
         {/* Detailed Table */}
