@@ -271,6 +271,14 @@ export type Database = {
           callsign: string
         }[]
       }
+      hub_uptime_days: {
+        Args: { p_end: string; p_hubs: string[]; p_start: string }
+        Returns: {
+          callsign: string
+          days: number
+          last_seen: string
+        }[]
+      }
       syslog_kpis: {
         Args: {
           allowed_callsigns: string[]
