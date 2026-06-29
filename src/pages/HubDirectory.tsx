@@ -268,7 +268,7 @@ export default function HubDirectory() {
                     {user && (
                       isEditing ? (
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditDraft(null); }}><X className="h-4 w-4" /></Button>
                           <Button size="sm" onClick={() => saveEdit(p)} disabled={saving}>
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                           </Button>
@@ -279,12 +279,119 @@ export default function HubDirectory() {
                     )}
                   </div>
 
-                  {isEditing ? (
-                    <Textarea
-                      className="font-mono text-xs h-64"
-                      value={editDraft}
-                      onChange={e => setEditDraft(e.target.value)}
-                    />
+                  {isEditing && editDraft ? (
+                    <div className="mt-3 space-y-3 border-t pt-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Base Callsign</Label>
+                          <Input
+                            className="h-8 font-mono"
+                            value={editDraft.base_callsign || ''}
+                            onChange={e => updateDraft({ base_callsign: e.target.value.toUpperCase() })}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">SSID (e.g. 4)</Label>
+                          <Input
+                            className="h-8 font-mono"
+                            placeholder="optional"
+                            value={editDraft.ssid || ''}
+                            onChange={e => updateDraft({ ssid: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Operator</Label>
+                          <Input className="h-8" value={editDraft.operator || ''} onChange={e => updateDraft({ operator: e.target.value })} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Network</Label>
+                          <Input className="h-8" value={editDraft.network || ''} onChange={e => updateDraft({ network: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">City</Label>
+                          <Input className="h-8" value={editDraft.city || ''} onChange={e => updateDraft({ city: e.target.value })} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">State</Label>
+                          <Input className="h-8" value={editDraft.state || ''} onChange={e => updateDraft({ state: e.target.value })} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Country</Label>
+                          <Input className="h-8" value={editDraft.country || ''} onChange={e => updateDraft({ country: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Latitude</Label>
+                          <Input className="h-8 font-mono" type="number" step="0.000001" value={editDraft.latitude ?? ''} onChange={e => updateDraft({ latitude: e.target.value === '' ? null : Number(e.target.value) })} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Longitude</Label>
+                          <Input className="h-8 font-mono" type="number" step="0.000001" value={editDraft.longitude ?? ''} onChange={e => updateDraft({ longitude: e.target.value === '' ? null : Number(e.target.value) })} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Frequencies & Modes</Label>
+                          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={addFreq}>
+                            <Plus className="h-3 w-3" /> Add
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {((editDraft.frequencies as HubFrequency[]) || []).map((f, idx) => (
+                            <div key={idx} className="grid grid-cols-[1.2fr_1fr_1.1fr_1fr_auto] gap-1 items-center">
+                              <Input
+                                className="h-8 font-mono"
+                                type="number"
+                                step="0.0001"
+                                placeholder="MHz"
+                                value={f.freq_mhz ?? ''}
+                                onChange={e => updateFreq(idx, { freq_mhz: e.target.value === '' ? 0 : Number(e.target.value) })}
+                              />
+                              <Input
+                                className="h-8 font-mono"
+                                placeholder="Mode"
+                                value={f.mode || ''}
+                                onChange={e => updateFreq(idx, { mode: e.target.value })}
+                              />
+                              <Select value={f.transport || ''} onValueChange={v => updateFreq(idx, { transport: v })}>
+                                <SelectTrigger className="h-8"><SelectValue placeholder="Transport" /></SelectTrigger>
+                                <SelectContent className="bg-popover">
+                                  {TRANSPORT_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <Select value={f.modem || ''} onValueChange={v => updateFreq(idx, { modem: v })}>
+                                <SelectTrigger className="h-8"><SelectValue placeholder="Modem" /></SelectTrigger>
+                                <SelectContent className="bg-popover">
+                                  {MODEM_OPTIONS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFreq(idx)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                          {((editDraft.frequencies as HubFrequency[]) || []).length === 0 && (
+                            <div className="text-xs text-muted-foreground italic">No frequencies. Click Add to create one.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Notes</Label>
+                        <Textarea
+                          className="text-xs"
+                          rows={2}
+                          value={editDraft.notes || ''}
+                          onChange={e => updateDraft({ notes: e.target.value })}
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className="mt-2">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
