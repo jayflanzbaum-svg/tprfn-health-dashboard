@@ -210,6 +210,12 @@ export default function HubDirectory() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {user && (
+              <Button size="sm" className="gap-1.5" onClick={addHub}>
+                <Plus className="h-3.5 w-3.5" />
+                Add Hub
+              </Button>
+            )}
             <Link to="/hubs">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Wifi className="h-3.5 w-3.5" />
@@ -219,6 +225,8 @@ export default function HubDirectory() {
             <LoginButton />
           </div>
         </div>
+
+
 
         <div className="flex items-center gap-2 mb-4">
           <div className="relative flex-1 max-w-md">
