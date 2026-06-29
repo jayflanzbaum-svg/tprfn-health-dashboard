@@ -245,7 +245,7 @@ export default function HubDirectory() {
               </Button>
             )}
             <a
-              href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/hub-feed`}
+              href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tprfn-hub-feed`}
               target="_blank"
               rel="noopener noreferrer"
             >
