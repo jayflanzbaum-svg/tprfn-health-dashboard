@@ -63,7 +63,7 @@ export default function HubDirectory() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<string>('');
+  const [editDraft, setEditDraft] = useState<Partial<HubProfile> | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
