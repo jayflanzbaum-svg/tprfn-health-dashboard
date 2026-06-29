@@ -110,30 +110,82 @@ export default function HubDirectory() {
 
   const startEdit = (p: HubProfile) => {
     setEditingId(p.id);
-    setEditDraft(JSON.stringify({
+    setEditDraft({
+      base_callsign: p.base_callsign,
+      ssid: p.ssid,
       operator: p.operator,
       city: p.city,
       state: p.state,
       country: p.country,
       latitude: p.latitude,
       longitude: p.longitude,
-      ssid: p.ssid,
+      network: p.network,
       notes: p.notes,
-      frequencies: p.frequencies,
-    }, null, 2));
+      frequencies: [...(p.frequencies || [])],
+    });
+  };
+
+  const updateDraft = (patch: Partial<HubProfile>) => {
+    setEditDraft(prev => ({ ...(prev || {}), ...patch }));
+  };
+
+  const updateFreq = (idx: number, patch: Partial<HubFrequency>) => {
+    setEditDraft(prev => {
+      const freqs = [...((prev?.frequencies as HubFrequency[]) || [])];
+      freqs[idx] = { ...freqs[idx], ...patch };
+      return { ...(prev || {}), frequencies: freqs };
+    });
+  };
+
+  const addFreq = () => {
+    setEditDraft(prev => ({
+      ...(prev || {}),
+      frequencies: [...(((prev?.frequencies as HubFrequency[]) || [])), { freq_mhz: 0, mode: '', transport: 'vara-hf', modem: 'VARA' }],
+    }));
+  };
+
+  const removeFreq = (idx: number) => {
+    setEditDraft(prev => {
+      const freqs = [...((prev?.frequencies as HubFrequency[]) || [])];
+      freqs.splice(idx, 1);
+      return { ...(prev || {}), frequencies: freqs };
+    });
   };
 
   const saveEdit = async (p: HubProfile) => {
+    if (!editDraft) return;
     setSaving(true);
     try {
-      const parsed = JSON.parse(editDraft);
+      const base = (editDraft.base_callsign || p.base_callsign || '').trim().toUpperCase();
+      const ssid = (editDraft.ssid || '').toString().trim().replace(/^-/, '') || null;
+      const full = ssid ? `${base}-${ssid}` : base;
+      const payload = {
+        base_callsign: base,
+        full_callsign: full,
+        ssid,
+        operator: editDraft.operator ?? null,
+        city: editDraft.city ?? null,
+        state: editDraft.state ?? null,
+        country: editDraft.country ?? null,
+        latitude: editDraft.latitude == null || editDraft.latitude === ('' as any) ? null : Number(editDraft.latitude),
+        longitude: editDraft.longitude == null || editDraft.longitude === ('' as any) ? null : Number(editDraft.longitude),
+        network: editDraft.network ?? null,
+        notes: editDraft.notes ?? null,
+        frequencies: ((editDraft.frequencies as HubFrequency[]) || []).map(f => ({
+          freq_mhz: Number(f.freq_mhz) || 0,
+          mode: (f.mode || '').trim(),
+          transport: (f.transport || '').trim(),
+          modem: (f.modem || '').trim(),
+        })),
+      };
       const { error } = await supabase
         .from('hub_profiles')
-        .update(parsed)
+        .update(payload as any)
         .eq('id', p.id);
       if (error) throw error;
-      toast({ title: 'Saved', description: `${p.full_callsign} updated.` });
+      toast({ title: 'Saved', description: `${full} updated.` });
       setEditingId(null);
+      setEditDraft(null);
     } catch (err: any) {
       toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
     } finally {
