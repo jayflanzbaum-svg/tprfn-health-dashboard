@@ -244,12 +244,8 @@ export default function HubDirectory() {
                 Add Hub
               </Button>
             )}
-            <Link to="/hubs">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Wifi className="h-3.5 w-3.5" />
-                Live Feed
-              </Button>
-            </Link>
+
+
             <LoginButton />
           </div>
         </div>
