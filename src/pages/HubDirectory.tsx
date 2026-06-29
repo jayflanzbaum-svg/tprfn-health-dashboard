@@ -152,6 +152,34 @@ export default function HubDirectory() {
     });
   };
 
+  const addHub = async () => {
+    const input = window.prompt('Enter base callsign for the new hub (e.g. K1AJD):');
+    if (!input) return;
+    const base = input.trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,7}$/.test(base)) {
+      toast({ title: 'Invalid callsign', description: 'Use letters/numbers only, no SSID.', variant: 'destructive' });
+      return;
+    }
+    if (profiles.some(p => p.base_callsign === base)) {
+      toast({ title: 'Already exists', description: `${base} is already in the directory.`, variant: 'destructive' });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('hub_profiles')
+      .insert({ base_callsign: base, full_callsign: base, frequencies: [] } as any)
+      .select()
+      .single();
+    if (error) {
+      toast({ title: 'Failed to add hub', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Hub added', description: `${base} created. Fill in the details and save.` });
+    const newProfile = data as unknown as HubProfile;
+    setProfiles(prev => [...prev, newProfile].sort((a, b) => a.full_callsign.localeCompare(b.full_callsign)));
+    startEdit(newProfile);
+  };
+
+
   const saveEdit = async (p: HubProfile) => {
     if (!editDraft) return;
     setSaving(true);
