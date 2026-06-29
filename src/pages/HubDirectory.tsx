@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi } from 'lucide-react';
+import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginButton } from '@/components/AuthGuard';
 import { toast } from '@/hooks/use-toast';
+
+const TRANSPORT_OPTIONS = ['vara-hf', 'vara-fm', 'ax25', 'ardop', 'pactor', 'packet', 'other'];
+const MODEM_OPTIONS = ['VARA', 'VARA FM', 'AX.25', 'ARDOP', 'PACTOR', 'Other'];
 
 interface HubFrequency {
   freq_mhz: number;
