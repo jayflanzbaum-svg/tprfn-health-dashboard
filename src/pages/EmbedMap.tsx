@@ -142,6 +142,12 @@ const EmbedMap = () => {
       >
         Powered by TPRFN Health Dashboard
       </a>
+      <span
+        className="absolute top-2 right-2 z-[1200] rounded bg-background/85 px-2 py-1 text-[11px] font-mono font-medium text-muted-foreground shadow"
+        aria-label="Snapshot timestamp"
+      >
+        {snapshotTime}
+      </span>
     </div>
   );
 };
