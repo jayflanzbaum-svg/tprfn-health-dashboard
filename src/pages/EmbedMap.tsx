@@ -91,8 +91,21 @@ const EmbedMap = () => {
     }
   }, [data?.stations.size]);
 
+  const [snapshotTime, setSnapshotTime] = useState<string>(() => {
+    const now = new Date();
+    return now.toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+  });
+
   useEffect(() => {
-    document.title = 'TPRFN Live Station Map';
+    const tick = () => {
+      const now = new Date();
+      setSnapshotTime(now.toISOString().replace('T', ' ').slice(0, 19) + 'Z');
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
     document.body.classList.add('embed-mode');
     return () => document.body.classList.remove('embed-mode');
   }, []);
