@@ -1,25 +1,26 @@
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
 import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { LoadingState } from '@/components/LoadingState';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { DEFAULT_ALLOWED_CALLSIGNS, HubConnection } from '@/lib/syslogParser';
 
-const LiveMapPage = () => {
-  const navigate = useNavigate();
+/**
+ * Chromeless map for embedding in other sites via <iframe>.
+ * Supports the same URL params as the live map (preset, start, end, station, filter, mode...).
+ */
+const EmbedMap = () => {
   const { callsigns: allowedCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
   const { filters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
+
   const fetchDays = useMemo(() => {
     const msPerDay = 1000 * 60 * 60 * 24;
     const days = Math.ceil((filters.dateRange.end.getTime() - filters.dateRange.start.getTime()) / msPerDay) + 1;
     return Math.max(2, days);
   }, [filters.dateRange]);
+
   const { data, loading, error } = useDatabaseData(allowedCallsigns, fetchDays);
   const { locations, distances, lookupCallsigns } = useStationLocations();
 
@@ -84,72 +85,50 @@ const LiveMapPage = () => {
     return hubConnections;
   }, [data, filters.dateRange, filters.selectedStation]);
 
-  // Auto-fetch locations for all stations when data loads
   useEffect(() => {
     if (data && data.stations.size > 0) {
-      const callsigns = Array.from(data.stations);
-      lookupCallsigns(callsigns);
+      lookupCallsigns(Array.from(data.stations));
     }
   }, [data?.stations.size]);
 
+  useEffect(() => {
+    document.title = 'TPRFN Live Station Map';
+    document.body.classList.add('embed-mode');
+    return () => document.body.classList.remove('embed-mode');
+  }, []);
+
   if (!callsignsLoaded || loading) {
-    return <LoadingState message="Loading map data..." />;
+    return <LoadingState message="Loading map…" />;
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-destructive mb-4">{error || 'Failed to load data'}</p>
-          <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
-        </div>
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-destructive">{error || 'Failed to load map data'}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-4 max-w-full">
-        <div className="mb-4 flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-xl font-bold">Live Station Map</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 ml-auto"
-            onClick={() => {
-              const url = `${window.location.origin}/embed${window.location.search}`;
-              const snippet = `<iframe src="${url}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
-              navigator.clipboard.writeText(snippet).then(
-                () => toast.success('Embed code copied to clipboard'),
-                () => toast.error('Could not copy embed code')
-              );
-            }}
-          >
-            <Code2 className="h-4 w-4" />
-            Copy Embed Code
-          </Button>
-        </div>
-        
-        <LiveStationMap
-          locations={locations}
-          hubConnections={filteredHubConnections}
-          distances={distances}
-          hubCallsigns={allowedCallsigns}
-          isFullscreen={true}
-          lookupCallsigns={lookupCallsigns}
-        />
-      </div>
+    <div className="h-screen w-screen overflow-hidden bg-background">
+      <LiveStationMap
+        locations={locations}
+        hubConnections={filteredHubConnections}
+        distances={distances}
+        hubCallsigns={allowedCallsigns}
+        isFullscreen={true}
+        lookupCallsigns={lookupCallsigns}
+      />
+      <a
+        href={`${window.location.origin}/`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-2 left-2 z-[1200] rounded bg-background/85 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow hover:text-foreground"
+      >
+        Powered by TPRFN Health Dashboard
+      </a>
     </div>
   );
 };
 
-export default LiveMapPage;
+export default EmbedMap;

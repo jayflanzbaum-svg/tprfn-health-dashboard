@@ -9,6 +9,7 @@ import LiveMapPage from "./pages/LiveMapPage";
 import NotFound from "./pages/NotFound";
 import DashboardOverview from "./pages/DashboardOverview";
 import HubDirectory from "./pages/HubDirectory";
+import EmbedMap from "./pages/EmbedMap";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/live-map" element={<LiveMapPage />} />
           <Route path="/overview" element={<DashboardOverview />} />
           <Route path="/hubs" element={<HubDirectory />} />
+          <Route path="/embed" element={<EmbedMap />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
