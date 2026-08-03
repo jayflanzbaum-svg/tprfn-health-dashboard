@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
 import { useHubCallsigns } from '@/hooks/useHubCallsigns';
@@ -91,6 +91,21 @@ const EmbedMap = () => {
     }
   }, [data?.stations.size]);
 
+  const [snapshotTime, setSnapshotTime] = useState<string>(() => {
+    const now = new Date();
+    return now.toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setSnapshotTime(now.toISOString().replace('T', ' ').slice(0, 19) + 'Z');
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     document.title = 'TPRFN Live Station Map';
     document.body.classList.add('embed-mode');
@@ -127,6 +142,12 @@ const EmbedMap = () => {
       >
         Powered by TPRFN Health Dashboard
       </a>
+      <span
+        className="absolute top-2 right-2 z-[1200] rounded bg-background/85 px-2 py-1 text-[11px] font-mono font-medium text-muted-foreground shadow"
+        aria-label="Snapshot timestamp"
+      >
+        {snapshotTime}
+      </span>
     </div>
   );
 };
