@@ -7,7 +7,8 @@ import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Code2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { DEFAULT_ALLOWED_CALLSIGNS, HubConnection } from '@/lib/syslogParser';
 
 const LiveMapPage = () => {
