@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
     const width = Math.min(Math.max(Number(reqUrl.searchParams.get('width')) || 1200, 320), 2000);
     const height = Math.min(Math.max(Number(reqUrl.searchParams.get('height')) || 675, 240), 1400);
-    const ttl = Math.min(Math.max(Number(reqUrl.searchParams.get('ttl')) || 900, 60), 43200);
+    const ttl = Math.min(Math.max(Number(reqUrl.searchParams.get('ttl')) || 14400, 14400), 43200);
 
     const shot = new URL('https://api.screenshotone.com/take');
     shot.searchParams.set('access_key', accessKey);
