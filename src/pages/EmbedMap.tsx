@@ -106,6 +106,8 @@ const EmbedMap = () => {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    document.title = 'TPRFN Live Station Map';
     document.body.classList.add('embed-mode');
     return () => document.body.classList.remove('embed-mode');
   }, []);
