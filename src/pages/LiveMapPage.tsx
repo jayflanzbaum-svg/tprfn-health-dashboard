@@ -121,6 +121,22 @@ const LiveMapPage = () => {
             Back to Dashboard
           </Button>
           <h1 className="text-xl font-bold">Live Station Map</h1>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 ml-auto"
+            onClick={() => {
+              const url = `${window.location.origin}/embed${window.location.search}`;
+              const snippet = `<iframe src="${url}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
+              navigator.clipboard.writeText(snippet).then(
+                () => toast.success('Embed code copied to clipboard'),
+                () => toast.error('Could not copy embed code')
+              );
+            }}
+          >
+            <Code2 className="h-4 w-4" />
+            Copy Embed Code
+          </Button>
         </div>
         
         <LiveStationMap
