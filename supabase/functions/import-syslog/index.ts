@@ -260,15 +260,40 @@ serve(async (req) => {
 
     console.log(`Fetching syslog chunk: bytes=${startByte}-${startByte + chunkSize - 1}`);
 
-    const response = await fetch(downloadUrl, {
-      headers: {
-        'Range': `bytes=${startByte}-${startByte + chunkSize - 1}`
-      }
-    });
+    let response: Response;
+    try {
+      response = await fetch(downloadUrl, {
+        headers: {
+          'Range': `bytes=${startByte}-${startByte + chunkSize - 1}`
+        }
+      });
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : 'Fetch failed';
+      console.warn('Source unreachable (external server may be down):', msg);
+      return new Response(JSON.stringify({
+        success: false,
+        stats: { processed: 0, inserted: 0, errors: 0 },
+        nextByte: null,
+        totalSize: 0,
+        complete: true,
+        skipped: true,
+        message: `Source unreachable: ${msg}`,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     if (!response.ok && response.status !== 206) {
-      throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+      console.warn('Source returned error status:', response.status);
+      return new Response(JSON.stringify({
+        success: false,
+        stats: { processed: 0, inserted: 0, errors: 0 },
+        nextByte: null,
+        totalSize: 0,
+        complete: true,
+        skipped: true,
+        message: `Source returned HTTP ${response.status}`,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
 
     const contentRange = response.headers.get('Content-Range');
     const totalSize = contentRange ? parseInt(contentRange.split('/')[1]) : null;
