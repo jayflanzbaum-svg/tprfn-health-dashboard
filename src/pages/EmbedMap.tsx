@@ -134,14 +134,6 @@ const EmbedMap = () => {
         isFullscreen={true}
         lookupCallsigns={lookupCallsigns}
       />
-      <a
-        href={`${window.location.origin}/`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-2 left-2 z-[1200] rounded bg-background/85 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow hover:text-foreground"
-      >
-        Powered by TPRFN Health Dashboard
-      </a>
       <span
         className="absolute bottom-3 left-3 z-[1200] rounded-md bg-background/95 px-3 py-1.5 text-xs font-mono font-semibold text-foreground shadow border"
         aria-label="Snapshot timestamp"
