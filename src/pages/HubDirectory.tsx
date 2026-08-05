@@ -12,8 +12,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { LoginButton } from '@/components/AuthGuard';
 import { toast } from '@/hooks/use-toast';
 
-const TRANSPORT_OPTIONS = ['vara-hf', 'vara-fm', 'ax25', 'ardop', 'pactor', 'packet', 'other'];
-const MODEM_OPTIONS = ['VARA', 'VARA FM', 'AX.25', 'ARDOP', 'PACTOR', 'Other'];
+const TRANSPORT_OPTIONS = ['vara-hf', 'vara-fm', 'ax25', 'ax25-vhf', 'ax25-uhf', 'ardop', 'pactor', 'packet', 'other'];
+const MODEM_OPTIONS = ['VARA', 'vara', 'VARA FM', 'afsk1200', 'afsk9600', 'gfsk9600', 'AX.25', 'ARDOP', 'PACTOR', 'Other'];
+const MODE_OPTIONS = ['USB', 'LSB', 'FM', '1200', '9600', 'DATA'];
 
 interface HubFrequency {
   freq_mhz: number;
