@@ -395,22 +395,28 @@ export default function HubDirectory() {
                                 value={f.freq_mhz ?? ''}
                                 onChange={e => updateFreq(idx, { freq_mhz: e.target.value === '' ? 0 : Number(e.target.value) })}
                               />
-                              <Input
-                                className="h-8 font-mono"
-                                placeholder="Mode"
-                                value={f.mode || ''}
-                                onChange={e => updateFreq(idx, { mode: e.target.value })}
-                              />
+                              <>
+                                <Input
+                                  className="h-8 font-mono"
+                                  placeholder="Mode"
+                                  list={`modes-${idx}`}
+                                  value={f.mode || ''}
+                                  onChange={e => updateFreq(idx, { mode: e.target.value })}
+                                />
+                                <datalist id={`modes-${idx}`}>
+                                  {MODE_OPTIONS.map(m => <option key={m} value={m} />)}
+                                </datalist>
+                              </>
                               <Select value={f.transport || ''} onValueChange={v => updateFreq(idx, { transport: v })}>
                                 <SelectTrigger className="h-8"><SelectValue placeholder="Transport" /></SelectTrigger>
                                 <SelectContent className="bg-popover">
-                                  {TRANSPORT_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                  {Array.from(new Set([...TRANSPORT_OPTIONS, ...(f.transport ? [f.transport] : [])])).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
                               </Select>
                               <Select value={f.modem || ''} onValueChange={v => updateFreq(idx, { modem: v })}>
                                 <SelectTrigger className="h-8"><SelectValue placeholder="Modem" /></SelectTrigger>
                                 <SelectContent className="bg-popover">
-                                  {MODEM_OPTIONS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                  {Array.from(new Set([...MODEM_OPTIONS, ...(f.modem ? [f.modem] : [])])).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                                 </SelectContent>
                               </Select>
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFreq(idx)}>
