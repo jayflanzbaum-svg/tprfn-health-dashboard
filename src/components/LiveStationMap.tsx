@@ -335,11 +335,26 @@ export function LiveStationMap({
     }
   }, []);
 
+  // Hub callsigns listed in the Hub Directory (hub_profiles)
+  const [directoryHubCallsigns, setDirectoryHubCallsigns] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('hub_profiles')
+      .select('base_callsign')
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        setDirectoryHubCallsigns(data.map(r => (r.base_callsign || '').toUpperCase().trim()).filter(Boolean));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   // Normalize hub callsigns for comparison
   const normalizedHubCallsigns = useMemo(() => 
-    new Set(hubCallsigns.map(c => c.toUpperCase().trim())),
-    [hubCallsigns]
+    new Set([...hubCallsigns.map(c => c.toUpperCase().trim()), ...directoryHubCallsigns]),
+    [hubCallsigns, directoryHubCallsigns]
   );
+
 
   // Get all unique callsigns from connections
   const allConnectedCallsigns = useMemo(() => {
