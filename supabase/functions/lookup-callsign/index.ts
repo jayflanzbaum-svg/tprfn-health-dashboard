@@ -136,6 +136,69 @@ serve(async (req) => {
 
     console.log(`Found ${Object.keys(results).length} cached, need to fetch ${toFetch.length}`);
 
+// HamDB returns this fixed location when it has no real coordinates
+const HAMDB_DEFAULT_LAT = 36.6992224;
+const HAMDB_DEFAULT_LON = -93.8902355;
+
+async function lookupHamdb(callsign: string) {
+  try {
+    const res = await fetch(`https://api.hamdb.org/v1/${encodeURIComponent(callsign)}/json/tprfn`);
+    const json = await res.json();
+    const c = json?.hamdb?.callsign;
+    if (!c || json?.hamdb?.messages?.status !== 'OK') return null;
+
+    let lat = c.lat ? parseFloat(c.lat) : null;
+    let lon = c.lon ? parseFloat(c.lon) : null;
+    if (
+      lat !== null && lon !== null &&
+      Math.abs(lat - HAMDB_DEFAULT_LAT) < 0.001 && Math.abs(lon - HAMDB_DEFAULT_LON) < 0.001
+    ) {
+      lat = null;
+      lon = null;
+    }
+
+    const grid = c.grid || null;
+    if ((lat === null || lon === null) && grid) {
+      const fromGrid = gridToLatLon(grid);
+      if (fromGrid) { lat = fromGrid.lat; lon = fromGrid.lon; }
+    }
+
+    return {
+      lat,
+      lon,
+      grid,
+      city: c.addr2 || null,
+      state: c.state || null,
+      country: c.country || null,
+      address: c.addr1 || null,
+    };
+  } catch (err) {
+    console.error(`HamDB lookup failed for ${callsign}:`, err);
+    return null;
+  }
+}
+
+// Approximate coordinates from city/state/country via OpenStreetMap Nominatim
+async function geocodePlace(city: string | null, state: string | null, country: string | null) {
+  if (!state && !country && !city) return null;
+  try {
+    const params = new URLSearchParams({ format: 'json', limit: '1' });
+    if (city) params.set('city', city);
+    if (state) params.set('state', state);
+    if (country) params.set('country', country);
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { 'User-Agent': 'tprfn-health-dashboard/1.0' },
+    });
+    const json = await res.json();
+    if (Array.isArray(json) && json[0]?.lat && json[0]?.lon) {
+      return { lat: parseFloat(json[0].lat), lon: parseFloat(json[0].lon) };
+    }
+  } catch (err) {
+    console.error('Geocode failed:', err);
+  }
+  return null;
+}
+
     // Fetch from Callook.info for missing callsigns (free, no auth required)
     for (const callsign of toFetch) {
       try {
@@ -146,10 +209,55 @@ serve(async (req) => {
         const data = await response.json() as CallookResponse;
         
         if (data.status !== 'VALID') {
-          console.log(`Callsign ${callsign} not found or invalid`);
-          results[callsign] = { callsign, error: 'Not found' };
+          // Not an FCC callsign (e.g. Canadian VA/VE, or other DX) — try HamDB
+          console.log(`Callook miss for ${callsign}, trying HamDB`);
+          const hd = await lookupHamdb(callsign);
+          if (!hd) {
+            results[callsign] = { callsign, error: 'Not found' };
+            continue;
+          }
+
+          let { lat, lon } = hd;
+          let source = 'hamdb';
+          if (lat === null || lon === null) {
+            const geo = await geocodePlace(hd.city, hd.state, hd.country);
+            if (geo) { lat = geo.lat; lon = geo.lon; source = 'hamdb+geocode'; }
+          }
+
+          if (lat === null || lon === null) {
+            results[callsign] = { callsign, error: 'Not found' };
+            continue;
+          }
+
+          const fallbackData = {
+            callsign,
+            latitude: lat,
+            longitude: lon,
+            grid_square: hd.grid,
+            city: hd.city,
+            state: hd.state,
+            country: hd.country,
+            address: hd.address,
+            source,
+            is_manual_override: false,
+            last_fetched_at: new Date().toISOString(),
+          };
+
+          const { data: upsertedFallback, error: fallbackError } = await supabase
+            .from('station_locations')
+            .upsert(fallbackData, { onConflict: 'callsign' })
+            .select()
+            .single();
+
+          if (fallbackError) {
+            console.error(`Error upserting ${callsign}:`, fallbackError);
+            results[callsign] = { callsign, error: 'Failed to fetch' };
+          } else {
+            results[callsign] = upsertedFallback;
+          }
           continue;
         }
+
 
         const lat = data.location?.latitude ? parseFloat(data.location.latitude) : null;
         const lon = data.location?.longitude ? parseFloat(data.location.longitude) : null;
