@@ -22,10 +22,36 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
+    const hubs = data ?? [];
+    const bases = [...new Set(hubs.map((h: any) => String(h.base_callsign).toUpperCase()))];
+    const now = Date.now();
+    const lastHeard: Record<string, string> = {};
+
+    if (bases.length) {
+      const { data: up } = await supabase.rpc('hub_uptime_days', {
+        p_hubs: bases,
+        p_start: new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString(),
+        p_end: new Date(now).toISOString(),
+      });
+      for (const r of (up ?? []) as any[]) {
+        if (r.last_seen) lastHeard[String(r.callsign).toUpperCase()] = r.last_seen;
+      }
+    }
+
+    const enriched = hubs.map((h: any) => {
+      const seen = lastHeard[String(h.base_callsign).toUpperCase()] ?? null;
+      return {
+        ...h,
+        last_heard: seen,
+        online: seen ? now - new Date(seen).getTime() < 24 * 60 * 60 * 1000 : false,
+      };
+    });
+
     const payload = {
       generated_at: new Date().toISOString(),
-      count: data?.length ?? 0,
-      hubs: data ?? [],
+      online_window_hours: 24,
+      count: enriched.length,
+      hubs: enriched,
     };
 
     return new Response(JSON.stringify(payload, null, 2), {
