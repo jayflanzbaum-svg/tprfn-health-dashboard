@@ -81,21 +81,12 @@ export default function HubDirectory() {
       } else {
         const list = ((data || []) as unknown) as HubProfile[];
         setProfiles(list);
-        const bases = Array.from(new Set(list.map(p => p.base_callsign.toUpperCase())));
-        if (bases.length) {
-          const end = new Date();
-          const start = new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000);
-          const { data: up } = await supabase.rpc('hub_uptime_days', {
-            p_hubs: bases,
-            p_start: start.toISOString(),
-            p_end: end.toISOString(),
-          });
-          if (alive && up) {
-            const map: Record<string, string> = {};
-            for (const r of up as any[]) if (r.last_seen) map[r.callsign] = r.last_seen;
-            setLastHeard(map);
-          }
+        const map: Record<string, string> = {};
+        for (const p of list) {
+          const lh = (p as any).last_heard_at as string | null;
+          if (lh) map[p.base_callsign.toUpperCase()] = lh;
         }
+        setLastHeard(map);
       }
       setLoading(false);
     };
