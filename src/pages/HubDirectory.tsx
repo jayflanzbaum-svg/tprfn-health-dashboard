@@ -61,6 +61,7 @@ function freqBadgeClass(transport: string): string {
 export default function HubDirectory() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<HubProfile[]>([]);
+  const [lastHeard, setLastHeard] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -78,7 +79,23 @@ export default function HubDirectory() {
       if (error) {
         toast({ title: 'Failed to load hub directory', description: error.message, variant: 'destructive' });
       } else {
-        setProfiles(((data || []) as unknown) as HubProfile[]);
+        const list = ((data || []) as unknown) as HubProfile[];
+        setProfiles(list);
+        const bases = Array.from(new Set(list.map(p => p.base_callsign.toUpperCase())));
+        if (bases.length) {
+          const end = new Date();
+          const start = new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000);
+          const { data: up } = await supabase.rpc('hub_uptime_days', {
+            p_hubs: bases,
+            p_start: start.toISOString(),
+            p_end: end.toISOString(),
+          });
+          if (alive && up) {
+            const map: Record<string, string> = {};
+            for (const r of up as any[]) if (r.last_seen) map[r.callsign] = r.last_seen;
+            setLastHeard(map);
+          }
+        }
       }
       setLoading(false);
     };
@@ -287,15 +304,28 @@ export default function HubDirectory() {
               const isEditing = editingId === p.id;
               const sortedFreqs = [...p.frequencies].sort((a, b) => a.freq_mhz - b.freq_mhz);
               const loc = [p.city, p.state, p.country].filter(Boolean).join(', ');
+              const seen = lastHeard[p.base_callsign.toUpperCase()];
+              const seenDate = seen ? new Date(seen) : null;
+              const online = !!seenDate && Date.now() - seenDate.getTime() < 24 * 60 * 60 * 1000;
               return (
                 <div key={p.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="font-mono text-lg font-bold">{p.full_callsign}</span>
                         {p.ssid && (
                           <Badge variant="secondary" className="text-[10px]">SSID -{p.ssid}</Badge>
                         )}
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] gap-1 ${online ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' : 'bg-muted text-muted-foreground border-border'}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-500' : 'bg-muted-foreground/60'}`} />
+                          {online ? 'Online' : 'Offline'}
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Last heard: {seenDate ? `${seenDate.toISOString().slice(0, 16).replace('T', ' ')}Z` : 'never'}
                       </div>
                       {p.operator && <div className="text-sm text-foreground/80">{p.operator}</div>}
                       {loc && (
