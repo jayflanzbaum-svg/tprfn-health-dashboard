@@ -371,6 +371,11 @@ serve(async (req) => {
     const nextByte = startByte + chunkSize;
     const hasMore = totalSize ? nextByte < totalSize : false;
 
+    if (!hasMore) {
+      const { error: refreshErr } = await supabase.rpc('refresh_hub_last_heard');
+      if (refreshErr) console.warn('refresh_hub_last_heard failed:', refreshErr.message);
+    }
+
     console.log('Chunk complete:', { processed, inserted, errors, hasMore, nextByte });
 
     return new Response(JSON.stringify({ 
