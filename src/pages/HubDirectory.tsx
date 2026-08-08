@@ -61,6 +61,7 @@ function freqBadgeClass(transport: string): string {
 export default function HubDirectory() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<HubProfile[]>([]);
+  const [lastHeard, setLastHeard] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
