@@ -41,6 +41,7 @@ export type Database = {
           frequencies: Json
           full_callsign: string
           id: string
+          last_heard_at: string | null
           latitude: number | null
           longitude: number | null
           network: string | null
@@ -58,6 +59,7 @@ export type Database = {
           frequencies?: Json
           full_callsign: string
           id?: string
+          last_heard_at?: string | null
           latitude?: number | null
           longitude?: number | null
           network?: string | null
@@ -75,6 +77,7 @@ export type Database = {
           frequencies?: Json
           full_callsign?: string
           id?: string
+          last_heard_at?: string | null
           latitude?: number | null
           longitude?: number | null
           network?: string | null
@@ -279,6 +282,7 @@ export type Database = {
           last_seen: string
         }[]
       }
+      refresh_hub_last_heard: { Args: never; Returns: number }
       syslog_kpis: {
         Args: {
           allowed_callsigns: string[]
