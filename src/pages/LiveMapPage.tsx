@@ -29,6 +29,38 @@ const LiveMapPage = () => {
   }, [filters.dateRange]);
   const { data, loading, error } = useDatabaseData(allowedCallsigns, fetchDays);
   const { locations, distances, lookupCallsigns } = useStationLocations();
+  const [embedOpen, setEmbedOpen] = useState(false);
+
+  // Only forward the map-relevant params (drops internal preview params)
+  const embedQuery = useMemo(() => {
+    const src = new URLSearchParams(window.location.search);
+    const out = new URLSearchParams();
+    EMBED_PARAMS.forEach((key) => {
+      const value = src.get(key);
+      if (value) out.set(key, value);
+    });
+    const qs = out.toString();
+    return qs ? `?${qs}` : '';
+  }, [embedOpen]);
+
+  const iframeSnippet = `<iframe src="${PUBLIC_ORIGIN}/embed${embedQuery}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
+
+  const imgSnippet = (() => {
+    const params = new URLSearchParams(embedQuery.replace(/^\?/, ''));
+    params.set('width', '1200');
+    params.set('height', '675');
+    params.set('ttl', '600');
+    return `<img src="${SNAPSHOT_ENDPOINT}?${params.toString()}" alt="TPRFN Live Station Map" width="600" style="max-width:100%;height:auto;border-radius:8px" />`;
+  })();
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success('Embed code copied to clipboard'),
+      () => toast.error('Could not copy embed code')
+    );
+  };
+
+
 
   const filteredHubConnections = useMemo(() => {
     if (!data) return new Map<string, HubConnection>();
