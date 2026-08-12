@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
@@ -7,9 +7,16 @@ import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Code2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_ALLOWED_CALLSIGNS, HubConnection } from '@/lib/syslogParser';
+
+const PUBLIC_ORIGIN = 'https://tprfn-health-dashboard.lovable.app';
+const SNAPSHOT_ENDPOINT =
+  'https://lcrayouskoctmbecomoi.supabase.co/functions/v1/map-snapshot';
+const EMBED_PARAMS = ['preset', 'start', 'end', 'station', 'filter', 'mode', 'stations'];
+
 
 const LiveMapPage = () => {
   const navigate = useNavigate();
