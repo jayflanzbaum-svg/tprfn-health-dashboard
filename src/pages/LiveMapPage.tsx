@@ -125,19 +125,48 @@ const LiveMapPage = () => {
             variant="outline"
             size="sm"
             className="gap-2 ml-auto"
-            onClick={() => {
-              const url = `${window.location.origin}/embed${window.location.search}`;
-              const snippet = `<iframe src="${url}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
-              navigator.clipboard.writeText(snippet).then(
-                () => toast.success('Embed code copied to clipboard'),
-                () => toast.error('Could not copy embed code')
-              );
-            }}
+            onClick={() => setEmbedOpen(true)}
           >
             <Code2 className="h-4 w-4" />
             Copy Embed Code
           </Button>
         </div>
+
+        <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
+          <DialogContent className="max-w-2xl bg-background z-[1400]">
+            <DialogHeader>
+              <DialogTitle>Embed the Live Station Map</DialogTitle>
+              <DialogDescription>
+                Both snippets point at the published site, so they work on any external page.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Interactive map (iframe)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Use on sites that allow iframes (WordPress, Wix, Squarespace).
+                </p>
+                <pre className="rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap break-all">{iframeSnippet}</pre>
+                <Button size="sm" variant="secondary" className="mt-2 gap-2" onClick={() => copy(iframeSnippet)}>
+                  <Copy className="h-3.5 w-3.5" /> Copy iframe code
+                </Button>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-1">Auto-updating image (QRZ, forums)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  A PNG snapshot that refreshes every 10 minutes — works where iframes and scripts are blocked.
+                </p>
+                <pre className="rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap break-all">{imgSnippet}</pre>
+                <Button size="sm" variant="secondary" className="mt-2 gap-2" onClick={() => copy(imgSnippet)}>
+                  <Copy className="h-3.5 w-3.5" /> Copy image code
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         
         <LiveStationMap
           locations={locations}
