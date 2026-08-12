@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
@@ -7,9 +7,16 @@ import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { LiveStationMap } from '@/components/LiveStationMap';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Code2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_ALLOWED_CALLSIGNS, HubConnection } from '@/lib/syslogParser';
+
+const PUBLIC_ORIGIN = 'https://tprfn-health-dashboard.lovable.app';
+const SNAPSHOT_ENDPOINT =
+  'https://lcrayouskoctmbecomoi.supabase.co/functions/v1/map-snapshot';
+const EMBED_PARAMS = ['preset', 'start', 'end', 'station', 'filter', 'mode', 'stations'];
+
 
 const LiveMapPage = () => {
   const navigate = useNavigate();
@@ -22,6 +29,38 @@ const LiveMapPage = () => {
   }, [filters.dateRange]);
   const { data, loading, error } = useDatabaseData(allowedCallsigns, fetchDays);
   const { locations, distances, lookupCallsigns } = useStationLocations();
+  const [embedOpen, setEmbedOpen] = useState(false);
+
+  // Only forward the map-relevant params (drops internal preview params)
+  const embedQuery = useMemo(() => {
+    const src = new URLSearchParams(window.location.search);
+    const out = new URLSearchParams();
+    EMBED_PARAMS.forEach((key) => {
+      const value = src.get(key);
+      if (value) out.set(key, value);
+    });
+    const qs = out.toString();
+    return qs ? `?${qs}` : '';
+  }, [embedOpen]);
+
+  const iframeSnippet = `<iframe src="${PUBLIC_ORIGIN}/embed${embedQuery}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
+
+  const imgSnippet = (() => {
+    const params = new URLSearchParams(embedQuery.replace(/^\?/, ''));
+    params.set('width', '1200');
+    params.set('height', '675');
+    params.set('ttl', '600');
+    return `<img src="${SNAPSHOT_ENDPOINT}?${params.toString()}" alt="TPRFN Live Station Map" width="600" style="max-width:100%;height:auto;border-radius:8px" />`;
+  })();
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success('Embed code copied to clipboard'),
+      () => toast.error('Could not copy embed code')
+    );
+  };
+
+
 
   const filteredHubConnections = useMemo(() => {
     if (!data) return new Map<string, HubConnection>();
@@ -125,19 +164,48 @@ const LiveMapPage = () => {
             variant="outline"
             size="sm"
             className="gap-2 ml-auto"
-            onClick={() => {
-              const url = `${window.location.origin}/embed${window.location.search}`;
-              const snippet = `<iframe src="${url}" width="100%" height="560" style="border:0;border-radius:8px" loading="lazy" title="TPRFN Live Station Map"></iframe>`;
-              navigator.clipboard.writeText(snippet).then(
-                () => toast.success('Embed code copied to clipboard'),
-                () => toast.error('Could not copy embed code')
-              );
-            }}
+            onClick={() => setEmbedOpen(true)}
           >
             <Code2 className="h-4 w-4" />
             Copy Embed Code
           </Button>
         </div>
+
+        <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
+          <DialogContent className="max-w-2xl bg-background z-[1400]">
+            <DialogHeader>
+              <DialogTitle>Embed the Live Station Map</DialogTitle>
+              <DialogDescription>
+                Both snippets point at the published site, so they work on any external page.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Interactive map (iframe)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Use on sites that allow iframes (WordPress, Wix, Squarespace).
+                </p>
+                <pre className="rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap break-all">{iframeSnippet}</pre>
+                <Button size="sm" variant="secondary" className="mt-2 gap-2" onClick={() => copy(iframeSnippet)}>
+                  <Copy className="h-3.5 w-3.5" /> Copy iframe code
+                </Button>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-1">Auto-updating image (QRZ, forums)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  A PNG snapshot that refreshes every 10 minutes — works where iframes and scripts are blocked.
+                </p>
+                <pre className="rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap break-all">{imgSnippet}</pre>
+                <Button size="sm" variant="secondary" className="mt-2 gap-2" onClick={() => copy(imgSnippet)}>
+                  <Copy className="h-3.5 w-3.5" /> Copy image code
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         
         <LiveStationMap
           locations={locations}

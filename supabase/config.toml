@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.inactive-hubs]
 verify_jwt = false
+
+[functions.map-snapshot]
+verify_jwt = false
