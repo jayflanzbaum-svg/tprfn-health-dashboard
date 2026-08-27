@@ -119,6 +119,87 @@ export type Database = {
         }
         Relationships: []
       }
+      station_alert_configs: {
+        Row: {
+          callsign: string
+          created_at: string
+          current_state: string
+          email_recipients: string[]
+          enabled: boolean
+          id: string
+          last_alert_sent_at: string | null
+          last_recovery_sent_at: string | null
+          notify_recovery: boolean
+          sms_recipients: string[]
+          threshold_hours: number
+          updated_at: string
+        }
+        Insert: {
+          callsign: string
+          created_at?: string
+          current_state?: string
+          email_recipients?: string[]
+          enabled?: boolean
+          id?: string
+          last_alert_sent_at?: string | null
+          last_recovery_sent_at?: string | null
+          notify_recovery?: boolean
+          sms_recipients?: string[]
+          threshold_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          callsign?: string
+          created_at?: string
+          current_state?: string
+          email_recipients?: string[]
+          enabled?: boolean
+          id?: string
+          last_alert_sent_at?: string | null
+          last_recovery_sent_at?: string | null
+          notify_recovery?: boolean
+          sms_recipients?: string[]
+          threshold_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      station_alert_events: {
+        Row: {
+          alert_type: string
+          callsign: string
+          channel: string
+          created_at: string
+          error_message: string | null
+          id: string
+          last_heard_at: string | null
+          recipient: string
+          status: string
+        }
+        Insert: {
+          alert_type: string
+          callsign: string
+          channel: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_heard_at?: string | null
+          recipient: string
+          status?: string
+        }
+        Update: {
+          alert_type?: string
+          callsign?: string
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_heard_at?: string | null
+          recipient?: string
+          status?: string
+        }
+        Relationships: []
+      }
       station_locations: {
         Row: {
           address: string | null
