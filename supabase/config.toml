@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.map-snapshot]
 verify_jwt = false
+
+[functions.check-station-alerts]
+verify_jwt = false
