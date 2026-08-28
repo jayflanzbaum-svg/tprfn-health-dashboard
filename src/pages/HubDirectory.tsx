@@ -337,9 +337,13 @@ export default function HubDirectory() {
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        <div className="flex gap-1">
+                          <StationAlertEditor callsign={p.base_callsign} />
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        </div>
                       )
                     )}
+
                   </div>
 
                   {isEditing && editDraft ? (
