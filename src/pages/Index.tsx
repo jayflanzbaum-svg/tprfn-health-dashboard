@@ -664,10 +664,8 @@ const Index = () => {
           />
         </div>
 
-        {/* Station Down Alerts - admin only */}
-        <div className="mt-8 mb-8">
-          <StationAlertsManager allowedCallsigns={allowedCallsigns} />
-        </div>
+
+
 
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-border text-center space-y-2">
