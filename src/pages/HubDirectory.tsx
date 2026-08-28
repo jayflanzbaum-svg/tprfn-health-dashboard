@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { LoginButton } from '@/components/AuthGuard';
 import { toast } from '@/hooks/use-toast';
+import { StationAlertEditor } from '@/components/StationAlertEditor';
+
 
 const TRANSPORT_OPTIONS = ['vara-hf', 'vara-fm', 'ax25', 'ax25-vhf', 'ax25-uhf', 'ardop', 'pactor', 'packet', 'other'];
 const MODEM_OPTIONS = ['VARA', 'vara', 'VARA FM', 'afsk1200', 'afsk9600', 'gfsk9600', 'AX.25', 'ARDOP', 'PACTOR', 'Other'];
@@ -337,9 +339,13 @@ export default function HubDirectory() {
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        <div className="flex gap-1">
+                          <StationAlertEditor callsign={p.base_callsign} />
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        </div>
                       )
                     )}
+
                   </div>
 
                   {isEditing && editDraft ? (
