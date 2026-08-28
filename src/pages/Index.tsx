@@ -13,7 +13,6 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState'
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
 import { CallsignManager } from '@/components/CallsignManager';
-import { StationAlertsManager } from '@/components/StationAlertsManager';
 import { LoginButton } from '@/components/AuthGuard';
 import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/components/ChartSkeleton';
 import { LazySection } from '@/components/LazySection';
