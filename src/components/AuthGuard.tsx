@@ -51,61 +51,114 @@ export function LoginButton() {
 }
 
 function LoginDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [submitting, setSubmitting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
-    const { error } = isSignUp
-      ? await signUp(email, password)
-      : await signIn(email, password);
+    let error: Error | null = null;
+    if (mode === 'reset') {
+      const result = await resetPassword(email);
+      error = result.error;
+    } else if (mode === 'signup') {
+      const result = await signUp(email, password);
+      error = result.error;
+    } else {
+      const result = await signIn(email, password);
+      error = result.error;
+    }
 
     setSubmitting(false);
 
     if (error) {
-      toast({ title: isSignUp ? 'Sign up failed' : 'Login failed', description: error.message, variant: 'destructive' });
+      toast({
+        title: mode === 'reset' ? 'Reset failed' : mode === 'signup' ? 'Sign up failed' : 'Login failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else if (mode === 'reset') {
+      setResetSent(true);
+      toast({ title: 'Check your email', description: 'A password reset link has been sent.' });
     } else {
-      toast({ title: isSignUp ? 'Account created!' : 'Logged in!' });
+      toast({ title: mode === 'signup' ? 'Account created!' : 'Logged in!' });
       onOpenChange(false);
       setEmail('');
       setPassword('');
+      setMode('signin');
+      setResetSent(false);
     }
   };
 
+  const title = mode === 'reset' ? 'Reset Password' : mode === 'signup' ? 'Create Admin Account' : 'Admin Login';
+  const description = mode === 'reset'
+    ? 'Enter your email to receive a password reset link.'
+    : mode === 'signup'
+      ? 'Create an account to manage hub callsigns and station locations.'
+      : 'Sign in to manage hub callsigns and station locations.';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => { onOpenChange(open); if (!open) { setMode('signin'); setResetSent(false); } }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isSignUp ? 'Create Admin Account' : 'Admin Login'}</DialogTitle>
-          <DialogDescription>
-            {isSignUp ? 'Create an account to manage hub callsigns and station locations.' : 'Sign in to manage hub callsigns and station locations.'}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+        {resetSent ? (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              If an account exists for <strong>{email}</strong>, you will receive an email with a link to reset your password.
+            </p>
+            <Button type="button" variant="outline" className="w-full" onClick={() => { setMode('signin'); setResetSent(false); }}>
+              Back to Sign In
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-          </div>
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isSignUp ? 'Create Account' : 'Sign In'}
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button type="button" className="text-accent underline" onClick={() => setIsSignUp(!isSignUp)}>
-              {isSignUp ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            {mode !== 'reset' && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {mode === 'reset' ? 'Send Reset Link' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+            </Button>
+            <div className="text-center text-xs text-muted-foreground space-y-1">
+              {mode === 'signin' ? (
+                <>
+                  <p>
+                    <button type="button" className="text-accent underline" onClick={() => setMode('reset')}>Forgot password?</button>
+                  </p>
+                  <p>
+                    Don't have an account?{' '}
+                    <button type="button" className="text-accent underline" onClick={() => setMode('signup')}>Sign up</button>
+                  </p>
+                </>
+              ) : mode === 'signup' ? (
+                <p>
+                  Already have an account?{' '}
+                  <button type="button" className="text-accent underline" onClick={() => setMode('signin')}>Sign in</button>
+                </p>
+              ) : (
+                <p>
+                  Remember your password?{' '}
+                  <button type="button" className="text-accent underline" onClick={() => setMode('signin')}>Sign in</button>
+                </p>
+              )}
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
