@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import DashboardOverview from "./pages/DashboardOverview";
 import HubDirectory from "./pages/HubDirectory";
 import EmbedMap from "./pages/EmbedMap";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/overview" element={<DashboardOverview />} />
           <Route path="/hubs" element={<HubDirectory />} />
           <Route path="/embed" element={<EmbedMap />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
