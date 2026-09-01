@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, LogOut, Loader2 } from 'lucide-react';
+import { Lock, LogOut, Loader2, KeyRound } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,13 +29,21 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 export function LoginButton() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
 
   if (user) {
     return (
-      <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs">
-        <LogOut className="h-3.5 w-3.5" />
-        Sign Out
-      </Button>
+      <>
+        <Button variant="ghost" size="sm" onClick={() => setPwOpen(true)} className="gap-1.5 text-xs">
+          <KeyRound className="h-3.5 w-3.5" />
+          Change Password
+        </Button>
+        <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs">
+          <LogOut className="h-3.5 w-3.5" />
+          Sign Out
+        </Button>
+        <ChangePasswordDialog open={pwOpen} onOpenChange={setPwOpen} />
+      </>
     );
   }
 
