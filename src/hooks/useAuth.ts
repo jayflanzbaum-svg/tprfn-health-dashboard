@@ -40,9 +40,14 @@ export function useAuth() {
     return { error };
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  return { user, session, loading, signIn, signUp, resetPassword, signOut };
+  return { user, session, loading, signIn, signUp, resetPassword, updatePassword, signOut };
 }

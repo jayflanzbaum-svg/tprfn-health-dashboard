@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, LogOut, Loader2 } from 'lucide-react';
+import { Lock, LogOut, Loader2, KeyRound } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,13 +29,21 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 export function LoginButton() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
 
   if (user) {
     return (
-      <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs">
-        <LogOut className="h-3.5 w-3.5" />
-        Sign Out
-      </Button>
+      <>
+        <Button variant="ghost" size="sm" onClick={() => setPwOpen(true)} className="gap-1.5 text-xs">
+          <KeyRound className="h-3.5 w-3.5" />
+          Change Password
+        </Button>
+        <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs">
+          <LogOut className="h-3.5 w-3.5" />
+          Sign Out
+        </Button>
+        <ChangePasswordDialog open={pwOpen} onOpenChange={setPwOpen} />
+      </>
     );
   }
 
@@ -159,6 +167,57 @@ function LoginDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
             </div>
           </form>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { updatePassword } = useAuth();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await updatePassword(password);
+    setSubmitting(false);
+    if (error) {
+      toast({ title: 'Could not update password', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Password updated' });
+    setPassword('');
+    setConfirm('');
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>Set a new password for your admin account.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input id="new-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm new password</Label>
+            <Input id="confirm-password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required minLength={8} autoComplete="new-password" />
+          </div>
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Update Password
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
