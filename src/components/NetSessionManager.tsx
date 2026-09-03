@@ -32,6 +32,40 @@ export function NetSessionManager() {
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [pasteText, setPasteText] = useState('');
+
+  const utcDatePart = (d: Date) => d.toISOString().slice(0, 10);
+  const utcTimePart = (d: Date) => d.toISOString().slice(11, 16);
+
+  const handleParsePaste = (text: string) => {
+    if (!text.trim()) return;
+    const parsed = parseNetEmail(text);
+    if (!parsed.start && !parsed.end) {
+      toast({
+        title: 'Could not read the dates',
+        description: 'Make sure the pasted text includes the STARTS:/ENDS: lines.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (parsed.start) {
+      setStartDate(utcDatePart(parsed.start));
+      setStartTime(utcTimePart(parsed.start));
+    }
+    if (parsed.end) {
+      setEndDate(utcDatePart(parsed.end));
+      setEndTime(utcTimePart(parsed.end));
+    }
+    if (parsed.name) setName(parsed.name);
+    toast({
+      title: 'Dates filled in',
+      description: parsed.warnings.length
+        ? parsed.warnings.join(' ')
+        : 'Review the UTC values below, then add the session.',
+      variant: parsed.warnings.length ? 'destructive' : undefined,
+    });
+  };
+
 
   const fetchSessions = async () => {
     const { data, error } = await supabase
