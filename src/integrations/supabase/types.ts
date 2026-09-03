@@ -47,6 +47,7 @@ export type Database = {
           network: string | null
           notes: string | null
           operator: string | null
+          scan_times: string | null
           ssid: string | null
           state: string | null
           updated_at: string
@@ -65,6 +66,7 @@ export type Database = {
           network?: string | null
           notes?: string | null
           operator?: string | null
+          scan_times?: string | null
           ssid?: string | null
           state?: string | null
           updated_at?: string
@@ -83,6 +85,7 @@ export type Database = {
           network?: string | null
           notes?: string | null
           operator?: string | null
+          scan_times?: string | null
           ssid?: string | null
           state?: string | null
           updated_at?: string
