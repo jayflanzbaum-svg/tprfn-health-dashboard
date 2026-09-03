@@ -236,7 +236,8 @@ export function NetSessionManager() {
             <p className="text-sm text-muted-foreground py-4 text-center">No net sessions logged yet.</p>
           )}
           {sessions.map(s => (
-            <div key={s.id} className="flex items-start gap-2 border rounded-lg p-2 bg-card text-sm">
+            <div key={s.id} className="border rounded-lg p-2 bg-card text-sm">
+              <div className="flex items-start gap-2">
               <CalendarDays className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground">{s.name}</p>
