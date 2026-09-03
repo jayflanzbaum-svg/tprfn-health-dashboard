@@ -12,7 +12,8 @@ Return ONLY the tool call with the structured data. Rules:
 - operator: sysop name (plus contact if present).
 - city/state/country: from the location line. Expand state abbreviations to two-letter codes; country "USA" unless clearly otherwise.
 - frequencies: every operating/scanning frequency in MHz. transport is one of vara-hf, vara-fm, ax25, ardop, pactor, packet, other (HF frequencies below 30 MHz with VARA are vara-hf). modem is e.g. VARA, VARA FM, AX.25. mode is USB for HF data, FM for VHF/UHF.
-- scan_times: the station's scanning/monitoring schedule exactly as described (e.g. "24/7 scanning 20m/40m", "0000-1200Z daily"). Plain text, under 300 characters, null if not stated.
+- Scan times are PER FREQUENCY: put each frequency's scanning/monitoring schedule in that frequency's scan_times field (e.g. "24/7", "0000-1200Z daily"), plain text under 200 characters, null if not stated for that frequency. If the sheet gives one schedule covering several frequencies, repeat it on each of those frequencies.
+- scan_times (top level): only an overall schedule note if one exists that is not tied to a specific frequency, else null.
 - notes: concise summary of services, schedule, equipment, and scanning times. Keep it under 600 characters, plain text.
 - Omit fields you cannot determine (use null).`;
 
@@ -92,8 +93,9 @@ Deno.serve(async (req) => {
                         mode: { type: "string" },
                         transport: { type: "string" },
                         modem: { type: "string" },
+                        scan_times: { type: ["string", "null"] },
                       },
-                      required: ["freq_mhz", "mode", "transport", "modem"],
+                      required: ["freq_mhz", "mode", "transport", "modem", "scan_times"],
                       additionalProperties: false,
                     },
                   },
