@@ -132,6 +132,31 @@ export function NetSessionManager() {
         {/* Add form */}
         <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Log a Net Session</p>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Paste net announcement email</Label>
+            <Textarea
+              value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+              onPaste={e => {
+                const text = e.clipboardData.getData('text');
+                if (text.trim()) {
+                  e.preventDefault();
+                  setPasteText(text);
+                  handleParsePaste(text);
+                }
+              }}
+              placeholder={'Date: Sat, 15 Aug 2026 17:00:55 PDT\n\nSTARTS: Now Open   ENDS: Saturday, August 22nd @ 23:59 UTC'}
+              className="text-xs min-h-[70px] font-mono"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">Pasting auto-fills the UTC fields below.</p>
+              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => handleParsePaste(pasteText)}>
+                <ClipboardPaste className="h-3 w-3" /> Fill dates
+              </Button>
+            </div>
+          </div>
+
           <div>
             <Label className="text-xs">Name</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Check-in Net" className="h-8 text-sm" />
