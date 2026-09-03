@@ -130,12 +130,11 @@ export function parseNetEmail(text: string): ParsedNetEmail {
   }
 
   let name: string | undefined;
-  const monthName = start
-    ? start.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
-    : undefined;
-  if (monthName && /month'?s?\s+net|monthly\s+net/i.test(text)) {
-    name = `${monthName} Check-in Net`;
+  if (start) {
+    const monthName = start.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+    name = `${monthName} ${start.getUTCFullYear()} Check-In Net`;
   }
+
 
   return { start, end, name, warnings };
 }
