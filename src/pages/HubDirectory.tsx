@@ -23,6 +23,7 @@ interface HubFrequency {
   mode: string;
   transport: string;
   modem: string;
+  scan_times?: string | null;
 }
 
 interface HubProfile {
@@ -170,6 +171,7 @@ export default function HubDirectory() {
               mode: f.mode || '',
               transport: f.transport || 'vara-hf',
               modem: f.modem || 'VARA',
+              scan_times: f.scan_times ?? null,
             }))
           : ((editDraft?.frequencies as HubFrequency[]) || []),
       });
@@ -197,7 +199,7 @@ export default function HubDirectory() {
   const addFreq = () => {
     setEditDraft(prev => ({
       ...(prev || {}),
-      frequencies: [...(((prev?.frequencies as HubFrequency[]) || [])), { freq_mhz: 0, mode: '', transport: 'vara-hf', modem: 'VARA' }],
+      frequencies: [...(((prev?.frequencies as HubFrequency[]) || [])), { freq_mhz: 0, mode: '', transport: 'vara-hf', modem: 'VARA', scan_times: null }],
     }));
   };
 
@@ -262,6 +264,7 @@ export default function HubDirectory() {
           mode: (f.mode || '').trim(),
           transport: (f.transport || '').trim(),
           modem: (f.modem || '').trim(),
+          scan_times: (f.scan_times || '').trim() || null,
         })),
       };
       const { error } = await supabase
@@ -487,7 +490,8 @@ export default function HubDirectory() {
                         </div>
                         <div className="space-y-2">
                           {((editDraft.frequencies as HubFrequency[]) || []).map((f, idx) => (
-                            <div key={idx} className="grid grid-cols-[1.2fr_1fr_1.1fr_1fr_auto] gap-1 items-center">
+                            <div key={idx} className="space-y-1 rounded-md border border-border/60 p-1.5">
+                            <div className="grid grid-cols-[1.2fr_1fr_1.1fr_1fr_auto] gap-1 items-center">
                               <Input
                                 className="h-8 font-mono"
                                 type="number"
@@ -524,22 +528,18 @@ export default function HubDirectory() {
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
                             </div>
+                            <Input
+                              className="h-7 text-xs"
+                              placeholder="Scan times for this frequency (e.g. 24/7, or 1200-2359Z daily)"
+                              value={f.scan_times || ''}
+                              onChange={e => updateFreq(idx, { scan_times: e.target.value })}
+                            />
+                            </div>
                           ))}
                           {((editDraft.frequencies as HubFrequency[]) || []).length === 0 && (
                             <div className="text-xs text-muted-foreground italic">No frequencies. Click Add to create one.</div>
                           )}
                         </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Scan Times</Label>
-                        <Textarea
-                          className="text-xs"
-                          rows={2}
-                          placeholder="e.g. 24/7 scanning; net check-in 0100Z Sat"
-                          value={(editDraft.scan_times as string) || ''}
-                          onChange={e => updateDraft({ scan_times: e.target.value })}
-                        />
                       </div>
 
                       <div>
@@ -561,13 +561,21 @@ export default function HubDirectory() {
                         {sortedFreqs.map((f, idx) => (
                           <div
                             key={idx}
-                            className={`flex items-center justify-between rounded border px-2 py-1 text-xs ${freqBadgeClass(f.transport)}`}
+                            className={`rounded border px-2 py-1 text-xs ${freqBadgeClass(f.transport)}`}
                           >
-                            <span className="font-mono font-semibold">{f.freq_mhz.toFixed(4)} MHz</span>
-                            <span className="text-[10px] opacity-80">{bandFor(f.freq_mhz)}</span>
-                            <span className="font-mono">{f.mode}</span>
-                            <span className="text-[10px] uppercase opacity-80">{f.transport}</span>
-                            <span className="text-[10px] uppercase opacity-80">{f.modem}</span>
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-semibold">{f.freq_mhz.toFixed(4)} MHz</span>
+                              <span className="text-[10px] opacity-80">{bandFor(f.freq_mhz)}</span>
+                              <span className="font-mono">{f.mode}</span>
+                              <span className="text-[10px] uppercase opacity-80">{f.transport}</span>
+                              <span className="text-[10px] uppercase opacity-80">{f.modem}</span>
+                            </div>
+                            {f.scan_times && (
+                              <div className="mt-0.5 flex items-start gap-1 text-[10px] opacity-90">
+                                <Clock className="h-2.5 w-2.5 mt-[2px] shrink-0" />
+                                <span className="whitespace-pre-line">{f.scan_times}</span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
