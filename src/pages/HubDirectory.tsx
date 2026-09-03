@@ -69,6 +69,8 @@ export default function HubDirectory() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<HubProfile> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let alive = true;
