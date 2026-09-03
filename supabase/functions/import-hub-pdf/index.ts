@@ -12,6 +12,7 @@ Return ONLY the tool call with the structured data. Rules:
 - operator: sysop name (plus contact if present).
 - city/state/country: from the location line. Expand state abbreviations to two-letter codes; country "USA" unless clearly otherwise.
 - frequencies: every operating/scanning frequency in MHz. transport is one of vara-hf, vara-fm, ax25, ardop, pactor, packet, other (HF frequencies below 30 MHz with VARA are vara-hf). modem is e.g. VARA, VARA FM, AX.25. mode is USB for HF data, FM for VHF/UHF.
+- scan_times: the station's scanning/monitoring schedule exactly as described (e.g. "24/7 scanning 20m/40m", "0000-1200Z daily"). Plain text, under 300 characters, null if not stated.
 - notes: concise summary of services, schedule, equipment, and scanning times. Keep it under 600 characters, plain text.
 - Omit fields you cannot determine (use null).`;
 
@@ -81,6 +82,7 @@ Deno.serve(async (req) => {
                   country: { type: ["string", "null"] },
                   network: { type: ["string", "null"] },
                   notes: { type: ["string", "null"] },
+                  scan_times: { type: ["string", "null"] },
                   frequencies: {
                     type: "array",
                     items: {

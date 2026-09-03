@@ -1,0 +1,1 @@
+ALTER TABLE public.hub_profiles ADD COLUMN IF NOT EXISTS scan_times text;

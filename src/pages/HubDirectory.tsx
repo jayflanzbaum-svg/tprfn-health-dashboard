@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi, Plus, Trash2, FileText, Download } from 'lucide-react';
+import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi, Plus, Trash2, FileText, Download, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +38,7 @@ interface HubProfile {
   longitude: number | null;
   network: string | null;
   notes: string | null;
+  scan_times: string | null;
   frequencies: HubFrequency[];
   updated_at: string;
 }
@@ -135,6 +136,7 @@ export default function HubDirectory() {
       longitude: p.longitude,
       network: p.network,
       notes: p.notes,
+      scan_times: p.scan_times,
       frequencies: [...(p.frequencies || [])],
     });
   };
@@ -161,6 +163,7 @@ export default function HubDirectory() {
         country: prof.country ?? editDraft?.country ?? null,
         network: prof.network ?? editDraft?.network ?? 'TPRFN',
         notes: prof.notes ?? editDraft?.notes ?? null,
+        scan_times: prof.scan_times ?? editDraft?.scan_times ?? null,
         frequencies: Array.isArray(prof.frequencies) && prof.frequencies.length
           ? prof.frequencies.map((f: any) => ({
               freq_mhz: Number(f.freq_mhz) || 0,
@@ -253,6 +256,7 @@ export default function HubDirectory() {
         longitude: editDraft.longitude == null || editDraft.longitude === ('' as any) ? null : Number(editDraft.longitude),
         network: editDraft.network ?? null,
         notes: editDraft.notes ?? null,
+        scan_times: (editDraft.scan_times as string | null) ?? null,
         frequencies: ((editDraft.frequencies as HubFrequency[]) || []).map(f => ({
           freq_mhz: Number(f.freq_mhz) || 0,
           mode: (f.mode || '').trim(),
@@ -528,6 +532,17 @@ export default function HubDirectory() {
                       </div>
 
                       <div>
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Scan Times</Label>
+                        <Textarea
+                          className="text-xs"
+                          rows={2}
+                          placeholder="e.g. 24/7 scanning; net check-in 0100Z Sat"
+                          value={(editDraft.scan_times as string) || ''}
+                          onChange={e => updateDraft({ scan_times: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
                         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Notes</Label>
                         <Textarea
                           className="text-xs"
@@ -556,6 +571,12 @@ export default function HubDirectory() {
                           </div>
                         ))}
                       </div>
+                      {p.scan_times && (
+                        <div className="mt-2 flex items-start gap-1.5 text-xs">
+                          <Clock className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                          <span className="whitespace-pre-line">{p.scan_times}</span>
+                        </div>
+                      )}
                       {p.notes && <div className="mt-2 text-xs text-muted-foreground italic">{p.notes}</div>}
                     </div>
                   )}
