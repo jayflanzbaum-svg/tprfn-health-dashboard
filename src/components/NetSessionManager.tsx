@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Plus, Trash2, Radio } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, Radio, ClipboardPaste } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { parseNetEmail } from '@/lib/netEmailParser';
+
 
 interface NetSession {
   id: string;
@@ -30,6 +32,40 @@ export function NetSessionManager() {
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [pasteText, setPasteText] = useState('');
+
+  const utcDatePart = (d: Date) => d.toISOString().slice(0, 10);
+  const utcTimePart = (d: Date) => d.toISOString().slice(11, 16);
+
+  const handleParsePaste = (text: string) => {
+    if (!text.trim()) return;
+    const parsed = parseNetEmail(text);
+    if (!parsed.start && !parsed.end) {
+      toast({
+        title: 'Could not read the dates',
+        description: 'Make sure the pasted text includes the STARTS:/ENDS: lines.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (parsed.start) {
+      setStartDate(utcDatePart(parsed.start));
+      setStartTime(utcTimePart(parsed.start));
+    }
+    if (parsed.end) {
+      setEndDate(utcDatePart(parsed.end));
+      setEndTime(utcTimePart(parsed.end));
+    }
+    if (parsed.name) setName(parsed.name);
+    toast({
+      title: 'Dates filled in',
+      description: parsed.warnings.length
+        ? parsed.warnings.join(' ')
+        : 'Review the UTC values below, then add the session.',
+      variant: parsed.warnings.length ? 'destructive' : undefined,
+    });
+  };
+
 
   const fetchSessions = async () => {
     const { data, error } = await supabase
@@ -64,6 +100,8 @@ export function NetSessionManager() {
       setEndDate('');
       setEndTime('');
       setNotes('');
+      setPasteText('');
+
       fetchSessions();
     }
     setLoading(false);
@@ -96,6 +134,31 @@ export function NetSessionManager() {
         {/* Add form */}
         <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Log a Net Session</p>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Paste net announcement email</Label>
+            <Textarea
+              value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+              onPaste={e => {
+                const text = e.clipboardData.getData('text');
+                if (text.trim()) {
+                  e.preventDefault();
+                  setPasteText(text);
+                  handleParsePaste(text);
+                }
+              }}
+              placeholder={'Date: Sat, 15 Aug 2026 17:00:55 PDT\n\nSTARTS: Now Open   ENDS: Saturday, August 22nd @ 23:59 UTC'}
+              className="text-xs min-h-[70px] font-mono"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">Pasting auto-fills the UTC fields below.</p>
+              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => handleParsePaste(pasteText)}>
+                <ClipboardPaste className="h-3 w-3" /> Fill dates
+              </Button>
+            </div>
+          </div>
+
           <div>
             <Label className="text-xs">Name</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Check-in Net" className="h-8 text-sm" />
