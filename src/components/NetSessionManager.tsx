@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Plus, Trash2, Radio, ClipboardPaste } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, Radio, ClipboardPaste, Sparkles, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { parseNetEmail } from '@/lib/netEmailParser';
+import { useHubCallsigns } from '@/hooks/useHubCallsigns';
+import { MarkdownBullets } from '@/components/DashboardAnalysis';
 
 
 interface NetSession {
@@ -33,6 +35,39 @@ export function NetSessionManager() {
   const [endTime, setEndTime] = useState('');
   const [notes, setNotes] = useState('');
   const [pasteText, setPasteText] = useState('');
+
+  // Per-net analysis
+  const { callsigns: allowedCallsigns } = useHubCallsigns();
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [analysisById, setAnalysisById] = useState<Record<string, { text: string; previousNet: string | null }>>({});
+
+  const handleAnalyzeNet = async (session: NetSession) => {
+    setAnalyzingId(session.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-dashboard', {
+        body: {
+          netSessionId: session.id,
+          dateRange: { start: session.started_at, end: session.ended_at },
+          callsigns: allowedCallsigns.map(c => c.toUpperCase().trim()),
+          selectedStation: null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAnalysisById(prev => ({
+        ...prev,
+        [session.id]: { text: data.analysis, previousNet: data.previousNet?.name ?? null },
+      }));
+    } catch (err) {
+      toast({
+        title: 'Analysis failed',
+        description: err instanceof Error ? err.message : 'Could not analyze this net',
+        variant: 'destructive',
+      });
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
 
   const utcDatePart = (d: Date) => d.toISOString().slice(0, 10);
   const utcTimePart = (d: Date) => d.toISOString().slice(11, 16);
@@ -210,9 +245,57 @@ export function NetSessionManager() {
                 </p>
                 {s.notes && <p className="text-xs text-muted-foreground mt-0.5">{s.notes}</p>}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 shrink-0"
+                title="Analyze this net"
+                disabled={analyzingId === s.id}
+                onClick={() => handleAnalyzeNet(s)}
+              >
+                {analyzingId === s.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-accent" />
+                ) : (
+                  <Sparkles className="h-3 w-3 text-accent" />
+                )}
+              </Button>
               <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => handleDelete(s.id)}>
                 <Trash2 className="h-3 w-3 text-destructive" />
               </Button>
+              </div>
+              {(analyzingId === s.id || analysisById[s.id]) && (
+                <div className="mt-2 rounded-lg border border-accent/30 bg-accent/5 p-3 relative">
+                  {analysisById[s.id] && (
+                    <button
+                      onClick={() => setAnalysisById(prev => {
+                        const next = { ...prev };
+                        delete next[s.id];
+                        return next;
+                      })}
+                      className="absolute top-2 right-2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-3.5 w-3.5 text-accent" />
+                    <span className="text-xs font-semibold text-foreground">Net Analysis</span>
+                    {analysisById[s.id]?.previousNet && (
+                      <span className="text-[11px] text-muted-foreground">vs {analysisById[s.id]!.previousNet}</span>
+                    )}
+                  </div>
+                  {analyzingId === s.id ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Analyzing this net...
+                    </div>
+                  ) : (
+                    <div className="text-xs leading-relaxed">
+                      <MarkdownBullets content={analysisById[s.id]!.text} />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
