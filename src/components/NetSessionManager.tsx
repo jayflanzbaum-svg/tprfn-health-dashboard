@@ -100,6 +100,8 @@ export function NetSessionManager() {
       setEndDate('');
       setEndTime('');
       setNotes('');
+      setPasteText('');
+
       fetchSessions();
     }
     setLoading(false);
