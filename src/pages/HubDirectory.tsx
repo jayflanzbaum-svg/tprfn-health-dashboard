@@ -350,6 +350,33 @@ export default function HubDirectory() {
 
                   {isEditing && editDraft ? (
                     <div className="mt-3 space-y-3 border-t pt-3">
+                      <div className="rounded-md border border-accent/30 bg-accent/5 p-2 space-y-1.5">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                          <FileText className="h-3 w-3" /> Fill from hub fact sheet PDF
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            className="h-8 text-xs font-mono"
+                            placeholder={`https://tprfn.k1ajd.net/hub-${(editDraft.base_callsign || p.base_callsign || 'CALL')}.pdf`}
+                            value={pdfUrl}
+                            onChange={e => setPdfUrl(e.target.value)}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1 shrink-0"
+                            disabled={importing}
+                            onClick={() => importFromPdf(p)}
+                          >
+                            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Import
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Leave blank to use the default fact sheet URL for this callsign. Review the fields, then Save.
+                        </p>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Base Callsign</Label>
