@@ -123,6 +123,7 @@ export default function HubDirectory() {
 
   const startEdit = (p: HubProfile) => {
     setEditingId(p.id);
+    setPdfUrl('');
     setEditDraft({
       base_callsign: p.base_callsign,
       ssid: p.ssid,
@@ -137,6 +138,46 @@ export default function HubDirectory() {
       frequencies: [...(p.frequencies || [])],
     });
   };
+
+  const importFromPdf = async (p: HubProfile) => {
+    const base = ((editDraft?.base_callsign as string) || p.base_callsign || '').trim().toUpperCase();
+    const url = pdfUrl.trim() || (base ? `https://tprfn.k1ajd.net/hub-${base}.pdf` : '');
+    if (!url) {
+      toast({ title: 'No PDF URL', description: 'Enter a fact sheet URL first.', variant: 'destructive' });
+      return;
+    }
+    setImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('import-hub-pdf', { body: { url } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const prof = (data as any).profile || {};
+      updateDraft({
+        base_callsign: (prof.base_callsign || base || '').toUpperCase(),
+        ssid: prof.ssid ?? editDraft?.ssid ?? null,
+        operator: prof.operator ?? editDraft?.operator ?? null,
+        city: prof.city ?? editDraft?.city ?? null,
+        state: prof.state ?? editDraft?.state ?? null,
+        country: prof.country ?? editDraft?.country ?? null,
+        network: prof.network ?? editDraft?.network ?? 'TPRFN',
+        notes: prof.notes ?? editDraft?.notes ?? null,
+        frequencies: Array.isArray(prof.frequencies) && prof.frequencies.length
+          ? prof.frequencies.map((f: any) => ({
+              freq_mhz: Number(f.freq_mhz) || 0,
+              mode: f.mode || '',
+              transport: f.transport || 'vara-hf',
+              modem: f.modem || 'VARA',
+            }))
+          : ((editDraft?.frequencies as HubFrequency[]) || []),
+      });
+      toast({ title: 'Fact sheet imported', description: 'Review the fields below, then Save.' });
+    } catch (err: any) {
+      toast({ title: 'Import failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
 
   const updateDraft = (patch: Partial<HubProfile>) => {
     setEditDraft(prev => ({ ...(prev || {}), ...patch }));
