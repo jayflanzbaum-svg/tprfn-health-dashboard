@@ -130,7 +130,7 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
   );
 }
 
-function MarkdownBullets({ content }: { content: string }) {
+export function MarkdownBullets({ content }: { content: string }) {
   // Simple markdown renderer for bullet points
   const lines = content.split('\n').filter(l => l.trim());
   
