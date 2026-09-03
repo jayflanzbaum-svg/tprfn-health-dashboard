@@ -14,11 +14,40 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { dateRange, callsigns, selectedStation } = await req.json();
+    const body = await req.json();
+    const { callsigns, selectedStation, netSessionId } = body;
+    let dateRange = body.dateRange;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Net-specific analysis: use the net window as the current period and the
+    // previous logged net as the comparison period.
+    let netInfo: { name: string; start: string; end: string } | null = null;
+    let prevNetInfo: { name: string; start: string; end: string } | null = null;
+    if (netSessionId) {
+      const { data: net, error: netErr } = await supabase
+        .from("net_sessions")
+        .select("id, name, started_at, ended_at")
+        .eq("id", netSessionId)
+        .maybeSingle();
+      if (netErr) throw new Error(netErr.message);
+      if (!net) throw new Error("Net session not found");
+      netInfo = { name: net.name, start: net.started_at, end: net.ended_at };
+      dateRange = { start: net.started_at, end: net.ended_at };
+
+      const { data: prevNet } = await supabase
+        .from("net_sessions")
+        .select("name, started_at, ended_at")
+        .lt("started_at", net.started_at)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (prevNet) {
+        prevNetInfo = { name: prevNet.name, start: prevNet.started_at, end: prevNet.ended_at };
+      }
+    }
 
     // Fetch current period KPIs
     const { data: currentKpi, error: e1 } = await supabase.rpc("syslog_kpis", {
@@ -33,8 +62,8 @@ serve(async (req) => {
     const startMs = new Date(dateRange.start).getTime();
     const endMs = new Date(dateRange.end).getTime();
     const durationMs = endMs - startMs;
-    const prevStart = new Date(startMs - durationMs).toISOString();
-    const prevEnd = new Date(startMs).toISOString();
+    const prevStart = prevNetInfo ? prevNetInfo.start : new Date(startMs - durationMs).toISOString();
+    const prevEnd = prevNetInfo ? prevNetInfo.end : new Date(startMs).toISOString();
 
     const { data: prevKpi, error: e2 } = await supabase.rpc("syslog_kpis", {
       start_ts: prevStart,
@@ -279,16 +308,21 @@ NET SESSION DATA (1 net logged):
 No previous net to compare against yet.`;
     }
 
+    const netHeader = netInfo
+      ? `\nTHIS ANALYSIS IS FOR A SINGLE CHECK-IN NET: "${netInfo.name}" (${netInfo.start} to ${netInfo.end} UTC).\nThe "CURRENT PERIOD" numbers below cover only that net window.\n${prevNetInfo ? `The "PREVIOUS PERIOD" numbers are the previous logged net: "${prevNetInfo.name}" (${prevNetInfo.start}).` : `There is no earlier logged net; the "PREVIOUS PERIOD" is the equivalent window immediately before this net.`}\n`
+      : "";
+
     const prompt = `You are an RF network analyst for the TPRFN (Transcontinental Pacific Radio Frequency Network) which uses VARA HF digital radio. Analyze this dashboard data and provide SHORT, ACTIONABLE insights. Be concise — no more than 8 bullet points total.
 
-CURRENT PERIOD (${durationDays} days ending ${dateRange.end}):
+${netHeader}
+CURRENT PERIOD (${netInfo ? `net window ${dateRange.start} → ${dateRange.end}` : `${durationDays} days ending ${dateRange.end}`}):
 - Avg S/N: ${cur.avg_sn || 0} dB
 - S/N Readings: ${cur.sn_readings || 0}
 - Sessions: ${cur.sessions || 0}
 - Total Data: ${cur.total_data || 0} bytes
 - Success Rate (S/N ≥ 5): ${cur.success_rate || 0}%
 
-PREVIOUS PERIOD (same duration, immediately before):
+PREVIOUS PERIOD (${prevNetInfo ? `previous net "${prevNetInfo.name}"` : "same duration, immediately before"}):
 - Avg S/N: ${prev.avg_sn || 0} dB
 - S/N Readings: ${prev.sn_readings || 0}
 - Sessions: ${prev.sessions || 0}
@@ -330,6 +364,7 @@ ${netSection}
 ${selectedStation ? `FILTER: Analysis is for station ${selectedStation} only.` : ""}
 
 Guidelines:
+${netInfo ? '- Frame every insight around this specific net: participation, signal quality, and how it compared to the previous net\n- Name the stations that checked in most actively and any that struggled' : ''}
 - Start with a 1-line summary of totals: X connections, Y unique stations, Z station pairs
 - Highlight TOP PERFORMERS — copy the EXACT callsign and EXACT value from the "#1 in each category" section above. Do NOT substitute, round, or use any other value.
 - Call out what STANDS OUT positively or negatively vs. previous period
@@ -375,7 +410,7 @@ ${netComparisons.length >= 2 ? "- Compare the latest net to previous nets and no
     const result = await response.json();
     const analysis = result.choices?.[0]?.message?.content || "No insights generated.";
 
-    return new Response(JSON.stringify({ analysis, currentPeriod: { start: dateRange.start, end: dateRange.end }, previousPeriod: { start: prevStart, end: prevEnd } }), {
+    return new Response(JSON.stringify({ analysis, netSession: netInfo, previousNet: prevNetInfo, currentPeriod: { start: dateRange.start, end: dateRange.end }, previousPeriod: { start: prevStart, end: prevEnd } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
