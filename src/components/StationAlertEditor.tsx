@@ -204,9 +204,10 @@ export function StationAlertEditor({ callsign: raw }: Props) {
               <label className="flex items-center gap-2 text-sm">
                 Threshold
                 <Select value={String(cfg.threshold_hours)} onValueChange={v => patch({ threshold_hours: Number(v) })}>
-                  <SelectTrigger className="w-28 h-9 bg-background"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-40 h-9 bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-popover z-[1200]">
                     {THRESHOLDS.map(h => <SelectItem key={h} value={String(h)}>{h} hours</SelectItem>)}
+                    <SelectItem value={String(TEST_THRESHOLD)}>TEST · every 5 min</SelectItem>
                   </SelectContent>
                 </Select>
               </label>
