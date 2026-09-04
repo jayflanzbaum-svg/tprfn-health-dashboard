@@ -40,13 +40,16 @@ const TEST_THRESHOLD = 0;
 
 // Carrier email-to-SMS gateways (US/CA)
 const CARRIERS: { label: string; domain: string }[] = [
-  { label: 'AT&T', domain: 'txt.att.net' },
-  { label: 'Verizon', domain: 'vtext.com' },
+  { label: 'Verizon (picture-message — most reliable)', domain: 'vzwpix.com' },
+  { label: 'Verizon (text)', domain: 'vtext.com' },
+  { label: 'AT&T (picture-message)', domain: 'mms.att.net' },
+  { label: 'AT&T (text)', domain: 'txt.att.net' },
   { label: 'T-Mobile', domain: 'tmomail.net' },
   { label: 'Sprint', domain: 'messaging.sprintpcs.com' },
   { label: 'US Cellular', domain: 'email.uscc.net' },
   { label: 'Boost Mobile', domain: 'sms.myboostmobile.com' },
-  { label: 'Cricket', domain: 'sms.cricketwireless.net' },
+  { label: 'Cricket (picture-message)', domain: 'mms.cricketwireless.net' },
+  { label: 'Cricket (text)', domain: 'sms.cricketwireless.net' },
   { label: 'Google Fi', domain: 'msg.fi.google.com' },
   { label: 'Metro by T-Mobile', domain: 'mymetropcs.com' },
   { label: 'Mint Mobile', domain: 'mailmymobile.net' },
@@ -55,6 +58,7 @@ const CARRIERS: { label: string; domain: string }[] = [
   { label: 'Telus (CA)', domain: 'msg.telus.com' },
   { label: 'Fido (CA)', domain: 'fido.ca' },
 ];
+
 
 function emptyConfig(callsign: string): AlertConfig {
   return {
