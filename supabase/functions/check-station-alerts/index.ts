@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
           try {
             await sendGmail(
               r,
-              channel === "sms" ? "" : testSubject,
+              channel === "sms" ? "TPRFN" : testSubject,
               channel === "sms" ? `TPRFN test: ${callsign} alerts working ${fmt(new Date().toISOString())}` : testBody,
             );
             await supabase.from("station_alert_events").insert({
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
             ? `TPRFN: ${callsign} DOWN (${cfg.threshold_hours}h silent). Last heard ${fmt(lastHeard)}`
             : `TPRFN: ${callsign} back online ${fmt(lastHeard)}`;
         try {
-          await sendGmail(r, channel === "sms" ? "" : subject, channel === "sms" ? smsBody : body);
+          await sendGmail(r, channel === "sms" ? "TPRFN" : subject, channel === "sms" ? smsBody : body);
           await supabase.from("station_alert_events").insert({
             callsign,
             alert_type: alertType,
