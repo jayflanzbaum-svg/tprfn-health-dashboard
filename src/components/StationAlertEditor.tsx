@@ -213,6 +213,13 @@ export function StationAlertEditor({ callsign: raw }: Props) {
               </label>
             </div>
 
+            {cfg.threshold_hours === TEST_THRESHOLD && (
+              <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300">
+                Test mode: a test message goes to every recipient below every 5 minutes until you pick a
+                real threshold again.
+              </p>
+            )}
+
             <div>
               <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
                 <Mail className="h-4 w-4" /> Email recipients
