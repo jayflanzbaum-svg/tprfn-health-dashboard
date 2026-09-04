@@ -35,6 +35,8 @@ interface AlertConfig {
 }
 
 const THRESHOLDS = [1, 2, 4, 6, 12, 24, 48, 72];
+// Sentinel: threshold 0 = test mode, sends a test message on every 5-minute check
+const TEST_THRESHOLD = 0;
 
 // Carrier email-to-SMS gateways (US/CA)
 const CARRIERS: { label: string; domain: string }[] = [
