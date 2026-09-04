@@ -35,6 +35,8 @@ interface AlertConfig {
 }
 
 const THRESHOLDS = [1, 2, 4, 6, 12, 24, 48, 72];
+// Sentinel: threshold 0 = test mode, sends a test message on every 5-minute check
+const TEST_THRESHOLD = 0;
 
 // Carrier email-to-SMS gateways (US/CA)
 const CARRIERS: { label: string; domain: string }[] = [
@@ -202,13 +204,21 @@ export function StationAlertEditor({ callsign: raw }: Props) {
               <label className="flex items-center gap-2 text-sm">
                 Threshold
                 <Select value={String(cfg.threshold_hours)} onValueChange={v => patch({ threshold_hours: Number(v) })}>
-                  <SelectTrigger className="w-28 h-9 bg-background"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-40 h-9 bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-popover z-[1200]">
                     {THRESHOLDS.map(h => <SelectItem key={h} value={String(h)}>{h} hours</SelectItem>)}
+                    <SelectItem value={String(TEST_THRESHOLD)}>TEST · every 5 min</SelectItem>
                   </SelectContent>
                 </Select>
               </label>
             </div>
+
+            {cfg.threshold_hours === TEST_THRESHOLD && (
+              <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300">
+                Test mode: a test message goes to every recipient below every 5 minutes until you pick a
+                real threshold again.
+              </p>
+            )}
 
             <div>
               <p className="text-sm font-medium mb-2 flex items-center gap-1.5">

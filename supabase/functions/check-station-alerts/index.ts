@@ -81,7 +81,8 @@ Deno.serve(async (req) => {
 
       const lastHeard: string | null = rows?.[0]?.timestamp ?? null;
       const silentMs = lastHeard ? now - new Date(lastHeard).getTime() : Infinity;
-      const isDown = silentMs > cfg.threshold_hours * 60 * 60 * 1000;
+      const isTest = Number(cfg.threshold_hours) === 0;
+      const isDown = !isTest && silentMs > cfg.threshold_hours * 60 * 60 * 1000;
 
       // Skip paused stations
       const { data: loc } = await supabase
@@ -90,6 +91,39 @@ Deno.serve(async (req) => {
         .eq("callsign", callsign)
         .maybeSingle();
       if (loc?.is_paused) continue;
+
+      // Test mode: notify every run so delivery can be verified
+      if (isTest) {
+        const testSubject = `[TPRFN] ${callsign} alert test`;
+        const testBody = `Test message for ${callsign}. Alert delivery is working.\n\nLast heard: ${fmt(lastHeard)}\nChecked: ${fmt(new Date().toISOString())}\n\nTPRFN Health Dashboard`;
+        const testRecipients = [
+          ...(cfg.email_recipients ?? []).map((r: string) => ({ r, channel: "email" })),
+          ...(cfg.sms_recipients ?? []).map((r: string) => ({ r, channel: "sms" })),
+        ];
+        for (const { r, channel } of testRecipients) {
+          try {
+            await sendGmail(
+              r,
+              channel === "sms" ? "" : testSubject,
+              channel === "sms" ? `TPRFN test: ${callsign} alerts working ${fmt(new Date().toISOString())}` : testBody,
+            );
+            await supabase.from("station_alert_events").insert({
+              callsign, alert_type: "test", channel, recipient: r, status: "sent", last_heard_at: lastHeard,
+            });
+          } catch (e) {
+            await supabase.from("station_alert_events").insert({
+              callsign, alert_type: "test", channel, recipient: r, status: "failed",
+              error_message: String(e), last_heard_at: lastHeard,
+            });
+          }
+        }
+        await supabase
+          .from("station_alert_configs")
+          .update({ last_alert_sent_at: new Date().toISOString() })
+          .eq("id", cfg.id);
+        results.push({ callsign, alertType: "test", recipients: testRecipients.length });
+        continue;
+      }
 
       let alertType: "down" | "recovery" | null = null;
       if (isDown && cfg.current_state !== "down") alertType = "down";
