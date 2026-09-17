@@ -12,7 +12,7 @@ import { LogEntriesTable, LogFilter } from '@/components/LogEntriesTable';
 import { LoadingState, ErrorState, EmptyState } from '@/components/LoadingState';
 import { formatBytes, getSignalQuality, HubConnection, DEFAULT_ALLOWED_CALLSIGNS } from '@/lib/syslogParser';
 import { DateRangeFilter, DateRange, getDefaultDateRange, getComparisonPeriod } from '@/components/DateRangeFilter';
-import { CallsignManager } from '@/components/CallsignManager';
+
 import { LoginButton } from '@/components/AuthGuard';
 import { ChartSkeleton, PieChartSkeleton, LeaderboardSkeleton } from '@/components/ChartSkeleton';
 import { LazySection } from '@/components/LazySection';
@@ -35,7 +35,7 @@ import { PeakBitrateLeaderboard } from '@/components/charts/PeakBitrateLeaderboa
 
 const Index = () => {
   // Database-backed hub callsigns (single source of truth)
-  const { callsigns: allowedCallsigns, updateCallsigns: setAllowedCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
+  const { callsigns: allowedCallsigns, refresh: refreshCallsigns, loaded: callsignsLoaded } = useHubCallsigns();
   
   // URL-based filter state (date range and station only - callsigns come from DB)
   const { filters, setFilters, copyShareableUrl, hasUrlFilters } = useUrlFilters(DEFAULT_ALLOWED_CALLSIGNS);
@@ -450,7 +450,7 @@ const Index = () => {
             allowedCallsigns={allowedCallsigns}
             onShareClick={copyShareableUrl}
             activeStations={data.stations}
-            onHubAdded={(callsign) => setAllowedCallsigns([...allowedCallsigns, callsign])}
+            onHubAdded={() => refreshCallsigns()}
           />
 
           <main className="mt-8">
@@ -484,7 +484,8 @@ const Index = () => {
           allowedCallsigns={allowedCallsigns}
           onShareClick={copyShareableUrl}
           activeStations={data.stations}
-          onHubAdded={(callsign) => setAllowedCallsigns([...allowedCallsigns, callsign])}
+          onHubAdded={() => refreshCallsigns()}
+
         />
 
         {/* Inactive Hubs Alert */}
@@ -655,13 +656,6 @@ const Index = () => {
           />
         </div>
 
-        {/* Callsign Manager - visible to all, editing auth-protected */}
-        <div className="mt-8 mb-8">
-          <CallsignManager 
-            callsigns={allowedCallsigns} 
-            onChange={setAllowedCallsigns} 
-          />
-        </div>
 
 
 
