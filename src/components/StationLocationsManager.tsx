@@ -108,10 +108,15 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
     setAddingStation(true);
     try {
       await lookupCallsigns([callsign]);
-      // If on Hubs tab, also add to the hub callsigns whitelist
-      if (activeTab === 'hubs' && onHubAdded) {
-        onHubAdded(callsign);
+      // If on Hubs tab, create the Hub Directory entry (directory drives the tracked hub list)
+      if (activeTab === 'hubs') {
+        const { error: dirError } = await supabase
+          .from('hub_profiles')
+          .insert({ full_callsign: callsign, base_callsign: callsign });
+        if (dirError) throw dirError;
+        onHubAdded?.(callsign);
       }
+
       // If on Polling tab, add to the manually-tracked polling list
       if (activeTab === 'polling') {
         addPollingStation(callsign);

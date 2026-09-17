@@ -17,15 +17,18 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // 1. Get all hub callsigns
+    // 1. Get all hub callsigns from the Hub Directory (single source of truth)
     const { data: hubs, error: hubErr } = await supabase
-      .from("hub_callsigns")
-      .select("callsign");
+      .from("hub_profiles")
+      .select("base_callsign");
     if (hubErr) throw hubErr;
 
-    const allowedCallsigns = (hubs || []).map((h) =>
-      h.callsign.toUpperCase().trim()
-    );
+    const allowedCallsigns = [...new Set(
+      (hubs || [])
+        .map((h) => (h.base_callsign || "").toUpperCase().trim())
+        .filter(Boolean),
+    )];
+
     if (allowedCallsigns.length === 0) {
       return new Response(
         JSON.stringify({ inactive: [], checked_at: new Date().toISOString(), total_hubs: 0 }),
