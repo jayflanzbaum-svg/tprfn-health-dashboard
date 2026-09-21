@@ -385,7 +385,7 @@ export default function HubDirectory() {
               const seenDate = seen ? new Date(seen) : null;
               const online = !!seenDate && Date.now() - seenDate.getTime() < 24 * 60 * 60 * 1000;
               return (
-                <div key={p.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <div key={p.id} className={`rounded-lg border border-border bg-card p-4 shadow-sm ${p.is_active ? '' : 'opacity-60 border-dashed'}`}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
                       <div className="flex items-baseline gap-2 flex-wrap">
@@ -400,6 +400,11 @@ export default function HubDirectory() {
                           <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-500' : 'bg-muted-foreground/60'}`} />
                           {online ? 'Online' : 'Offline'}
                         </Badge>
+                        {!p.is_active && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/30">
+                            Inactive
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">
                         Last heard: {seenDate ? `${seenDate.toISOString().slice(0, 16).replace('T', ' ')}Z` : 'never'}
@@ -426,6 +431,22 @@ export default function HubDirectory() {
                         <div className="flex gap-1">
                           <StationAlertEditor callsign={p.base_callsign} />
                           <Button size="sm" variant="ghost" onClick={() => startEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={p.is_active ? 'Make inactive (stop tracking)' : 'Make active (resume tracking)'}
+                            onClick={() => toggleActive(p)}
+                          >
+                            {p.is_active ? <PowerOff className="h-4 w-4 text-amber-600" /> : <Power className="h-4 w-4 text-emerald-600" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Delete from directory"
+                            onClick={() => deleteHub(p)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       )
                     )}
