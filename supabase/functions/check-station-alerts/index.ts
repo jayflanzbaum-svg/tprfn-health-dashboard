@@ -66,11 +66,24 @@ Deno.serve(async (req) => {
       .eq("enabled", true);
     if (error) throw error;
 
+    // Hub Directory is the source of truth: skip alerts for inactive hubs
+    const { data: hubRows } = await supabase
+      .from("hub_profiles")
+      .select("base_callsign")
+      .eq("is_active", true);
+    const activeHubs = new Set(
+      (hubRows ?? []).map((h) => (h.base_callsign || "").toUpperCase().trim()).filter(Boolean)
+    );
+
     const now = Date.now();
     const results: unknown[] = [];
 
     for (const cfg of configs ?? []) {
       const callsign = cfg.callsign.toUpperCase();
+      if (!activeHubs.has(callsign)) {
+        results.push({ callsign, skipped: "inactive hub" });
+        continue;
+      }
 
       const { data: rows } = await supabase
         .from("syslog_entries")
