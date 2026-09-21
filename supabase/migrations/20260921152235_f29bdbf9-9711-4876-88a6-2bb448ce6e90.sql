@@ -1,0 +1,2 @@
+ALTER TABLE public.hub_profiles ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+COMMENT ON COLUMN public.hub_profiles.is_active IS 'Inactive hubs stay in the directory but are excluded from tracking (dashboard, map, uptime, alerts).';

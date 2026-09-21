@@ -41,6 +41,7 @@ export type Database = {
           frequencies: Json
           full_callsign: string
           id: string
+          is_active: boolean
           last_heard_at: string | null
           latitude: number | null
           longitude: number | null
@@ -60,6 +61,7 @@ export type Database = {
           frequencies?: Json
           full_callsign: string
           id?: string
+          is_active?: boolean
           last_heard_at?: string | null
           latitude?: number | null
           longitude?: number | null
@@ -79,6 +81,7 @@ export type Database = {
           frequencies?: Json
           full_callsign?: string
           id?: string
+          is_active?: boolean
           last_heard_at?: string | null
           latitude?: number | null
           longitude?: number | null
