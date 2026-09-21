@@ -342,6 +342,7 @@ export function LiveStationMap({
     supabase
       .from('hub_profiles')
       .select('base_callsign')
+      .eq('is_active', true)
       .then(({ data, error }) => {
         if (cancelled || error || !data) return;
         setDirectoryHubCallsigns(data.map(r => (r.base_callsign || '').toUpperCase().trim()).filter(Boolean));
