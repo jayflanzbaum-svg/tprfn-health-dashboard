@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi, Plus, Trash2, FileText, Download, Clock } from 'lucide-react';
+import { Radio, ArrowLeft, Pencil, Save, X, Loader2, MapPin, Search, Wifi, Plus, Trash2, FileText, Download, Clock, Power, PowerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +42,7 @@ interface HubProfile {
   scan_times: string | null;
   frequencies: HubFrequency[];
   updated_at: string;
+  is_active: boolean;
 }
 
 function bandFor(freq: number): string {
@@ -238,6 +239,39 @@ export default function HubDirectory() {
     startEdit(newProfile);
   };
 
+  const toggleActive = async (p: HubProfile) => {
+    const next = !p.is_active;
+    const { error } = await supabase
+      .from('hub_profiles')
+      .update({ is_active: next } as any)
+      .eq('id', p.id);
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, is_active: next } : x));
+    toast({
+      title: next ? 'Hub activated' : 'Hub deactivated',
+      description: next
+        ? `${p.full_callsign} is tracked again (dashboard, map, uptime, alerts).`
+        : `${p.full_callsign} stays in the directory but is no longer tracked.`,
+    });
+  };
+
+  const deleteHub = async (p: HubProfile) => {
+    if (!window.confirm(`Delete ${p.full_callsign} from the Hub Directory? This removes it from tracking everywhere and cannot be undone.`)) return;
+    const { error } = await supabase
+      .from('hub_profiles')
+      .delete()
+      .eq('id', p.id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setProfiles(prev => prev.filter(x => x.id !== p.id));
+    if (editingId === p.id) { setEditingId(null); setEditDraft(null); }
+    toast({ title: 'Hub deleted', description: `${p.full_callsign} removed from the directory.` });
+  };
 
   const saveEdit = async (p: HubProfile) => {
     if (!editDraft) return;
