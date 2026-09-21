@@ -71,7 +71,7 @@ function parseNetMoment(value: string, fallbackYear: number): Date | undefined {
   const cleaned = value.replace(/^[A-Za-z]+day,?\s*/i, '').trim();
 
   const m = cleaned.match(
-    /([A-Za-z]{3,})\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?\s*(?:@|at)?\s*(\d{1,2}):?(\d{2})?\s*([A-Za-z]{1,4})?/,
+    /([A-Za-z]{3,})\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?[\s,]*(?:@|at)?[\s,]*(\d{1,2}):?(\d{2})?\s*([A-Za-z]{1,4})?/,
   );
   if (!m) return undefined;
 
