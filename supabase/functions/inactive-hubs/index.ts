@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
     // 1. Get all hub callsigns from the Hub Directory (single source of truth)
     const { data: hubs, error: hubErr } = await supabase
       .from("hub_profiles")
-      .select("base_callsign");
+      .select("base_callsign")
+      .eq("is_active", true);
     if (hubErr) throw hubErr;
 
     const allowedCallsigns = [...new Set(

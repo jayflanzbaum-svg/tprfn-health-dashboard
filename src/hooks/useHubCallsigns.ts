@@ -13,6 +13,7 @@ export function useHubCallsigns() {
     const { data, error } = await supabase
       .from('hub_profiles')
       .select('base_callsign')
+      .eq('is_active', true)
       .order('base_callsign');
 
     if (error) {

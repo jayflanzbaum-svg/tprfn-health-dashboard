@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase
       .from('hub_profiles')
       .select('full_callsign, base_callsign, ssid, operator, network, city, state, country, latitude, longitude, frequencies, notes, scan_times, last_heard_at, updated_at')
+      .eq('is_active', true)
       .order('full_callsign');
 
     if (error) throw error;
