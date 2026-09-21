@@ -100,6 +100,9 @@ export function parseNetEmail(text: string): ParsedNetEmail {
 
   const startMatch = text.match(/STARTS?\s*:\s*([^\n]*?)(?:\s{2,}|\s*\|\s*|\s+ENDS?\s*:|$)/i);
   const endMatch = text.match(/ENDS?\s*:\s*([^\n]*)/i);
+  // Prose fallback: "...WILL RUN TILL SATURDAY SEPT 26TH, AT 23:59."
+  const proseEndMatch = text.match(/(?:till|until|thru|through|ends?\s+(?:on|at))\s+([^\n.]*)/i);
+  const proseOpenNow = /now\s*open|open\s*now|open\s+for\s+check|immediately/i.test(text);
 
   let start: Date | undefined;
   if (startMatch) {
@@ -111,17 +114,19 @@ export function parseNetEmail(text: string): ParsedNetEmail {
       start = parseNetMoment(raw, fallbackYear);
       if (!start) warnings.push(`Could not read start time from "${raw}".`);
     }
+  } else if (headerDate && proseOpenNow) {
+    start = headerDate;
   } else if (headerDate) {
     start = headerDate;
   }
 
   let end: Date | undefined;
-  if (endMatch) {
-    const raw = endMatch[1].trim();
-    end = parseNetMoment(raw, fallbackYear);
-    if (!end) warnings.push(`Could not read end time from "${raw}".`);
+  const endRaw = (endMatch?.[1] ?? proseEndMatch?.[1] ?? '').trim();
+  if (endRaw) {
+    end = parseNetMoment(endRaw, fallbackYear);
+    if (!end) warnings.push(`Could not read end time from "${endRaw}".`);
   } else {
-    warnings.push('No "ENDS:" line found.');
+    warnings.push('No end date found — add an "ENDS:" line or "…till <date> at <time>".');
   }
 
   // Roll the end into the next year if it lands before the start (Dec -> Jan nets).
