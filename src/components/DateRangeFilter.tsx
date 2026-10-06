@@ -364,12 +364,18 @@ export function getComparisonPeriod(current: DateRange): { start: Date; end: Dat
   return { start: previousStart, end: previousEnd, label };
 }
 
+export function getUtcYesterdayRange(): DateRange {
+  const y = new Date(Date.now() - 86400000);
+  return { start: startOfUtcDay(y), end: endOfUtcDay(y), preset: 'yesterday', label: 'Yesterday' };
+}
+
 export function getDefaultDateRange(_dataDateRange?: { start: Date; end: Date }): DateRange {
   // Default to the user's actual current day (local time).
+  // "Today" is the current Zulu (UTC) day: 00:00Z – 23:59:59Z.
   const today = new Date();
   return {
-    start: startOfDay(today),
-    end: endOfDay(today),
+    start: startOfUtcDay(today),
+    end: endOfUtcDay(today),
     preset: 'today',
     label: 'Today',
   };

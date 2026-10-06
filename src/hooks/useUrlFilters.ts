@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useMemo } from 'react';
-import { DateRange, DatePreset, getDefaultDateRange } from '@/components/DateRangeFilter';
+import { DateRange, DatePreset, getDefaultDateRange, getUtcYesterdayRange } from '@/components/DateRangeFilter';
 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today: 'Today',
@@ -36,7 +36,10 @@ export function useUrlFilters(defaultCallsigns: string[]) {
       const end = new Date(endParam);
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         const preset = presetParam || 'custom';
-        dateRange = { 
+        // Relative presets are always recomputed so stale links/bookmarks stay correct (UTC).
+        if (preset === 'today') dateRange = getDefaultDateRange();
+        else if (preset === 'yesterday') dateRange = getUtcYesterdayRange();
+        else dateRange = { 
           start, 
           end, 
           preset,
