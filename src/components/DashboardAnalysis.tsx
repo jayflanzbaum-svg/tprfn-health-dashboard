@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Sparkles, X, Loader2, Calendar } from 'lucide-react';
+import { Sparkles, Loader2, Calendar, Send, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from '@/components/DateRangeFilter';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 
 interface DashboardAnalysisProps {
   dateRange: DateRange;
@@ -15,9 +17,9 @@ interface DashboardAnalysisProps {
 function formatPeriod(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
-  const sameYear = s.getFullYear() === e.getFullYear();
-  const startFmt = sameYear ? format(s, 'MMM d') : format(s, 'MMM d, yyyy');
-  return `${startFmt} – ${format(e, 'MMM d, yyyy')}`;
+  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
+  const fmt = (d: Date, year: boolean) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' }).format(d);
+  return `${fmt(s, !sameYear)} – ${fmt(e, true)}`;
 }
 
 export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation }: DashboardAnalysisProps) {
@@ -25,11 +27,55 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
   const [periods, setPeriods] = useState<{ current: { start: string; end: string }; previous: { start: string; end: string } } | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [historyScope, setHistoryScope] = useState('history');
+  const [answer, setAnswer] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<{ start: string | null; end: string | null; targets: string[] } | null>(null);
+
+  const handleQuestion = async () => {
+    if (!question.trim() || asking) return;
+    setAsking(true); setAnswer(''); setQuestionError(null); setCoverage(null);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-dashboard`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${session.session?.access_token || key}` },
+        body: JSON.stringify({ question: question.trim(), historyScope, dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() }, selectedStation, callsigns: allowedCallsigns }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.error || `Analysis request failed (${response.status}).`);
+      }
+      const stream = response.body;
+      if (!stream) throw new Error('No answer was received.');
+      const reader = stream.getReader(); const decoder = new TextDecoder(); let buffer = ''; let complete = false;
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split('\n'); buffer = lines.pop() || '';
+        if (done && buffer) lines.push(buffer);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === 'coverage') setCoverage(event.coverage);
+          if (event.type === 'text') setAnswer(prev => prev + event.text);
+          if (event.type === 'error') throw new Error(event.error);
+          if (event.type === 'done') complete = true;
+        }
+        if (done) break;
+      }
+      if (!complete) throw new Error('The answer was interrupted. Please start a new question.');
+    } catch (err) { setQuestionError(err instanceof Error ? err.message : 'Could not answer this question.'); }
+    finally { setAsking(false); }
+  };
 
   const handleAnalyze = async () => {
     setLoading(true);
     setOpen(true);
     setAnalysis(null);
+    setPeriods(null);
 
     try {
       const { data, error } = await supabase.functions.invoke('analyze-dashboard', {
@@ -68,7 +114,7 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
       <Button
         variant="outline"
         size="sm"
-        onClick={handleAnalyze}
+        onClick={() => { setOpen(true); if (!analysis && !loading) void handleAnalyze(); }}
         disabled={loading}
         className="h-7 px-2 gap-1 border-accent/30 hover:bg-accent/10"
       >
@@ -80,18 +126,29 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
         <span className="text-xs">{loading ? 'Analyzing...' : 'Analyze'}</span>
       </Button>
 
-      {open && (
-        <div className="col-span-full animate-fade-in">
-          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 relative">
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-background">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-accent" />Dashboard Analysis</DialogTitle></DialogHeader>
+          <form onSubmit={e => { e.preventDefault(); void handleQuestion(); }} className="space-y-3 border-b border-border pb-4">
+            <label htmlFor="analysis-question" className="flex items-center gap-2 text-sm font-medium"><MessageCircle className="h-4 w-4 text-accent" />Ask a question</label>
+            <Textarea id="analysis-question" value={question} onChange={e => setQuestion(e.target.value)} maxLength={2000} disabled={asking} placeholder="Has N4SFL’s performance degraded over time? Is it seasonal or cyclical, and how does it compare with nearby stations?" className="min-h-[90px]" />
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <Select value={historyScope} onValueChange={setHistoryScope} disabled={asking}>
+                <SelectTrigger aria-label="Question date range" className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="history">All recorded history</SelectItem><SelectItem value="selected">Selected date range</SelectItem></SelectContent>
+              </Select>
+              <Button type="submit" size="sm" disabled={asking || !question.trim()} className="gap-2">{asking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{asking ? 'Investigating…' : 'Ask'}</Button>
+            </div>
+            {questionError && <p role="alert" className="text-sm text-destructive">{questionError}</p>}
+            {asking && !answer && <p role="status" className="text-sm text-muted-foreground">Examining recorded station trends and geographic peers…</p>}
+            {coverage?.start && coverage.end && <p className="text-xs text-muted-foreground">{coverage.targets.join(', ')} · {formatPeriod(coverage.start, coverage.end)} · UTC</p>}
+            {answer && <div aria-live="polite" className="text-sm leading-relaxed"><MarkdownBullets content={answer} /></div>}
+          </form>
+          <div className="relative pt-1">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-accent" />
               <h3 className="text-sm font-semibold text-foreground">Dashboard Analysis</h3>
+              <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={handleAnalyze} disabled={loading}>Refresh summary</Button>
               {selectedStation && (
                 <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-mono">
                   {selectedStation}
@@ -124,8 +181,8 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
               </>
             ) : null}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -137,7 +194,7 @@ export function MarkdownBullets({ content }: { content: string }) {
   return (
     <ul className="list-none space-y-2 pl-0">
       {lines.map((line, i) => {
-        const cleaned = line.replace(/^[-*•]\s*/, '').trim();
+        const cleaned = line.trim().replace(/^[-*•]\s+/, '').replace(/^#{1,6}\s+/, '').trim();
         if (!cleaned) return null;
         
         // Bold text between ** **

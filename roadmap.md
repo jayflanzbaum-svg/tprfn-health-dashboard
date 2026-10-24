@@ -1,0 +1,3 @@
+- [x] Add free-form questions to Dashboard Analysis.
+- [x] Ground answers in historical station metrics and geographic peer comparisons.
+- [x] Verify a real question and preserve the existing dashboard/net analysis path.
