@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, X, Loader2, Calendar, Send, MessageCircle } from 'lucide-react';
+import { Sparkles, Loader2, Calendar, Send, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from '@/components/DateRangeFilter';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 
 interface DashboardAnalysisProps {
   dateRange: DateRange;
@@ -18,9 +17,9 @@ interface DashboardAnalysisProps {
 function formatPeriod(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
-  const sameYear = s.getFullYear() === e.getFullYear();
-  const startFmt = sameYear ? format(s, 'MMM d') : format(s, 'MMM d, yyyy');
-  return `${startFmt} – ${format(e, 'MMM d, yyyy')}`;
+  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
+  const fmt = (d: Date, year: boolean) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' }).format(d);
+  return `${fmt(s, !sameYear)} – ${fmt(e, true)}`;
 }
 
 export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation }: DashboardAnalysisProps) {
@@ -39,20 +38,17 @@ export function DashboardAnalysis({ dateRange, allowedCallsigns, selectedStation
     if (!question.trim() || asking) return;
     setAsking(true); setAnswer(''); setQuestionError(null); setCoverage(null);
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-dashboard', {
-        body: { question: question.trim(), historyScope, dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() }, selectedStation, callsigns: allowedCallsigns },
+      const { data: session } = await supabase.auth.getSession();
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-dashboard`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${session.session?.access_token || key}` },
+        body: JSON.stringify({ question: question.trim(), historyScope, dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() }, selectedStation, callsigns: allowedCallsigns }),
       });
-      if (error) {
-        const response = 'context' in error ? error.context : null;
-        if (response instanceof Response) {
-          const detail = await response.json().catch(() => null);
-          throw new Error(detail?.error || error.message);
-        }
-        throw error;
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.error || `Analysis request failed (${response.status}).`);
       }
-      if (data?.error) throw new Error(data.error);
-      // The function client returns a Blob for application/x-ndjson.
-      const stream = data instanceof Blob ? data.stream() : data instanceof Response ? data.body : typeof data === 'string' ? new Blob([data]).stream() : null;
+      const stream = response.body;
       if (!stream) throw new Error('No answer was received.');
       const reader = stream.getReader(); const decoder = new TextDecoder(); let buffer = ''; let complete = false;
       while (true) {
@@ -198,7 +194,7 @@ export function MarkdownBullets({ content }: { content: string }) {
   return (
     <ul className="list-none space-y-2 pl-0">
       {lines.map((line, i) => {
-        const cleaned = line.replace(/^[-*•]\s*/, '').trim();
+        const cleaned = line.trim().replace(/^[-*•]\s+/, '').replace(/^#{1,6}\s+/, '').trim();
         if (!cleaned) return null;
         
         // Bold text between ** **
