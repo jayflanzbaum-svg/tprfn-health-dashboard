@@ -370,6 +370,26 @@ export type Database = {
         }[]
       }
       refresh_hub_last_heard: { Args: never; Returns: number }
+      station_analysis_history: {
+        Args: { p_end: string; p_start?: string; p_stations: string[] }
+        Returns: {
+          avg_bitrate: number
+          avg_sn: number
+          bucket: string
+          bucket_kind: string
+          connect_events: number
+          first_seen: string
+          good_sn_pct: number
+          last_seen: string
+          normal_disconnects: number
+          partner: string
+          peak_bitrate: number
+          samples: number
+          sent_bytes: number
+          station: string
+          timeouts: number
+        }[]
+      }
       syslog_kpis: {
         Args: {
           allowed_callsigns: string[]
