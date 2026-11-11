@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       hub_callsigns: {
         Row: {
           callsign: string
@@ -122,6 +140,87 @@ export type Database = {
           notes?: string | null
           started_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          error_message: string | null
+          hub_callsign: string | null
+          id: string
+          ip: string | null
+          message_type: string
+          phone: string
+          status: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          hub_callsign?: string | null
+          id?: string
+          ip?: string | null
+          message_type: string
+          phone: string
+          status: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          hub_callsign?: string | null
+          id?: string
+          ip?: string | null
+          message_type?: string
+          phone?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Relationships: []
+      }
+      sms_recipients: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          hub_callsign: string
+          id: string
+          name: string | null
+          opted_out_at: string | null
+          phone: string
+          requested_at: string
+          requested_by: string
+          status: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          hub_callsign: string
+          id?: string
+          name?: string | null
+          opted_out_at?: string | null
+          phone: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          hub_callsign?: string
+          id?: string
+          name?: string | null
+          opted_out_at?: string | null
+          phone?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
         }
         Relationships: []
       }
