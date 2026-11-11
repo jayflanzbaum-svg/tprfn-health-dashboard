@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { msg } from "../_shared/sms.ts";
+import { sendSms } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +51,13 @@ async function sendGmail(to: string, subject: string, body: string) {
 
 function fmt(ts: string | null) {
   return ts ? `${new Date(ts).toISOString().replace("T", " ").slice(0, 16)}Z` : "unknown";
+}
+
+// deno-lint-ignore no-explicit-any
+async function activePhones(db: any, callsign: string): Promise<string[]> {
+  const { data, error } = await db.from("sms_recipients").select("phone").eq("hub_callsign", callsign).eq("status", "active");
+  if (error) console.error("sms_recipients read failed", error);
+  return [...new Set((data ?? []).map((r: { phone: string }) => r.phone))] as string[];
 }
 
 Deno.serve(async (req) => {
@@ -109,17 +118,13 @@ Deno.serve(async (req) => {
       if (isTest) {
         const testSubject = `[TPRFN] ${callsign} alert test`;
         const testBody = `Test message for ${callsign}. Alert delivery is working.\n\nLast heard: ${fmt(lastHeard)}\nChecked: ${fmt(new Date().toISOString())}\n\nTPRFN Health Dashboard`;
-        const testRecipients = [
-          ...(cfg.email_recipients ?? []).map((r: string) => ({ r, channel: "email" })),
-          ...(cfg.sms_recipients ?? []).map((r: string) => ({ r, channel: "sms" })),
-        ];
+        const testRecipients = (cfg.email_recipients ?? []).map((r: string) => ({ r, channel: "email" }));
+        for (const phone of await activePhones(supabase, callsign)) {
+          await sendSms(supabase, { phone, hub: callsign, type: "test", body: msg.test(callsign) });
+        }
         for (const { r, channel } of testRecipients) {
           try {
-            await sendGmail(
-              r,
-              channel === "sms" ? "TPRFN" : testSubject,
-              channel === "sms" ? `TPRFN test: ${callsign} alerts working ${fmt(new Date().toISOString())}` : testBody,
-            );
+            await sendGmail(r, testSubject, testBody);
             await supabase.from("station_alert_events").insert({
               callsign, alert_type: "test", channel, recipient: r, status: "sent", last_heard_at: lastHeard,
             });
@@ -159,19 +164,16 @@ Deno.serve(async (req) => {
           ? `Station ${callsign} has been silent for more than ${cfg.threshold_hours} hours.\n\nLast heard: ${fmt(lastHeard)}\nChecked: ${fmt(new Date().toISOString())}\n\nTPRFN Health Dashboard`
           : `Station ${callsign} is back on the air.\n\nLast heard: ${fmt(lastHeard)}\nChecked: ${fmt(new Date().toISOString())}\n\nTPRFN Health Dashboard`;
 
-      const recipients = [
-        ...(cfg.email_recipients ?? []).map((r: string) => ({ r, channel: "email" })),
-        ...(cfg.sms_recipients ?? []).map((r: string) => ({ r, channel: "sms" })),
-      ];
+      const recipients = (cfg.email_recipients ?? []).map((r: string) => ({ r, channel: "email" }));
+      // Texts: only double-opt-in active recipients, via Twilio (logged in sms_log)
+      const smsText = alertType === "down" ? msg.down(callsign, cfg.threshold_hours, lastHeard) : msg.recovery(callsign, lastHeard);
+      for (const phone of await activePhones(supabase, callsign)) {
+        await sendSms(supabase, { phone, hub: callsign, type: alertType, body: smsText });
+      }
 
       for (const { r, channel } of recipients) {
-        // SMS gateways choke on long bodies
-        const smsBody =
-          alertType === "down"
-            ? `TPRFN: ${callsign} DOWN (${cfg.threshold_hours}h silent). Last heard ${fmt(lastHeard)}`
-            : `TPRFN: ${callsign} back online ${fmt(lastHeard)}`;
         try {
-          await sendGmail(r, channel === "sms" ? "TPRFN" : subject, channel === "sms" ? smsBody : body);
+          await sendGmail(r, subject, body);
           await supabase.from("station_alert_events").insert({
             callsign,
             alert_type: alertType,
