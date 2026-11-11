@@ -202,6 +202,14 @@ export function DashboardHeader({
             </Button>
           </Link>
 
+          {/* Public text-alert sign-up */}
+          <Link to="/alerts">
+            <Button variant="outline" size="sm" className="h-7 px-2 gap-1">
+              <MessageSquare className="h-3 w-3" />
+              <span className="hidden sm:inline text-xs">Text Alerts</span>
+            </Button>
+          </Link>
+
 
           {/* Share button */}
           {onShareClick && (

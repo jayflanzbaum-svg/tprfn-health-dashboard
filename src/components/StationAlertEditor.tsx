@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -313,7 +314,7 @@ export function StationAlertEditor({ callsign: raw }: Props) {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1.5">
-                New numbers stay pending until the person replies YES. Members can also sign up at <a href="/alerts" className="underline">/alerts</a>.
+                New numbers stay pending until the person replies YES. Members can also sign up at <Link to="/alerts" className="underline">/alerts</Link>.
               </p>
               <label className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                 <Switch checked={smsEnabled} onCheckedChange={toggleSending} />
