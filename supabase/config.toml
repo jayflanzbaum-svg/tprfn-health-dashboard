@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.check-station-alerts]
 verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.sms-inbound]
+verify_jwt = false

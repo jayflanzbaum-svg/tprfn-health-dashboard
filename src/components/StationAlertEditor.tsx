@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -38,26 +39,6 @@ const THRESHOLDS = [1, 2, 4, 6, 12, 24, 48, 72];
 // Sentinel: threshold 0 = test mode, sends a test message on every 5-minute check
 const TEST_THRESHOLD = 0;
 
-// Carrier email-to-SMS gateways (US/CA)
-const CARRIERS: { label: string; domain: string }[] = [
-  { label: 'Verizon (picture-message — most reliable)', domain: 'vzwpix.com' },
-  { label: 'Verizon (text)', domain: 'vtext.com' },
-  { label: 'AT&T (picture-message)', domain: 'mms.att.net' },
-  { label: 'AT&T (text)', domain: 'txt.att.net' },
-  { label: 'T-Mobile', domain: 'tmomail.net' },
-  { label: 'Sprint', domain: 'messaging.sprintpcs.com' },
-  { label: 'US Cellular', domain: 'email.uscc.net' },
-  { label: 'Boost Mobile', domain: 'sms.myboostmobile.com' },
-  { label: 'Cricket (picture-message)', domain: 'mms.cricketwireless.net' },
-  { label: 'Cricket (text)', domain: 'sms.cricketwireless.net' },
-  { label: 'Google Fi', domain: 'msg.fi.google.com' },
-  { label: 'Metro by T-Mobile', domain: 'mymetropcs.com' },
-  { label: 'Mint Mobile', domain: 'mailmymobile.net' },
-  { label: 'Bell (CA)', domain: 'txt.bell.ca' },
-  { label: 'Rogers (CA)', domain: 'pcs.rogers.com' },
-  { label: 'Telus (CA)', domain: 'msg.telus.com' },
-  { label: 'Fido (CA)', domain: 'fido.ca' },
-];
 
 
 function emptyConfig(callsign: string): AlertConfig {
@@ -71,6 +52,17 @@ function emptyConfig(callsign: string): AlertConfig {
   };
 }
 
+interface SmsRecipient {
+  id: string;
+  phone: string;
+  name: string | null;
+  status: 'pending' | 'active' | 'opted_out';
+  requested_by: string;
+  confirmed_at: string | null;
+}
+
+const fmtPhone = (p: string) => p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
+
 interface Props {
   callsign: string;
 }
@@ -83,7 +75,18 @@ export function StationAlertEditor({ callsign: raw }: Props) {
   const [saving, setSaving] = useState(false);
   const [emailDraft, setEmailDraft] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
-  const [smsCarrier, setSmsCarrier] = useState('');
+  const [smsList, setSmsList] = useState<SmsRecipient[]>([]);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const loadSms = async () => {
+    const [{ data: rows }, { data: setting }] = await Promise.all([
+      supabase.from('sms_recipients').select('id, phone, name, status, requested_by, confirmed_at').eq('hub_callsign', callsign).order('requested_at'),
+      supabase.from('app_settings').select('value').eq('key', 'sms_sending_enabled').maybeSingle(),
+    ]);
+    setSmsList((rows ?? []) as SmsRecipient[]);
+    setSmsEnabled(setting?.value === true);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -95,6 +98,7 @@ export function StationAlertEditor({ callsign: raw }: Props) {
         .maybeSingle();
       if (!alive) return;
       if (!error && data) setCfg(data as AlertConfig);
+      await loadSms();
       setLoading(false);
     };
     load();
@@ -113,7 +117,6 @@ export function StationAlertEditor({ callsign: raw }: Props) {
           enabled: cfg.enabled,
           threshold_hours: cfg.threshold_hours,
           email_recipients: cfg.email_recipients,
-          sms_recipients: cfg.sms_recipients,
           notify_recovery: cfg.notify_recovery,
         },
         { onConflict: 'callsign' }
@@ -144,26 +147,44 @@ export function StationAlertEditor({ callsign: raw }: Props) {
     setEmailDraft('');
   };
 
-  const addSms = () => {
+  const addSms = async () => {
     const digits = smsPhone.replace(/\D/g, '');
-    if (digits.length !== 10) {
+    if (digits.length !== 10 && !(digits.length === 11 && digits.startsWith('1'))) {
       toast({ title: 'Enter a 10-digit mobile number', variant: 'destructive' });
       return;
     }
-    if (!smsCarrier) {
-      toast({ title: 'Pick a carrier', variant: 'destructive' });
+    setAdding(true);
+    const { data, error } = await supabase.functions.invoke('send-sms', { body: { hub: callsign, phone: digits } });
+    setAdding(false);
+    if (error || data?.error) {
+      let details = data?.error;
+      if (error && 'context' in error) { try { details = (await (error as { context: Response }).context.json()).error; } catch { /* ignore */ } }
+      toast({ title: 'Could not add number', description: String(details ?? error?.message), variant: 'destructive' });
       return;
     }
-    const address = `${digits}@${smsCarrier}`;
-    if (cfg.sms_recipients.includes(address)) {
-      toast({ title: 'Already added', variant: 'destructive' });
-      return;
-    }
-    patch({ sms_recipients: [...cfg.sms_recipients, address] });
+    toast({
+      title: data.status === 'already_active' ? 'Already subscribed' : 'Added as pending',
+      description: data.send === 'pending_approval'
+        ? 'Text alerts pending carrier approval — no confirmation text sent yet.'
+        : data.send === 'sent' ? 'Confirmation text sent. They must reply YES.' : data.error,
+    });
     setSmsPhone('');
+    loadSms();
   };
 
-  const recipients = cfg.email_recipients.length + cfg.sms_recipients.length;
+  const removeSms = async (id: string) => {
+    const { error } = await supabase.from('sms_recipients').delete().eq('id', id);
+    if (error) { toast({ title: 'Could not remove', description: error.message, variant: 'destructive' }); return; }
+    setSmsList(l => l.filter(r => r.id !== id));
+  };
+
+  const toggleSending = async (v: boolean) => {
+    const { error } = await supabase.from('app_settings').update({ value: v }).eq('key', 'sms_sending_enabled');
+    if (error) { toast({ title: 'Could not change setting', description: error.message, variant: 'destructive' }); return; }
+    setSmsEnabled(v);
+  };
+
+  const recipients = cfg.email_recipients.length + smsList.filter(r => r.status === 'active').length;
   const active = cfg.enabled && recipients > 0;
 
   return (
@@ -185,8 +206,8 @@ export function StationAlertEditor({ callsign: raw }: Props) {
             {cfg.current_state === 'down' && <Badge variant="destructive">Down</Badge>}
           </DialogTitle>
           <DialogDescription>
-            Notifications sent when this hub goes silent longer than its threshold. Texts are delivered
-            through carrier email-to-SMS gateways.
+            Notifications sent when this hub goes silent longer than its threshold. Texts go by Twilio only to
+            people who confirmed by replying YES.
           </DialogDescription>
         </DialogHeader>
 
@@ -257,35 +278,48 @@ export function StationAlertEditor({ callsign: raw }: Props) {
               <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
                 <MessageSquare className="h-4 w-4" /> Text message recipients
               </p>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {cfg.sms_recipients.map(addr => (
-                  <span key={addr} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-sm font-mono">
-                    {addr}
-                    <button type="button" onClick={() => patch({ sms_recipients: cfg.sms_recipients.filter(s => s !== addr) })}>
+              {!smsEnabled && (
+                <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300 mb-2">
+                  Text alerts pending carrier approval — nothing is texted yet.
+                </p>
+              )}
+              <div className="space-y-1.5 mb-2">
+                {smsList.map(r => (
+                  <div key={r.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted text-sm">
+                    <span className="font-mono">{fmtPhone(r.phone)}</span>
+                    {r.name && <span className="text-muted-foreground truncate">{r.name}</span>}
+                    <Badge variant={r.status === 'active' ? 'default' : r.status === 'pending' ? 'secondary' : 'outline'} className="ml-auto">
+                      {r.status === 'opted_out' ? 'opted out' : r.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {r.confirmed_at ? `confirmed ${new Date(r.confirmed_at).toISOString().slice(0, 16).replace('T', ' ')}Z` : r.requested_by === 'self' ? 'self sign-up' : 'added by admin'}
+                    </span>
+                    <button type="button" title="Remove" onClick={() => removeSms(r.id)}>
                       <X className="h-3.5 w-3.5" />
                     </button>
-                  </span>
+                  </div>
                 ))}
-                {cfg.sms_recipients.length === 0 && <span className="text-sm text-muted-foreground">None yet</span>}
+                {smsList.length === 0 && <span className="text-sm text-muted-foreground">None yet</span>}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Input
-                  placeholder="5551234567"
+                  placeholder="(555) 123-4567"
                   value={smsPhone}
                   onChange={e => setSmsPhone(e.target.value)}
-                  className="w-40 font-mono"
-                  maxLength={14}
+                  className="w-44 font-mono"
+                  maxLength={16}
                 />
-                <Select value={smsCarrier} onValueChange={setSmsCarrier}>
-                  <SelectTrigger className="w-52 bg-background"><SelectValue placeholder="Carrier" /></SelectTrigger>
-                  <SelectContent className="bg-popover z-[1200]">
-                    {CARRIERS.map(c => <SelectItem key={c.domain} value={c.domain}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" variant="secondary" onClick={addSms} className="gap-1">
-                  <Plus className="h-4 w-4" /> Add
+                <Button size="sm" variant="secondary" onClick={addSms} disabled={adding} className="gap-1">
+                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add (sends confirmation)
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                New numbers stay pending until the person replies YES. Members can also sign up at <Link to="/alerts" className="underline">/alerts</Link>.
+              </p>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                <Switch checked={smsEnabled} onCheckedChange={toggleSending} />
+                Text sending enabled (all hubs — turn on after Twilio approves the number)
+              </label>
             </div>
 
             <div className="flex items-center justify-between border-t pt-3">

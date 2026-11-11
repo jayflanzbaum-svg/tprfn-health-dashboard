@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2, Share2, Check, BookOpen } from 'lucide-react';
+import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2, Share2, Check, BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Select,
@@ -199,6 +199,14 @@ export function DashboardHeader({
             <Button variant="outline" size="sm" className="h-7 px-2 gap-1">
               <BookOpen className="h-3 w-3" />
               <span className="hidden sm:inline text-xs">Hub Directory</span>
+            </Button>
+          </Link>
+
+          {/* Public text-alert sign-up */}
+          <Link to="/alerts">
+            <Button variant="outline" size="sm" className="h-7 px-2 gap-1">
+              <MessageSquare className="h-3 w-3" />
+              <span className="hidden sm:inline text-xs">Text Alerts</span>
             </Button>
           </Link>
 
