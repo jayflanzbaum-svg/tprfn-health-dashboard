@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2, Share2, Check, BookOpen } from 'lucide-react';
+import { Radio, Wifi, Clock, RefreshCw, Globe, CheckCircle2, Loader2, Share2, Check, BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Select,
