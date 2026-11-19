@@ -1,0 +1,1 @@
+ALTER TABLE public.hub_profiles ADD CONSTRAINT hub_profiles_network_tprfn CHECK (network IS NOT NULL AND network = 'TPRFN');

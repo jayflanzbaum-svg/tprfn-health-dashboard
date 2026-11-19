@@ -14,17 +14,7 @@ import { toast } from '@/hooks/use-toast';
 import { StationAlertEditor } from '@/components/StationAlertEditor';
 
 
-const TRANSPORT_OPTIONS = ['vara-hf', 'vara-fm', 'ax25', 'ax25-vhf', 'ax25-uhf', 'ardop', 'pactor', 'packet', 'other'];
-const MODEM_OPTIONS = ['VARA', 'vara', 'VARA FM', 'afsk1200', 'afsk9600', 'gfsk9600', 'AX.25', 'ARDOP', 'PACTOR', 'Other'];
-const MODE_OPTIONS = ['USB', 'LSB', 'FM', '1200', '9600', 'DATA'];
-
-interface HubFrequency {
-  freq_mhz: number;
-  mode: string;
-  transport: string;
-  modem: string;
-  scan_times?: string | null;
-}
+import { TRANSPORT_OPTIONS, MODEM_OPTIONS, MODE_OPTIONS, BANDWIDTH_OPTIONS, normalizeHubFrequency, type HubFrequency } from '../../supabase/functions/_shared/hubFrequency';
 
 interface HubProfile {
   id: string;
@@ -78,10 +68,18 @@ export default function HubDirectory() {
   useEffect(() => {
     let alive = true;
     const load = async () => {
-      const { data, error } = await supabase
-        .from('hub_profiles')
-        .select('*')
-        .order('full_callsign');
+      const data = [];
+      let error = null;
+      for (let offset = 0; ; offset += 1000) {
+        const page = await supabase
+          .from('hub_profiles')
+          .select('*')
+          .order('full_callsign')
+          .range(offset, offset + 999);
+        if (page.error) { error = page.error; break; }
+        data.push(...(page.data ?? []));
+        if ((page.data ?? []).length < 1000) break;
+      }
       if (!alive) return;
       if (error) {
         toast({ title: 'Failed to load hub directory', description: error.message, variant: 'destructive' });
@@ -136,7 +134,7 @@ export default function HubDirectory() {
       country: p.country,
       latitude: p.latitude,
       longitude: p.longitude,
-      network: p.network,
+      network: 'TPRFN',
       notes: p.notes,
       scan_times: p.scan_times,
       frequencies: [...(p.frequencies || [])],
@@ -163,15 +161,16 @@ export default function HubDirectory() {
         city: prof.city ?? editDraft?.city ?? null,
         state: prof.state ?? editDraft?.state ?? null,
         country: prof.country ?? editDraft?.country ?? null,
-        network: prof.network ?? editDraft?.network ?? 'TPRFN',
+        network: 'TPRFN',
         notes: prof.notes ?? editDraft?.notes ?? null,
         scan_times: prof.scan_times ?? editDraft?.scan_times ?? null,
         frequencies: Array.isArray(prof.frequencies) && prof.frequencies.length
           ? prof.frequencies.map((f: any) => ({
               freq_mhz: Number(f.freq_mhz) || 0,
-              mode: f.mode || '',
+              mode: f.mode === '1200' ? 'FM' : (f.mode || ''),
               transport: f.transport || 'vara-hf',
-              modem: f.modem || 'VARA',
+              modem: f.modem === 'VARA' ? 'vara' : (f.modem || 'vara'),
+              bandwidth_hz: f.bandwidth_hz ?? null,
               scan_times: f.scan_times ?? null,
             }))
           : ((editDraft?.frequencies as HubFrequency[]) || []),
@@ -200,7 +199,7 @@ export default function HubDirectory() {
   const addFreq = () => {
     setEditDraft(prev => ({
       ...(prev || {}),
-      frequencies: [...(((prev?.frequencies as HubFrequency[]) || [])), { freq_mhz: 0, mode: '', transport: 'vara-hf', modem: 'VARA', scan_times: null }],
+      frequencies: [...(((prev?.frequencies as HubFrequency[]) || [])), { freq_mhz: 0, mode: '', transport: 'vara-hf', modem: 'vara', scan_times: null }],
     }));
   };
 
@@ -290,15 +289,16 @@ export default function HubDirectory() {
         country: editDraft.country ?? null,
         latitude: editDraft.latitude == null || editDraft.latitude === ('' as any) ? null : Number(editDraft.latitude),
         longitude: editDraft.longitude == null || editDraft.longitude === ('' as any) ? null : Number(editDraft.longitude),
-        network: editDraft.network ?? null,
+        network: 'TPRFN',
         notes: editDraft.notes ?? null,
         scan_times: (editDraft.scan_times as string | null) ?? null,
-        frequencies: ((editDraft.frequencies as HubFrequency[]) || []).map(f => ({
+        frequencies: ((editDraft.frequencies as HubFrequency[]) || []).map(f => normalizeHubFrequency({
           freq_mhz: Number(f.freq_mhz) || 0,
           mode: (f.mode || '').trim(),
           transport: (f.transport || '').trim(),
           modem: (f.modem || '').trim(),
           scan_times: (f.scan_times || '').trim() || null,
+          bandwidth_hz: f.bandwidth_hz,
         })),
       };
       const { error } = await supabase
@@ -508,7 +508,7 @@ export default function HubDirectory() {
                         </div>
                         <div>
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Network</Label>
-                          <Input className="h-8" value={editDraft.network || ''} onChange={e => updateDraft({ network: e.target.value })} />
+                          <Input className="h-8" value="TPRFN" readOnly aria-label="Network" />
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
@@ -546,7 +546,7 @@ export default function HubDirectory() {
                         <div className="space-y-2">
                           {((editDraft.frequencies as HubFrequency[]) || []).map((f, idx) => (
                             <div key={idx} className="space-y-1 rounded-md border border-border/60 p-1.5">
-                            <div className="grid grid-cols-[1.2fr_1fr_1.1fr_1fr_auto] gap-1 items-center">
+                            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_auto] gap-1 items-center">
                               <Input
                                 className="h-8 font-mono"
                                 type="number"
@@ -568,13 +568,13 @@ export default function HubDirectory() {
                                 </datalist>
                               </>
                               <Select value={f.transport || ''} onValueChange={v => updateFreq(idx, { transport: v })}>
-                                <SelectTrigger className="h-8"><SelectValue placeholder="Transport" /></SelectTrigger>
+                                <SelectTrigger aria-label={`Transport ${idx + 1}`} className="h-8 min-w-0"><SelectValue placeholder="Transport" /></SelectTrigger>
                                 <SelectContent className="bg-popover">
                                   {Array.from(new Set([...TRANSPORT_OPTIONS, ...(f.transport ? [f.transport] : [])])).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
                               </Select>
                               <Select value={f.modem || ''} onValueChange={v => updateFreq(idx, { modem: v })}>
-                                <SelectTrigger className="h-8"><SelectValue placeholder="Modem" /></SelectTrigger>
+                                <SelectTrigger aria-label={`Modem ${idx + 1}`} className="h-8 min-w-0"><SelectValue placeholder="Modem" /></SelectTrigger>
                                 <SelectContent className="bg-popover">
                                   {Array.from(new Set([...MODEM_OPTIONS, ...(f.modem ? [f.modem] : [])])).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                                 </SelectContent>
@@ -582,6 +582,16 @@ export default function HubDirectory() {
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeFreq(idx)}>
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor={`bandwidth-${p.id}-${idx}`} className="text-[10px] text-muted-foreground">Bandwidth (Hz)</Label>
+                              <Select value={f.bandwidth_hz == null ? 'blank' : String(f.bandwidth_hz)} onValueChange={v => updateFreq(idx, { bandwidth_hz: v === 'blank' ? null : Number(v) })}>
+                                <SelectTrigger id={`bandwidth-${p.id}-${idx}`} className="h-8" aria-label={`Bandwidth (Hz) ${idx + 1}`}><SelectValue /></SelectTrigger>
+                                <SelectContent className="bg-popover">
+                                  <SelectItem value="blank"><span aria-label="Blank">&nbsp;</span></SelectItem>
+                                  {BANDWIDTH_OPTIONS.map(value => <SelectItem key={value} value={String(value)}>{value}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                             </div>
                             <Input
                               className="h-7 text-xs"
@@ -625,6 +635,7 @@ export default function HubDirectory() {
                               <span className="text-[10px] uppercase opacity-80">{f.transport}</span>
                               <span className="text-[10px] uppercase opacity-80">{f.modem}</span>
                             </div>
+                            {f.bandwidth_hz != null && <div className="mt-0.5 text-[10px]">Bandwidth: {f.bandwidth_hz} Hz</div>}
                             {f.scan_times && (
                               <div className="mt-0.5 flex items-start gap-1 text-[10px] opacity-90">
                                 <Clock className="h-2.5 w-2.5 mt-[2px] shrink-0" />

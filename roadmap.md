@@ -5,3 +5,6 @@
 - [x] Restrict personal-data reads and all dashboard editing to admins.
 - [x] Verify public read/sign-up flows, non-admin restrictions, and admin access.
 - [x] Re-run the security scan and address or explain remaining findings.
+- [x] Update hub frequency options, optional bandwidth, and feed output.
+- [x] Correct saved modem/mode/network values and KA0PND-1 transport.
+- [x] Verify admin save/read-back and deployed feed.

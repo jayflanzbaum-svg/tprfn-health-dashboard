@@ -1,10 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-};
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { normalizeHubFrequency, type HubFrequency } from '../_shared/hubFrequency.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -15,15 +11,20 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    const hubs = [];
+    for (let offset = 0; ; offset += 1000) {
     const { data, error } = await supabase
       .from('hub_profiles')
       .select('full_callsign, base_callsign, ssid, operator, network, city, state, country, latitude, longitude, frequencies, notes, scan_times, last_heard_at, updated_at')
       .eq('is_active', true)
-      .order('full_callsign');
+      .order('full_callsign')
+      .range(offset, offset + 999);
 
     if (error) throw error;
 
-    const hubs = data ?? [];
+    hubs.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+    }
     const now = Date.now();
 
     const enriched = hubs.map((h: any) => {
@@ -31,6 +32,7 @@ Deno.serve(async (req) => {
       const seen = last_heard_at ?? null;
       return {
         ...rest,
+        frequencies: (h.frequencies ?? []).map((f: HubFrequency) => normalizeHubFrequency(f)),
         last_heard: seen,
         online: seen ? now - new Date(seen).getTime() < 24 * 60 * 60 * 1000 : false,
       };
