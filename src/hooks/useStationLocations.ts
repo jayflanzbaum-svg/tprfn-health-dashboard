@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface StationLocation {
   id: string;
@@ -34,6 +35,7 @@ interface UseStationLocationsResult {
 }
 
 export function useStationLocations(): UseStationLocationsResult {
+  const { isAdmin } = useAuth();
   const [locations, setLocations] = useState<Map<string, StationLocation>>(new Map());
   const [distances, setDistances] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -74,8 +76,8 @@ export function useStationLocations(): UseStationLocationsResult {
   useEffect(() => {
     const loadCached = async () => {
       try {
-        // First check for expired pauses
-        await checkAndResumeExpired();
+        // Only admins may write automatic pause-resume changes.
+        if (isAdmin) await checkAndResumeExpired();
         
         // Fetch all rows using pagination to bypass server max_rows limit (1000)
         const locMap = new Map<string, StationLocation>();
@@ -110,7 +112,7 @@ export function useStationLocations(): UseStationLocationsResult {
     };
     
     loadCached();
-  }, [checkAndResumeExpired]);
+  }, [checkAndResumeExpired, isAdmin]);
 
   const lookupCallsigns = useCallback(async (callsigns: string[]) => {
     if (callsigns.length === 0) return;

@@ -64,7 +64,7 @@ function freqBadgeClass(transport: string): string {
 }
 
 export default function HubDirectory() {
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
   const [profiles, setProfiles] = useState<HubProfile[]>([]);
   const [lastHeard, setLastHeard] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -333,7 +333,7 @@ export default function HubDirectory() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {user && (
+            {isAdmin && (
               <Button size="sm" className="gap-1.5" onClick={addHub}>
                 <Plus className="h-3.5 w-3.5" />
                 Add Hub
@@ -419,7 +419,7 @@ export default function HubDirectory() {
                         </div>
                       )}
                     </div>
-                    {user && (
+                    {isAdmin && (
                       isEditing ? (
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditDraft(null); }}><X className="h-4 w-4" /></Button>

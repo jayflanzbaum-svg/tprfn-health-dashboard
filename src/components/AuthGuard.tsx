@@ -19,10 +19,10 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
-  const { user, loading } = useAuth();
+  const { isAdmin, loading } = useAuth();
 
   if (loading) return null;
-  if (!user) return <>{fallback}</> || null;
+  if (!isAdmin) return <>{fallback}</> || null;
   return <>{children}</>;
 }
 
@@ -103,12 +103,12 @@ function LoginDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
     }
   };
 
-  const title = mode === 'reset' ? 'Reset Password' : mode === 'signup' ? 'Create Admin Account' : 'Admin Login';
+  const title = mode === 'reset' ? 'Reset Password' : mode === 'signup' ? 'Create Account' : 'Admin Login';
   const description = mode === 'reset'
     ? 'Enter your email to receive a password reset link.'
     : mode === 'signup'
-      ? 'Create an account to manage hub callsigns and station locations.'
-      : 'Sign in to manage hub callsigns and station locations.';
+      ? 'Create an account. Administrator access must be granted separately.'
+      : 'Sign in with an administrator account to manage hubs, alerts, and station locations.';
 
   return (
     <Dialog open={open} onOpenChange={(open) => { onOpenChange(open); if (!open) { setMode('signin'); setResetSent(false); } }}>

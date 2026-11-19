@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { parseNetEmail } from '@/lib/netEmailParser';
 import { useHubCallsigns } from '@/hooks/useHubCallsigns';
 import { MarkdownBullets } from '@/components/DashboardAnalysis';
+import { useAuth } from '@/hooks/useAuth';
 
 
 interface NetSession {
@@ -23,6 +24,7 @@ interface NetSession {
 }
 
 export function NetSessionManager() {
+  const { isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState<NetSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -167,6 +169,7 @@ export function NetSessionManager() {
         </DialogHeader>
 
         {/* Add form */}
+        {isAdmin && (
         <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Log a Net Session</p>
 
@@ -226,6 +229,7 @@ export function NetSessionManager() {
             <Plus className="h-3 w-3" /> Add Net Session
           </Button>
         </div>
+        )}
 
         {/* Session list */}
         <div className="space-y-2 mt-2">
@@ -260,9 +264,11 @@ export function NetSessionManager() {
                   <Sparkles className="h-3 w-3 text-accent" />
                 )}
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => handleDelete(s.id)}>
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </Button>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => handleDelete(s.id)}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              )}
               </div>
               {(analyzingId === s.id || analysisById[s.id]) && (
                 <div className="mt-2 rounded-lg border border-accent/30 bg-accent/5 p-3 relative">

@@ -41,7 +41,7 @@ interface StationLocationsManagerProps {
 }
 
 export function StationLocationsManager({ callsigns, activeStations, onHubAdded }: StationLocationsManagerProps) {
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
   const { locations, loading, lookupCallsigns, updateLocation, pauseStation, resumeStation } = useStationLocations();
   const { pollingCallsigns, loading: pollingLoading, addPollingStation } = usePollingCallsigns(callsigns, activeStations);
   const [isOpen, setIsOpen] = useState(false);
@@ -322,7 +322,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                 </TableCell>
                 {tabType === 'hub' && (
                   <TableCell className="text-center">
-                    {user ? (
+                    {isAdmin ? (
                       <div className="flex items-center justify-center gap-2">
                         {togglingPause === callsign ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -408,7 +408,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                   </TableCell>
                 )}
                 <TableCell>
-                  {user ? (
+                  {isAdmin ? (
                     isEditing ? (
                       <div className="flex gap-1">
                         <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={handleSave}>
@@ -462,7 +462,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
 
           <TabsContent value="hubs" className="mt-4">
             <div className="flex justify-between gap-2 mb-4 flex-wrap">
-              {user && (
+              {isAdmin && (
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add callsign (e.g., W1ABC)"
@@ -479,7 +479,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                 </div>
               )}
               <div className="flex gap-2">
-                {!user && (
+                {!isAdmin && (
                   <SupportForm
                     defaultType="station_location"
                     trigger={
@@ -490,7 +490,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                     }
                   />
                 )}
-                {user && (
+                {isAdmin && (
                   <Button onClick={() => handleLookupAll(callsigns)} disabled={loading} size="sm" className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Fetch All from HamQTH
@@ -503,7 +503,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
 
           <TabsContent value="polling" className="mt-4">
             <div className="flex justify-between gap-2 mb-4 flex-wrap">
-              {user && (
+              {isAdmin && (
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add callsign (e.g., W1ABC)"
@@ -520,7 +520,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                 </div>
               )}
               <div className="flex gap-2">
-                {!user && (
+                {!isAdmin && (
                   <SupportForm
                     defaultType="station_location"
                     trigger={
@@ -531,7 +531,7 @@ export function StationLocationsManager({ callsigns, activeStations, onHubAdded 
                     }
                   />
                 )}
-                {user && (
+                {isAdmin && (
                   <Button onClick={() => handleLookupAll(pollingCallsigns)} disabled={loading || pollingLoading} size="sm" className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Fetch All from HamQTH
