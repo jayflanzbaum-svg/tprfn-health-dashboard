@@ -3,21 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TPRFN RF Analytics Dashboard</title>
-    <meta name="description" content="Multi-Station RF Analytics Dashboard for The Packet Radio Forwarding Network - Monitoring VARAHF connections" />
+    <title>TPRFN Health Dashboard &amp; Hub Alerts</title>
+    <meta name="description" content="Live health dashboard for the TPRFN packet radio hub network, plus TPRFN Hub Alerts: opt-in text alerts for hub operators when a hub goes down or recovers." />
     <meta name="author" content="TPRFN" />
 
-    <meta property="og:title" content="TPRFN RF Analytics Dashboard" />
-    <meta property="og:description" content="Multi-Station RF Analytics Dashboard for The Packet Radio Forwarding Network" />
+    <meta property="og:title" content="TPRFN Health Dashboard &amp; Hub Alerts" />
+    <meta property="og:description" content="Live health dashboard for the TPRFN packet radio hub network, plus TPRFN Hub Alerts: opt-in text alerts for hub operators when a hub goes down or recovers." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:title" content="TPRFN Health Dashboard &amp; Hub Alerts" />
+    <meta name="twitter:description" content="Live health dashboard for the TPRFN packet radio hub network, plus TPRFN Hub Alerts: opt-in text alerts for hub operators when a hub goes down or recovers." />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
   </head>
 
   <body>
+    <noscript>
+      <p>
+        TPRFN Hub Alerts sends opt-in SMS alerts to amateur-radio hub operators when a TPRFN hub goes down or recovers.
+        It is run by Jason Flanzbaum, N8FLA. Contact <a href="mailto:jayflanzbaum@gmail.com">jayflanzbaum@gmail.com</a>.
+      </p>
+      <nav aria-label="TPRFN Hub Alerts information">
+        <a href="/alerts">Text alert sign-up</a>
+        <a href="/sms-terms">SMS Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/about">About</a>
+      </nav>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

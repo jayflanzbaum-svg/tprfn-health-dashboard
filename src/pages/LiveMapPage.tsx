@@ -12,7 +12,7 @@ import { ArrowLeft, Code2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_ALLOWED_CALLSIGNS, HubConnection } from '@/lib/syslogParser';
 
-const PUBLIC_ORIGIN = 'https://tprfn-health-dashboard.lovable.app';
+const PUBLIC_ORIGIN = 'https://tprfn-health-dashboard.net';
 const SNAPSHOT_ENDPOINT =
   'https://lcrayouskoctmbecomoi.supabase.co/functions/v1/map-snapshot';
 const EMBED_PARAMS = ['preset', 'start', 'end', 'station', 'filter', 'mode', 'stations'];

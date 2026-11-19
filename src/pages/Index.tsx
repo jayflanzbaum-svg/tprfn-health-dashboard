@@ -1,4 +1,5 @@
 import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useDatabaseData } from '@/hooks/useDatabaseData';
 import { useStationLocations } from '@/hooks/useStationLocations';
 import { useKpiStats } from '@/hooks/useKpiStats';
@@ -670,6 +671,19 @@ const Index = () => {
           <div className="flex justify-center">
             <LoginButton />
           </div>
+          <nav aria-label="TPRFN Hub Alerts" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-4 text-xs text-muted-foreground">
+            <span>TPRFN Hub Alerts</span>
+            <span aria-hidden="true">·</span>
+            <Link to="/alerts" className="hover:underline">Text alert sign-up</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/sms-terms" className="hover:underline">SMS Terms</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/privacy" className="hover:underline">Privacy</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/about" className="hover:underline">About</Link>
+            <span aria-hidden="true">·</span>
+            <a href="mailto:jayflanzbaum@gmail.com" className="hover:underline">Contact</a>
+          </nav>
         </footer>
       </div>
     </div>

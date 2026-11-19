@@ -8,3 +8,7 @@
 - [x] Update hub frequency options, optional bandwidth, and feed output.
 - [x] Correct saved modem/mode/network values and KA0PND-1 transport.
 - [x] Verify admin save/read-back and deployed feed.
+- [x] Add crawler-readable Hub Alerts metadata and no-JavaScript information.
+- [x] Add the dashboard alert links and public About page.
+- [x] Replace frontend uses of the old public site URL without changing backend functions.
+- [x] Verify crawler content, normal dashboard rendering, About page, and links.
