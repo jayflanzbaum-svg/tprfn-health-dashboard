@@ -27,7 +27,11 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization")?.replace("Bearer ", "");
     if (auth) {
       const { data } = await db.auth.getUser(auth);
-      if (data?.user) requestedBy = data.user.email ?? data.user.id;
+      if (data?.user) {
+        const { data: adminRole } = await db.from("user_roles").select("id")
+          .eq("user_id", data.user.id).eq("role", "admin").maybeSingle();
+        if (adminRole) requestedBy = data.user.email ?? data.user.id;
+      }
     }
     if (requestedBy === "self" && consent !== true) return json({ error: "Consent checkbox is required" }, 400);
 

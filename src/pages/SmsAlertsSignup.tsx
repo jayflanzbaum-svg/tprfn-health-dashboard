@@ -31,7 +31,7 @@ export default function SmsAlertsSignup() {
       headers: { Authorization: '' },
     });
     setBusy(false);
-    if (err || data?.error) {
+    if (err || (data?.error && data.send !== 'pending_approval')) {
       let details = typeof data?.error === 'string' ? data.error : null;
       if (err && 'context' in err) { try { details = (await (err as { context: Response }).context.json()).error; } catch { /* ignore */ } }
       return setError(typeof details === 'string' ? details : 'Something went wrong. Please try again.');
